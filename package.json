@@ -1,7 +1,7 @@
 {
   "name": "yaman-hero",
-  "version": "1.1.0",
-  "description": "A supportive daily planner for Yaman with optional TickTick sync.",
+  "version": "2.0.0",
+  "description": "A supportive daily planner for Yaman with TickTick sync.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
