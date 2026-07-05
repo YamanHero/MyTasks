@@ -1,10 +1,46 @@
 const crypto = require("crypto");
 const express = require("express");
 const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const database = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL
+    })
+  : null;
 
+async function initializeDatabase() {
+  if (!database) {
+    console.warn("DATABASE_URL is not configured.");
+    return;
+  }
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS hero_families (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS hero_tasks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      family_id UUID REFERENCES hero_families(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'other',
+      points INTEGER NOT NULL DEFAULT 0,
+      completed BOOLEAN NOT NULL DEFAULT FALSE,
+      completed_at TIMESTAMPTZ,
+      ticktick_task_id TEXT,
+      ticktick_project_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  console.log("PostgreSQL is connected and Hero tables are ready.");
+}
 const TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize";
 const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
