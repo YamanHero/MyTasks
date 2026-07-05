@@ -1,7 +1,6 @@
 :root {
   --navy: #102a43;
   --blue: #2f80ed;
-  --light-blue: #eaf4ff;
   --green: #21a179;
   --gold: #dcae35;
   --text: #243b53;
@@ -78,7 +77,9 @@ h1 {
 .start-day-button,
 .add-button,
 .save-button,
-.creative-button {
+.creative-button,
+.ticktick-connect-button,
+.ticktick-sync-button {
   border: 0;
   border-radius: 10px;
   padding: 11px 16px;
@@ -86,7 +87,7 @@ h1 {
   background: var(--blue);
   cursor: pointer;
   font-weight: bold;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
 .start-day-button {
@@ -97,14 +98,32 @@ h1 {
 .start-day-button:hover,
 .add-button:hover,
 .save-button:hover,
-.creative-button:hover {
+.creative-button:hover,
+.ticktick-connect-button:hover,
+.ticktick-sync-button:hover {
   transform: translateY(-1px);
 }
 
 .add-button:hover,
 .save-button:hover,
-.creative-button:hover {
+.creative-button:hover,
+.ticktick-connect-button:hover {
   background: #1767bf;
+}
+
+.ticktick-sync-button {
+  background: var(--green);
+}
+
+.ticktick-sync-button:hover {
+  background: #147a5c;
+}
+
+.ticktick-connect-button:disabled,
+.ticktick-sync-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
 }
 
 .points-card {
@@ -128,6 +147,7 @@ h1 {
   color: #ffe89d;
 }
 
+.ticktick-section,
 .morning-summary,
 .progress-section,
 .tasks-section,
@@ -139,6 +159,51 @@ h1 {
   border-radius: 20px;
   background: var(--white);
   box-shadow: 0 6px 18px rgba(16, 42, 67, 0.05);
+}
+
+.ticktick-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-right: 5px solid var(--green);
+  background: linear-gradient(135deg, #effaf7, #ffffff);
+}
+
+.ticktick-copy {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.ticktick-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: #ffffff;
+  background: var(--green);
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.ticktick-copy h2 {
+  margin: 0 0 5px;
+  font-size: 19px;
+}
+
+.ticktick-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.ticktick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .morning-summary {
@@ -462,21 +527,22 @@ select:focus {
 
 @media (max-width: 650px) {
   .hero-header,
-  .header-side {
+  .header-side,
+  .ticktick-section,
+  .ticktick-copy,
+  .section-title,
+  .creative-card {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .header-side,
   .points-card,
-  .start-day-button {
+  .start-day-button,
+  .ticktick-actions,
+  .ticktick-connect-button,
+  .ticktick-sync-button {
     width: 100%;
-  }
-
-  .section-title,
-  .creative-card {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .add-button,
