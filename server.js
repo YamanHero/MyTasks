@@ -23,6 +23,7 @@ const database = process.env.DATABASE_URL
   : null;
 
 let databaseReadyPromise = null;
+
 const sseClients = new Set();
 
 app.set("trust proxy", 1);
@@ -38,32 +39,36 @@ class PublicError extends Error {
 function isTickTickConfigured() {
   return Boolean(
     process.env.TICKTICK_CLIENT_ID &&
-    process.env.TICKTICK_CLIENT_SECRET &&
-    process.env.SESSION_SECRET
+      process.env.TICKTICK_CLIENT_SECRET &&
+      process.env.SESSION_SECRET
   );
 }
 
 function isSecureCookie() {
   return Boolean(
-    process.env.RAILWAY_PUBLIC_DOMAIN ||
-    process.env.NODE_ENV === "production"
+    process.env.NODE_ENV === "production" ||
+      process.env.RAILWAY_PUBLIC_DOMAIN
   );
 }
 
 function appendCookie(res, cookie) {
   const current = res.getHeader("Set-Cookie");
 
-  const cookies = current
-    ? Array.isArray(current)
-      ? current
-      : [current]
-    : [];
+  if (!current) {
+    res.setHeader("Set-Cookie", [cookie]);
+    return;
+  }
 
-  res.setHeader("Set-Cookie", [...cookies, cookie]);
+  res.setHeader(
+    "Set-Cookie",
+    Array.isArray(current)
+      ? [...current, cookie]
+      : [current, cookie]
+  );
 }
 
 function makeCookie(name, value, maxAgeSeconds) {
-  const values = [
+  const attributes = [
     `${name}=${encodeURIComponent(value)}`,
     "Path=/",
     "HttpOnly",
@@ -72,10 +77,10 @@ function makeCookie(name, value, maxAgeSeconds) {
   ];
 
   if (isSecureCookie()) {
-    values.push("Secure");
+    attributes.push("Secure");
   }
 
-  return values.join("; ");
+  return attributes.join("; ");
 }
 
 function clearCookie(res, name) {
@@ -83,19 +88,19 @@ function clearCookie(res, name) {
 }
 
 function readCookie(req, name) {
-  const header = req.headers.cookie || "";
+  const cookieHeader = req.headers.cookie || "";
 
-  const match = header
+  const found = cookieHeader
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`));
 
-  if (!match) {
+  if (!found) {
     return null;
   }
 
   try {
-    return decodeURIComponent(match.slice(name.length + 1));
+    return decodeURIComponent(found.slice(name.length + 1));
   } catch {
     return null;
   }
@@ -124,23 +129,23 @@ function encryptJson(value) {
     iv
   );
 
-  const ciphertext = Buffer.concat([
+  const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(value), "utf8"),
     cipher.final()
   ]);
 
   const tag = cipher.getAuthTag();
 
-  return [iv, tag, ciphertext]
-    .map((part) => part.toString("base64url"))
+  return [iv, tag, encrypted]
+    .map((item) => item.toString("base64url"))
     .join(".");
 }
 
 function decryptJson(value) {
   try {
-    const [ivValue, tagValue, ciphertextValue] = String(value || "").split(".");
+    const [ivValue, tagValue, encryptedValue] = String(value || "").split(".");
 
-    if (!ivValue || !tagValue || !ciphertextValue) {
+    if (!ivValue || !tagValue || !encryptedValue) {
       return null;
     }
 
@@ -154,14 +159,14 @@ function decryptJson(value) {
       Buffer.from(tagValue, "base64url")
     );
 
-    const plaintext = Buffer.concat([
+    const decrypted = Buffer.concat([
       decipher.update(
-        Buffer.from(ciphertextValue, "base64url")
+        Buffer.from(encryptedValue, "base64url")
       ),
       decipher.final()
     ]);
 
-    return JSON.parse(plaintext.toString("utf8"));
+    return JSON.parse(decrypted.toString("utf8"));
   } catch {
     return null;
   }
@@ -270,17 +275,15 @@ async function parseResponse(response) {
 }
 
 async function exchangeAuthorizationCode(code) {
-  const basic = Buffer
-    .from(
-      `${process.env.TICKTICK_CLIENT_ID}:${process.env.TICKTICK_CLIENT_SECRET}`
-    )
-    .toString("base64");
+  const basicAuth = Buffer.from(
+    `${process.env.TICKTICK_CLIENT_ID}:${process.env.TICKTICK_CLIENT_SECRET}`
+  ).toString("base64");
 
   const response = await fetch(TICKTICK_TOKEN_URL, {
     method: "POST",
     headers: {
       Accept: "application/json",
-      Authorization: `Basic ${basic}`,
+      Authorization: `Basic ${basicAuth}`,
       "Content-Type": "application/x-www-form-urlencoded"
     },
     body: new URLSearchParams({
@@ -397,6 +400,8 @@ async function ensureHeroProject(req, res) {
   return project;
 }
 
+/* ---------- Health and PostgreSQL ---------- */
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -421,6 +426,8 @@ app.get(
     });
   })
 );
+
+/* ---------- Shared Hero state ---------- */
 
 app.get(
   "/api/hero-state",
@@ -480,6 +487,8 @@ app.put(
   })
 );
 
+/* ---------- Real-time events ---------- */
+
 app.get("/api/events", (req, res) => {
   res.status(200);
 
@@ -494,7 +503,7 @@ app.get("/api/events", (req, res) => {
 
   res.write(
     `event: connected\n` +
-    `data: ${JSON.stringify({ ok: true })}\n\n`
+      `data: ${JSON.stringify({ ok: true })}\n\n`
   );
 
   sseClients.add(res);
@@ -508,18 +517,20 @@ app.get("/api/events", (req, res) => {
     }
   }, 25000);
 
-  req.on("close", () => {
+  res.on("close", () => {
     clearInterval(keepAlive);
     sseClients.delete(res);
   });
 });
+
+/* ---------- TickTick ---------- */
 
 app.get("/api/ticktick/status", (req, res) => {
   res.json({
     configured: isTickTickConfigured(),
     connected: Boolean(
       isTickTickConfigured() &&
-      getTickTickToken(req)?.accessToken
+        getTickTickToken(req)?.accessToken
     ),
     projectName: HERO_PROJECT_NAME
   });
@@ -545,31 +556,36 @@ app.get("/auth/ticktick", (req, res, next) => {
       )
     );
 
-    const url = new URL(TICKTICK_AUTH_URL);
+    const authorizationUrl = new URL(
+      TICKTICK_AUTH_URL
+    );
 
-    url.searchParams.set(
+    authorizationUrl.searchParams.set(
       "client_id",
       process.env.TICKTICK_CLIENT_ID
     );
 
-    url.searchParams.set(
+    authorizationUrl.searchParams.set(
       "redirect_uri",
       TICKTICK_REDIRECT_URI
     );
 
-    url.searchParams.set(
+    authorizationUrl.searchParams.set(
       "response_type",
       "code"
     );
 
-    url.searchParams.set(
+    authorizationUrl.searchParams.set(
       "scope",
       TICKTICK_SCOPE
     );
 
-    url.searchParams.set("state", state);
+    authorizationUrl.searchParams.set(
+      "state",
+      state
+    );
 
-    res.redirect(url.toString());
+    res.redirect(authorizationUrl.toString());
   } catch (error) {
     next(error);
   }
@@ -582,6 +598,7 @@ app.get(
 
     if (req.query.error) {
       clearCookie(res, "hero_ticktick_state");
+
       return res.redirect("/?ticktick=denied");
     }
 
@@ -638,22 +655,37 @@ app.post(
     const completed = Boolean(req.body?.completed);
 
     if (!title) {
-      throw new PublicError(400, "חסר שם משימה.");
+      throw new PublicError(
+        400,
+        "חסר שם משימה."
+      );
     }
 
-    const project = await ensureHeroProject(req, res);
+    const project = await ensureHeroProject(
+      req,
+      res
+    );
 
-    const task = await tickTickRequest(req, res, "/task", {
-      method: "POST",
-      body: {
-        title,
-        projectId: project.id,
-        content:
-          `Hero – Yaman\n` +
-          `المجال: ${category}\n` +
-          `النقاط: ${Number.isFinite(points) ? points : 0}`
+    const task = await tickTickRequest(
+      req,
+      res,
+      "/task",
+      {
+        method: "POST",
+        body: {
+          title,
+          projectId: project.id,
+          content:
+            `Hero – Yaman\n` +
+            `المجال: ${category}\n` +
+            `النقاط: ${
+              Number.isFinite(points)
+                ? points
+                : 0
+            }`
+        }
       }
-    });
+    );
 
     if (!task?.id) {
       throw new PublicError(
@@ -725,9 +757,13 @@ app.post("/api/ticktick/disconnect", (req, res) => {
   res.status(204).end();
 });
 
+/* ---------- Static website ---------- */
+
 app.use(
   express.static(path.join(__dirname, "public"))
 );
+
+/* ---------- Errors ---------- */
 
 app.use((error, req, res, next) => {
   const status = Number(error?.status) || 500;
@@ -741,7 +777,9 @@ app.use((error, req, res, next) => {
     console.error(error);
   }
 
-  res.status(status).json({ error: message });
+  res.status(status).json({
+    error: message
+  });
 });
 
 app.listen(PORT, () => {
