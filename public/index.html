@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hero | خطة يَمان</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <main class="container">
+    <header class="hero-header">
+      <div>
+        <p class="eyebrow">مساعد يَمان الشخصي</p>
+        <h1>أهلاً يَمان 👋</h1>
+        <p class="subtitle">نتقدم اليوم خطوة هادئة في الدراسة، المسؤولية، والإبداع.</p>
+      </div>
+
+      <div class="points-card">
+        <span>نقاط اليوم</span>
+        <strong id="points">0</strong>
+        <small>كل جهد جيد يُحسب</small>
+      </div>
+    </header>
+
+    <section class="progress-section">
+      <div class="section-title">
+        <h2>تقدم اليوم</h2>
+        <span id="progressText">0 من 0 مهام</span>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </section>
+
+    <section class="tasks-section">
+      <div class="section-title">
+        <h2>خطة اليوم</h2>
+        <button id="addTaskButton" class="add-button">+ إضافة مهمة</button>
+      </div>
+
+      <div id="tasksList" class="tasks-list"></div>
+    </section>
+
+    <section class="daily-message">
+      <h2>رسالة Hero لليوم</h2>
+      <p id="heroMessage">
+        لا تحتاج أن تفعل كل شيء دفعة واحدة. ابدأ بمهمة واحدة، ثم خذ استراحة قصيرة، وبعدها أكمل.
+      </p>
+    </section>
+  </main>
+
+  <div id="taskModal" class="modal hidden">
+    <div class="modal-content">
+      <button id="closeModalButton" class="close-button">×</button>
+
+      <h2>إضافة مهمة جديدة</h2>
+
+      <form id="taskForm">
+        <label for="taskTitle">اسم المهمة</label>
+        <input
+          id="taskTitle"
+          type="text"
+          placeholder="مثال: تدريب دبلجة لمدة 20 دقيقة"
+          required
+        />
+
+        <label for="taskCategory">المجال</label>
+        <select id="taskCategory">
+          <option value="study">دراسة</option>
+          <option value="creative">إبداع</option>
+          <option value="home">مسؤولية في البيت</option>
+          <option value="sport">رياضة</option>
+          <option value="social">مهارات اجتماعية</option>
+          <option value="other">أخرى</option>
+        </select>
+
+        <label for="taskPoints">النقاط</label>
+        <input id="taskPoints" type="number" min="1" value="5" required />
+
+        <button type="submit" class="save-button">حفظ المهمة</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
