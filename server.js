@@ -553,7 +553,32 @@ app.post("/api/ticktick/disconnect", (req, res) => {
   clearAuth(res);
   res.status(204).end();
 });
+app.get("/api/database-status", async (req, res) => {
+  if (!database) {
+    return res.status(503).json({
+      connected: false,
+      error: "DATABASE_URL is missing."
+    });
+  }
 
+  try {
+    const result = await database.query(
+      "SELECT NOW() AS database_time"
+    );
+
+    res.json({
+      connected: true,
+      databaseTime: result.rows[0].database_time
+    });
+  } catch (error) {
+    console.error("Database status check failed:", error);
+
+    res.status(503).json({
+      connected: false,
+      error: "Database connection failed."
+    });
+  }
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((error, req, res, next) => {
