@@ -1,0 +1,16 @@
+{
+  "name": "yaman-hero",
+  "version": "1.0.0",
+  "description": "A supportive daily planner for Yaman — routines, learning, creativity, family tasks, and TickTick integration.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
