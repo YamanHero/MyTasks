@@ -1,7 +1,7 @@
 {
   "name": "yaman-hero",
-  "version": "2.1.1",
-  "description": "Hero daily planner for Yaman with TickTick and PostgreSQL.",
+  "version": "3.0.0",
+  "description": "Hero daily planner for Yaman with PostgreSQL and TickTick sync.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
