@@ -36,17 +36,77 @@ const defaultTasks = [
   }
 ];
 
-let tasks = JSON.parse(localStorage.getItem("yamanHeroTasks")) || defaultTasks;
+const creativeIdeas = [
+  {
+    title: "روبوت يتعلم المشاعر",
+    text: "سجّل جملة قصيرة بثلاث نبرات: هادئة، متحمسة، ومضحكة. الجملة: «أنا روبوت صغير وأحاول أن أفهم مشاعر الناس.»"
+  },
+  {
+    title: "القطة المحققة",
+    text: "اختر صوتين: القطة المحققة وصديقها. سجّل حواراً من سطرين عن البحث عن صوت مفقود."
+  },
+  {
+    title: "البطل الهادئ",
+    text: "ارسم أو صف شخصية تحل خلافاً بين صديقين بهدوء، ثم أعطها صوتاً مناسباً."
+  },
+  {
+    title: "آلة تبديل الأصوات",
+    text: "اختر شخصية عادية واجعل صوتها يتحول إلى روبوت. سجّل 20 ثانية فقط."
+  },
+  {
+    title: "مدرسة الكواكب",
+    text: "ابتكر كوكباً خجولاً يبدأ حديثاً مع كوكب آخر. جرّب قراءة جملة الترحيب بصوتين مختلفين."
+  }
+];
+
+const STORAGE_KEY = "yamanHeroTasks";
+const MORNING_KEY = "yamanHeroMorning";
+
+function safeLoadTasks() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return Array.isArray(stored) ? stored : defaultTasks;
+  } catch {
+    return defaultTasks;
+  }
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadMorning() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MORNING_KEY));
+    return saved?.date === getTodayKey() ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+let tasks = safeLoadTasks();
+let morning = loadMorning();
 
 const tasksList = document.getElementById("tasksList");
 const pointsElement = document.getElementById("points");
 const progressText = document.getElementById("progressText");
 const progressBar = document.getElementById("progressBar");
+const heroMessage = document.getElementById("heroMessage");
+const morningSummary = document.getElementById("morningSummary");
 
 const taskModal = document.getElementById("taskModal");
 const addTaskButton = document.getElementById("addTaskButton");
 const closeModalButton = document.getElementById("closeModalButton");
 const taskForm = document.getElementById("taskForm");
+
+const morningModal = document.getElementById("morningModal");
+const startDayButton = document.getElementById("startDayButton");
+const closeMorningModalButton = document.getElementById("closeMorningModalButton");
+const morningForm = document.getElementById("morningForm");
+
+const creativeIdeaTitle = document.getElementById("creativeIdeaTitle");
+const creativeIdeaText = document.getElementById("creativeIdeaText");
+const addCreativeTaskButton = document.getElementById("addCreativeTaskButton");
 
 function categoryLabel(category) {
   const labels = {
@@ -62,7 +122,76 @@ function categoryLabel(category) {
 }
 
 function saveTasks() {
-  localStorage.setItem("yamanHeroTasks", JSON.stringify(tasks));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+function saveMorning() {
+  localStorage.setItem(MORNING_KEY, JSON.stringify(morning));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getCreativeIdea() {
+  const dateNumber = Number(getTodayKey().replaceAll("-", ""));
+  return creativeIdeas[dateNumber % creativeIdeas.length];
+}
+
+function renderCreativeIdea() {
+  const idea = getCreativeIdea();
+
+  creativeIdeaTitle.textContent = idea.title;
+  creativeIdeaText.textContent = idea.text;
+
+  const alreadyAdded = tasks.some(
+    task => task.creativeIdeaDate === getTodayKey()
+  );
+
+  addCreativeTaskButton.disabled = alreadyAdded;
+  addCreativeTaskButton.textContent = alreadyAdded
+    ? "أضيفت إلى خطة اليوم"
+    : "أضفها لخطة اليوم";
+}
+
+function renderMorning() {
+  if (!morning) {
+    morningSummary.classList.add("hidden");
+
+    heroMessage.textContent =
+      "لا تحتاج أن تفعل كل شيء دفعة واحدة. ابدأ بمهمة واحدة، ثم خذ استراحة قصيرة، وبعدها أكمل.";
+
+    startDayButton.textContent = "ابدأ يومي";
+    return;
+  }
+
+  const energyMessage = {
+    "منخفضة": "نختار أهم مهمة واحدة ونأخذ استراحة بهدوء.",
+    "متوسطة": "نبدأ بالخطوة الأولى ثم نكمل حسب طاقتك.",
+    "عالية": "طاقة جميلة اليوم. ابدأ بالأهم قبل أي شيء آخر."
+  }[morning.energy] || "نبدأ بخطوة واحدة هادئة.";
+
+  morningSummary.innerHTML = `
+    <h2>خطة بداية اليوم</h2>
+    <p>
+      طاقتك: <strong>${escapeHtml(morning.energy)}</strong> — 
+      أهم خطوة: <strong>${escapeHtml(morning.priority)}</strong> — 
+      وقتك الممتع: <strong>${escapeHtml(morning.creativeChoice)}</strong>.<br>
+      ${energyMessage}
+    </p>
+  `;
+
+  morningSummary.classList.remove("hidden");
+
+  heroMessage.textContent =
+    `يا يَمان، أهم شيء الآن هو: ${morning.priority}. لا تفكر في كل اليوم؛ ابدأ بها فقط.`;
+
+  startDayButton.textContent = "تعديل بداية اليوم";
 }
 
 function renderTasks() {
@@ -70,7 +199,9 @@ function renderTasks() {
 
   tasks.forEach((task) => {
     const taskItem = document.createElement("article");
-    taskItem.className = `task-card ${task.completed ? "completed" : ""}`;
+
+    taskItem.className =
+      `task-card ${task.completed ? "completed" : ""}`;
 
     taskItem.innerHTML = `
       <label class="task-check">
@@ -80,7 +211,7 @@ function renderTasks() {
 
       <div class="task-content">
         <span class="task-category">${categoryLabel(task.category)}</span>
-        <h3>${task.title}</h3>
+        <h3>${escapeHtml(task.title)}</h3>
       </div>
 
       <div class="task-points">+${task.points}</div>
@@ -91,10 +222,10 @@ function renderTasks() {
 
   document.querySelectorAll(".task-check input").forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
-      const taskId = Number(checkbox.dataset.id);
+      const taskId = String(checkbox.dataset.id);
 
       tasks = tasks.map((task) =>
-        task.id === taskId
+        String(task.id) === taskId
           ? { ...task, completed: checkbox.checked }
           : task
       );
@@ -108,27 +239,67 @@ function renderTasks() {
 
 function updateDashboard() {
   const completedTasks = tasks.filter((task) => task.completed);
-  const points = completedTasks.reduce((sum, task) => sum + task.points, 0);
+
+  const points = completedTasks.reduce(
+    (sum, task) => sum + Number(task.points || 0),
+    0
+  );
+
   const total = tasks.length;
   const completed = completedTasks.length;
-  const percentage = total ? Math.round((completed / total) * 100) : 0;
+
+  const percentage = total
+    ? Math.round((completed / total) * 100)
+    : 0;
 
   pointsElement.textContent = points;
   progressText.textContent = `${completed} من ${total} مهام`;
   progressBar.style.width = `${percentage}%`;
 }
 
-addTaskButton.addEventListener("click", () => {
+function openTaskModal() {
   taskModal.classList.remove("hidden");
-});
+  document.getElementById("taskTitle").focus();
+}
 
-closeModalButton.addEventListener("click", () => {
+function closeTaskModal() {
   taskModal.classList.add("hidden");
-});
+}
+
+function openMorningModal() {
+  document.querySelectorAll('input[name="energy"]').forEach((input) => {
+    input.checked = input.value === morning?.energy;
+  });
+
+  document.getElementById("morningPriority").value =
+    morning?.priority || "";
+
+  document.querySelectorAll('input[name="creativeChoice"]').forEach((input) => {
+    input.checked = input.value === morning?.creativeChoice;
+  });
+
+  morningModal.classList.remove("hidden");
+}
+
+function closeMorningModal() {
+  morningModal.classList.add("hidden");
+}
+
+addTaskButton.addEventListener("click", openTaskModal);
+closeModalButton.addEventListener("click", closeTaskModal);
 
 taskModal.addEventListener("click", (event) => {
   if (event.target === taskModal) {
-    taskModal.classList.add("hidden");
+    closeTaskModal();
+  }
+});
+
+startDayButton.addEventListener("click", openMorningModal);
+closeMorningModalButton.addEventListener("click", closeMorningModal);
+
+morningModal.addEventListener("click", (event) => {
+  if (event.target === morningModal) {
+    closeMorningModal();
   }
 });
 
@@ -137,9 +308,14 @@ taskForm.addEventListener("submit", (event) => {
 
   const title = document.getElementById("taskTitle").value.trim();
   const category = document.getElementById("taskCategory").value;
-  const points = Number(document.getElementById("taskPoints").value);
 
-  if (!title) return;
+  const points = Number(
+    document.getElementById("taskPoints").value
+  );
+
+  if (!title || !Number.isFinite(points) || points < 1) {
+    return;
+  }
 
   tasks.push({
     id: Date.now(),
@@ -152,10 +328,68 @@ taskForm.addEventListener("submit", (event) => {
   saveTasks();
   renderTasks();
   updateDashboard();
+  renderCreativeIdea();
 
   taskForm.reset();
-  taskModal.classList.add("hidden");
+  closeTaskModal();
+});
+
+morningForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(morningForm);
+
+  const energy = formData.get("energy");
+
+  const priority = String(
+    formData.get("priority") || ""
+  ).trim();
+
+  const creativeChoice = formData.get("creativeChoice");
+
+  if (!energy || !priority || !creativeChoice) {
+    return;
+  }
+
+  morning = {
+    date: getTodayKey(),
+    energy,
+    priority,
+    creativeChoice
+  };
+
+  saveMorning();
+  renderMorning();
+  closeMorningModal();
+});
+
+addCreativeTaskButton.addEventListener("click", () => {
+  const alreadyAdded = tasks.some(
+    task => task.creativeIdeaDate === getTodayKey()
+  );
+
+  if (alreadyAdded) {
+    return;
+  }
+
+  const idea = getCreativeIdea();
+
+  tasks.push({
+    id: `${Date.now()}-creative`,
+    title: `تدريب إبداعي: ${idea.title} لمدة 10 دقائق`,
+    category: "creative",
+    points: 10,
+    completed: false,
+    creativeIdeaDate: getTodayKey()
+  });
+
+  saveTasks();
+  renderTasks();
+  updateDashboard();
+  renderCreativeIdea();
 });
 
 renderTasks();
 updateDashboard();
+renderMorning();
+renderCreativeIdea();
