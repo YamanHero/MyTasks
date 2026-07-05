@@ -2927,6 +2927,81 @@
         }
       })();
     })();
-  </script>
+  </script> 
+  <style>
+  .modal {
+    position: relative;
+  }
+
+  .modal-close-x {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 5;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    color: #4343b8;
+    background: #f0efff;
+    font-size: 25px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .modal-close-x:hover {
+    background: #dfdcff;
+    transform: scale(1.05);
+  }
+</style>
+
+<script>
+  (() => {
+    const modalRoot = document.getElementById("modalRoot");
+
+    if (!modalRoot) {
+      return;
+    }
+
+    function closeAllModals() {
+      modalRoot.innerHTML = "";
+    }
+
+    function addCloseButton() {
+      const modal = modalRoot.querySelector(".modal");
+
+      if (!modal || modal.querySelector(".modal-close-x")) {
+        return;
+      }
+
+      const closeButton = document.createElement("button");
+
+      closeButton.type = "button";
+      closeButton.className = "modal-close-x";
+      closeButton.setAttribute("aria-label", "إغلاق");
+      closeButton.textContent = "×";
+
+      closeButton.addEventListener("click", closeAllModals);
+
+      modal.prepend(closeButton);
+    }
+
+    modalRoot.addEventListener("click", (event) => {
+      if (event.target === modalRoot) {
+        closeAllModals();
+      }
+    });
+
+    const observer = new MutationObserver(addCloseButton);
+
+    observer.observe(modalRoot, {
+      childList: true,
+      subtree: true
+    });
+
+    addCloseButton();
+  })();
+</script>
 </body>
 </html>
