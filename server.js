@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const express = require("express");
 const path = require("path");
-const { Pool } = require("pg");
+const { Pool } = require("pg");// Hero database API deployment marker
 
 const app = express();
 const PORT = process.env.PORT || 3000;
