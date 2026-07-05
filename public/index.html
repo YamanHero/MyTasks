@@ -1,219 +1,86 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#102a43" />
-  <title>Hero | خطة يَمان</title>
+  <meta name="theme-color" content="#5b5bd6" />
+  <title>Hero — مساعد يَمان</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-  <main class="container">
+  <main class="app-shell">
     <header class="hero-header">
-      <div>
-        <p class="eyebrow">مساعد يَمان الشخصي</p>
-        <h1>أهلاً يَمان 👋</h1>
-        <p class="subtitle">نتقدم اليوم خطوة هادئة في الدراسة، المسؤولية، والإبداع.</p>
+      <div class="brand">
+        <div class="brand-mark">🦸</div>
+
+        <div>
+          <h1>Hero — المساعد الشخصي ليَمان</h1>
+          <p id="headerDate">نرتب اليوم بهدوء وخطوة خطوة.</p>
+        </div>
       </div>
 
-      <div class="header-side">
-        <button id="startDayButton" class="start-day-button" type="button">
-          ابدأ يومي
+      <div class="header-actions">
+        <button class="btn btn-light" id="startDayBtn" type="button">
+          ابدأ أسئلة الصباح
         </button>
 
-        <div class="points-card">
-          <span>نقاط اليوم</span>
-          <strong id="points">0</strong>
-          <small>كل جهد جيد يُحسب</small>
-        </div>
+        <button class="btn btn-outline" id="resetDayBtn" type="button">
+          بداية يوم جديد
+        </button>
       </div>
     </header>
 
-    <section class="ticktick-section" aria-live="polite">
+    <section class="ticktick-panel">
       <div class="ticktick-copy">
-        <div class="ticktick-icon" aria-hidden="true">✓</div>
+        <div class="ticktick-icon">✓</div>
 
         <div>
-          <h2>ربط TickTick</h2>
-          <p id="ticktickStatus">جارٍ التحقق من حالة الاتصال...</p>
+          <h2>TickTick</h2>
+          <p id="ticktickStatus">جارٍ التحقق من الاتصال...</p>
         </div>
       </div>
 
       <div class="ticktick-actions">
-        <button id="ticktickConnectButton" class="ticktick-connect-button" type="button">
+        <button class="btn btn-primary" id="ticktickConnectBtn" type="button">
           ربط TickTick
         </button>
 
-        <button id="ticktickSyncButton" class="ticktick-sync-button hidden" type="button">
+        <button class="btn btn-success hidden" id="ticktickSyncBtn" type="button">
           مزامنة المهام الآن
         </button>
-      </div>
-    </section>
 
-    <section class="morning-summary hidden" id="morningSummary" aria-live="polite"></section>
-
-    <section class="progress-section">
-      <div class="section-title">
-        <h2>تقدم اليوم</h2>
-        <span id="progressText">0 من 0 مهام</span>
-      </div>
-
-      <div class="progress-track">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-    </section>
-
-    <section class="tasks-section">
-      <div class="section-title">
-        <h2>خطة اليوم</h2>
-        <button id="addTaskButton" class="add-button" type="button">
-          + إضافة مهمة
+        <button class="btn btn-outline hidden" id="ticktickDisconnectBtn" type="button">
+          فصل الاتصال
         </button>
       </div>
-
-      <div id="tasksList" class="tasks-list"></div>
     </section>
 
-    <section class="creative-section">
-      <div class="section-title">
-        <div>
-          <h2>فكرة اليوم الإبداعية</h2>
-          <p class="section-hint">خطوة صغيرة في الدبلجة أو الرسوم المتحركة.</p>
-        </div>
+    <nav class="tabs" aria-label="التنقل بين أقسام التطبيق">
+      <button class="tab active" data-view-target="todayView" type="button">
+        اليوم
+      </button>
 
-        <span class="creative-label">دبلجة وYouTube</span>
-      </div>
+      <button class="tab" data-view-target="creativeView" type="button">
+        الإبداع وYouTube
+      </button>
 
-      <article class="creative-card">
-        <div class="creative-icon" aria-hidden="true">🎙️</div>
+      <button class="tab" data-view-target="weeklyView" type="button">
+        الأسبوع ونقاط القوة
+      </button>
+    </nav>
 
-        <div class="creative-content">
-          <h3 id="creativeIdeaTitle">تدريب الدبلجة</h3>
-          <p id="creativeIdeaText"></p>
-        </div>
+    <section class="view active" id="todayView"></section>
+    <section class="view" id="creativeView"></section>
+    <section class="view" id="weeklyView"></section>
 
-        <button id="addCreativeTaskButton" class="creative-button" type="button">
-          أضفها لخطة اليوم
-        </button>
-      </article>
-    </section>
-
-    <section class="daily-message">
-      <h2>رسالة Hero لليوم</h2>
-      <p id="heroMessage">
-        لا تحتاج أن تفعل كل شيء دفعة واحدة. ابدأ بمهمة واحدة، ثم خذ استراحة قصيرة، وبعدها أكمل.
-      </p>
-    </section>
+    <footer class="footer">
+      هذا التطبيق يحفظ البيانات على الجهاز. ربط TickTick اختياري ومخصص لمهام Hero فقط.
+    </footer>
   </main>
 
-  <div id="taskModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-content">
-      <button id="closeModalButton" class="close-button" type="button">×</button>
-
-      <h2>إضافة مهمة جديدة</h2>
-
-      <form id="taskForm">
-        <label for="taskTitle">اسم المهمة</label>
-
-        <input
-          id="taskTitle"
-          type="text"
-          maxlength="100"
-          placeholder="مثال: تدريب دبلجة لمدة 20 دقيقة"
-          required
-        />
-
-        <label for="taskCategory">المجال</label>
-
-        <select id="taskCategory">
-          <option value="study">دراسة</option>
-          <option value="creative">إبداع</option>
-          <option value="home">مسؤولية في البيت</option>
-          <option value="sport">رياضة</option>
-          <option value="social">مهارات اجتماعية</option>
-          <option value="other">أخرى</option>
-        </select>
-
-        <label for="taskPoints">النقاط</label>
-
-        <input id="taskPoints" type="number" min="1" max="50" value="5" required />
-
-        <button type="submit" class="save-button">حفظ المهمة</button>
-      </form>
-    </div>
-  </div>
-
-  <div id="morningModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-content morning-modal-content">
-      <button id="closeMorningModalButton" class="close-button" type="button">×</button>
-
-      <p class="modal-eyebrow">بداية هادئة لليوم</p>
-      <h2>صباح الخير يا يَمان</h2>
-      <p class="modal-intro">نجيب عن ثلاث أسئلة قصيرة، ثم نبدأ بأهم خطوة فقط.</p>
-
-      <form id="morningForm">
-        <fieldset>
-          <legend>كيف طاقتك اليوم؟</legend>
-
-          <div class="choice-options">
-            <label class="choice-option">
-              <input type="radio" name="energy" value="منخفضة" required />
-              منخفضة
-            </label>
-
-            <label class="choice-option">
-              <input type="radio" name="energy" value="متوسطة" />
-              متوسطة
-            </label>
-
-            <label class="choice-option">
-              <input type="radio" name="energy" value="عالية" />
-              عالية
-            </label>
-          </div>
-        </fieldset>
-
-        <label for="morningPriority">ما أهم مهمة تريد أن تبدأ بها؟</label>
-
-        <input
-          id="morningPriority"
-          type="text"
-          maxlength="100"
-          placeholder="مثال: أبدأ رياضيات لمدة 20 دقيقة"
-          required
-        />
-
-        <fieldset>
-          <legend>ما النشاط الإبداعي الذي تحبه اليوم؟</legend>
-
-          <div class="choice-options">
-            <label class="choice-option">
-              <input type="radio" name="creativeChoice" value="دبلجة" required />
-              دبلجة
-            </label>
-
-            <label class="choice-option">
-              <input type="radio" name="creativeChoice" value="رسوم متحركة" />
-              رسوم متحركة
-            </label>
-
-            <label class="choice-option">
-              <input type="radio" name="creativeChoice" value="رسم" />
-              رسم
-            </label>
-
-            <label class="choice-option">
-              <input type="radio" name="creativeChoice" value="وقت حر" />
-              وقت حر
-            </label>
-          </div>
-        </fieldset>
-
-        <button type="submit" class="save-button">أنشئ بداية اليوم</button>
-      </form>
-    </div>
-  </div>
+  <div class="modal-root" id="modalRoot"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>
