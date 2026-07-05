@@ -1,0 +1,310 @@
+:root {
+  --navy: #102a43;
+  --blue: #2f80ed;
+  --light-blue: #eaf4ff;
+  --green: #21a179;
+  --gold: #dcae35;
+  --text: #243b53;
+  --muted: #627d98;
+  --background: #f5f8fc;
+  --white: #ffffff;
+  --border: #d9e2ec;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, "Tahoma", sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
+.container {
+  width: min(100% - 32px, 900px);
+  margin: 0 auto;
+  padding: 32px 0 60px;
+}
+
+.hero-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 30px;
+  border-radius: 24px;
+  color: var(--white);
+  background: linear-gradient(135deg, #102a43, #1f5f99);
+  box-shadow: 0 12px 28px rgba(16, 42, 67, 0.18);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #cde7ff;
+  font-weight: bold;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 42px);
+}
+
+.subtitle {
+  max-width: 550px;
+  margin: 10px 0 0;
+  line-height: 1.7;
+}
+
+.points-card {
+  min-width: 145px;
+  text-align: center;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.points-card span,
+.points-card small {
+  display: block;
+}
+
+.points-card strong {
+  display: block;
+  margin: 5px 0;
+  font-size: 38px;
+  color: #ffe89d;
+}
+
+.progress-section,
+.tasks-section,
+.daily-message {
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 6px 18px rgba(16, 42, 67, 0.05);
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.section-title h2,
+.daily-message h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.section-title span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.progress-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 100px;
+  background: #e7eef6;
+}
+
+.progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), #55c995);
+  transition: width 0.25s ease;
+}
+
+.tasks-list {
+  display: grid;
+  gap: 12px;
+}
+
+.task-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fbfdff;
+  transition: 0.2s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-2px);
+  border-color: #a9c8e8;
+}
+
+.task-card.completed {
+  opacity: 0.68;
+  background: #f2fff9;
+}
+
+.task-card.completed h3 {
+  text-decoration: line-through;
+}
+
+.task-content {
+  flex: 1;
+}
+
+.task-content h3 {
+  margin: 5px 0 0;
+  font-size: 17px;
+}
+
+.task-category {
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.task-points {
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: #856300;
+  background: #fff5cf;
+  font-weight: bold;
+}
+
+.task-check input {
+  display: none;
+}
+
+.custom-check {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #9fb3c8;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.task-check input:checked + .custom-check {
+  border-color: var(--green);
+  background: var(--green);
+  position: relative;
+}
+
+.task-check input:checked + .custom-check::after {
+  content: "✓";
+  position: absolute;
+  top: -2px;
+  right: 4px;
+  color: white;
+  font-weight: bold;
+}
+
+.add-button,
+.save-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 16px;
+  color: white;
+  background: var(--blue);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-button:hover,
+.save-button:hover {
+  background: #1767bf;
+}
+
+.daily-message {
+  border-right: 5px solid var(--gold);
+}
+
+.daily-message p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.9;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(16, 42, 67, 0.6);
+}
+
+.hidden {
+  display: none;
+}
+
+.modal-content {
+  position: relative;
+  width: min(100%, 440px);
+  padding: 28px;
+  border-radius: 20px;
+  background: white;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 30px;
+  cursor: pointer;
+}
+
+form {
+  display: grid;
+  gap: 10px;
+}
+
+label {
+  font-weight: bold;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.save-button {
+  margin-top: 10px;
+}
+
+@media (max-width: 650px) {
+  .hero-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .points-card {
+    width: 100%;
+  }
+
+  .section-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .add-button {
+    width: 100%;
+  }
+}
