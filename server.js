@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize";
 const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
+const TICKTICK_SCOPE = "tasks:read tasks:write";
 const HERO_PROJECT_NAME = "Hero – Yaman";
 
 app.set("trust proxy", 1);
@@ -30,11 +31,13 @@ function isTickTickConfigured() {
 }
 
 function cookieIsSecure() {
-  return process.env.NODE_ENV === "production" ||
-    Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
+  return Boolean(
+    process.env.NODE_ENV === "production" ||
+    process.env.RAILWAY_PUBLIC_DOMAIN
+  );
 }
 
-function appendSetCookie(res, cookie) {
+function appendCookie(res, cookie) {
   const current = res.getHeader("Set-Cookie");
 
   if (!current) {
@@ -65,18 +68,18 @@ function makeCookie(name, value, maxAgeSeconds) {
 }
 
 function clearCookie(res, name) {
-  appendSetCookie(res, makeCookie(name, "", 0));
+  appendCookie(res, makeCookie(name, "", 0));
 }
 
 function readCookie(req, name) {
-  const rawCookies = req.headers.cookie || "";
+  const cookieHeader = req.headers.cookie || "";
 
-  for (const part of rawCookies.split(";")) {
-    const [rawName, ...rawValue] = part.trim().split("=");
+  for (const part of cookieHeader.split(";")) {
+    const [cookieName, ...cookieValue] = part.trim().split("=");
 
-    if (rawName === name) {
+    if (cookieName === name) {
       try {
-        return decodeURIComponent(rawValue.join("="));
+        return decodeURIComponent(cookieValue.join("="));
       } catch {
         return null;
       }
@@ -102,7 +105,12 @@ function encryptionKey() {
 
 function encryptJson(value) {
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
+
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    encryptionKey(),
+    iv
+  );
 
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(value), "utf8"),
@@ -112,7 +120,7 @@ function encryptJson(value) {
   const tag = cipher.getAuthTag();
 
   return [iv, tag, encrypted]
-    .map((part) => part.toString("base64url"))
+    .map((item) => item.toString("base64url"))
     .join(".");
 }
 
@@ -143,34 +151,36 @@ function decryptJson(value) {
   }
 }
 
-function getStoredTokens(req) {
-  return decryptJson(readCookie(req, "hero_ticktick_tokens"));
+function getToken(req) {
+  return decryptJson(readCookie(req, "hero_ticktick_token"));
 }
 
-function writeStoredTokens(res, tokens) {
-  appendSetCookie(
+function saveToken(res, token) {
+  appendCookie(
     res,
     makeCookie(
-      "hero_ticktick_tokens",
-      encryptJson(tokens),
+      "hero_ticktick_token",
+      encryptJson({ accessToken: token }),
       60 * 60 * 24 * 30
     )
   );
 }
 
-function normalizeTokens(payload, previousTokens = {}) {
-  const expiresIn = Number(payload.expires_in);
-
-  return {
-    accessToken: payload.access_token,
-    refreshToken: payload.refresh_token || previousTokens.refreshToken || null,
-    expiresAt: Number.isFinite(expiresIn)
-      ? Date.now() + expiresIn * 1000
-      : previousTokens.expiresAt || null
-  };
+function clearAuth(res) {
+  clearCookie(res, "hero_ticktick_token");
+  clearCookie(res, "hero_ticktick_state");
 }
 
-async function readResponseBody(response) {
+function requireTickTickConfig() {
+  if (!isTickTickConfigured()) {
+    throw new PublicError(
+      503,
+      "יש להגדיר ב-Railway: TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET, TICKTICK_REDIRECT_URI ו-SESSION_SECRET."
+    );
+  }
+}
+
+async function parseResponse(response) {
   const text = await response.text();
 
   if (!text) {
@@ -184,99 +194,73 @@ async function readResponseBody(response) {
   }
 }
 
-async function requestToken(params) {
+async function exchangeAuthorizationCode(code) {
+  const basicAuth = Buffer
+    .from(
+      `${process.env.TICKTICK_CLIENT_ID}:${process.env.TICKTICK_CLIENT_SECRET}`
+    )
+    .toString("base64");
+
   const response = await fetch(TICKTICK_TOKEN_URL, {
     method: "POST",
     headers: {
       Accept: "application/json",
+      Authorization: `Basic ${basicAuth}`,
       "Content-Type": "application/x-www-form-urlencoded"
     },
-    body: new URLSearchParams(params).toString()
+    body: new URLSearchParams({
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: process.env.TICKTICK_REDIRECT_URI,
+      scope: TICKTICK_SCOPE
+    }).toString()
   });
 
-  const body = await readResponseBody(response);
+  const body = await parseResponse(response);
 
-  if (!response.ok || !body || typeof body !== "object" || !body.access_token) {
+  if (!response.ok || !body?.access_token) {
     throw new PublicError(
       502,
-      "TickTick לא אישר את החיבור. בדוק את Client ID, Client Secret ו-Redirect URI."
+      "TickTick לא אישר את החיבור. בדוק Client ID, Client Secret ו-Redirect URI."
     );
   }
 
-  return body;
-}
-
-async function refreshTokens(req, res, tokens) {
-  if (!tokens?.refreshToken) {
-    throw new PublicError(
-      401,
-      "חיבור TickTick הסתיים. יש ללחוץ שוב על רبط TickTick."
-    );
-  }
-
-  const payload = await requestToken({
-    grant_type: "refresh_token",
-    client_id: process.env.TICKTICK_CLIENT_ID,
-    client_secret: process.env.TICKTICK_CLIENT_SECRET,
-    refresh_token: tokens.refreshToken
-  });
-
-  const refreshed = normalizeTokens(payload, tokens);
-  writeStoredTokens(res, refreshed);
-
-  return refreshed;
-}
-
-async function getValidTokens(req, res) {
-  let tokens = getStoredTokens(req);
-
-  if (!tokens?.accessToken) {
-    throw new PublicError(401, "TickTick אינו מחובר עדיין.");
-  }
-
-  const expiresSoon =
-    tokens.expiresAt && Number(tokens.expiresAt) <= Date.now() + 60_000;
-
-  if (expiresSoon) {
-    tokens = await refreshTokens(req, res, tokens);
-  }
-
-  return tokens;
+  return body.access_token;
 }
 
 async function tickTickRequest(req, res, endpoint, options = {}) {
-  let tokens = await getValidTokens(req, res);
+  const token = getToken(req)?.accessToken;
 
-  async function send(accessToken) {
-    const headers = {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`
-    };
-
-    if (options.body !== undefined) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    return fetch(`${TICKTICK_API_BASE}${endpoint}`, {
-      method: options.method || "GET",
-      headers,
-      body: options.body === undefined
-        ? undefined
-        : JSON.stringify(options.body)
-    });
+  if (!token) {
+    throw new PublicError(
+      401,
+      "TickTick אינו מחובר. יש ללחוץ על רبط TickTick."
+    );
   }
 
-  let response = await send(tokens.accessToken);
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`
+  };
 
-  if (response.status === 401 && tokens.refreshToken) {
-    tokens = await refreshTokens(req, res, tokens);
-    response = await send(tokens.accessToken);
+  if (options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
   }
 
-  const body = await readResponseBody(response);
+  const response = await fetch(`${TICKTICK_API_BASE}${endpoint}`, {
+    method: options.method || "GET",
+    headers,
+    body: options.body === undefined
+      ? undefined
+      : JSON.stringify(options.body)
+  });
+
+  const body = await parseResponse(response);
 
   if (!response.ok) {
     if (response.status === 401) {
+      clearAuth(res);
+
       throw new PublicError(
         401,
         "חיבור TickTick הסתיים. יש ללחוץ שוב על רبط TickTick."
@@ -303,7 +287,9 @@ async function ensureHeroProject(req, res) {
   }
 
   let project = projects.find(
-    (item) => item.name === HERO_PROJECT_NAME && item.closed !== true
+    (item) =>
+      item.name === HERO_PROJECT_NAME &&
+      item.closed !== true
   );
 
   if (!project) {
@@ -328,15 +314,6 @@ async function ensureHeroProject(req, res) {
   return project;
 }
 
-function requireConfigured() {
-  if (!isTickTickConfigured()) {
-    throw new PublicError(
-      503,
-      "יש להוסיף קודם את TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET, TICKTICK_REDIRECT_URI ו-SESSION_SECRET ב-Railway."
-    );
-  }
-}
-
 function asyncRoute(handler) {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
@@ -352,30 +329,32 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/api/ticktick/status", (req, res) => {
-  const configured = isTickTickConfigured();
-  const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
-
   res.json({
-    configured,
-    connected,
+    configured: isTickTickConfigured(),
+    connected: Boolean(
+      isTickTickConfigured() &&
+      getToken(req)?.accessToken
+    ),
     projectName: HERO_PROJECT_NAME
   });
 });
 
 app.get("/auth/ticktick", (req, res, next) => {
   try {
-    requireConfigured();
+    requireTickTickConfig();
 
     const state = crypto.randomBytes(32).toString("base64url");
 
-    const statePayload = encryptJson({
-      state,
-      expiresAt: Date.now() + 10 * 60 * 1000
-    });
-
-    appendSetCookie(
+    appendCookie(
       res,
-      makeCookie("hero_ticktick_state", statePayload, 10 * 60)
+      makeCookie(
+        "hero_ticktick_state",
+        encryptJson({
+          state,
+          expiresAt: Date.now() + 10 * 60 * 1000
+        }),
+        10 * 60
+      )
     );
 
     const authorizationUrl = new URL(TICKTICK_AUTH_URL);
@@ -385,14 +364,21 @@ app.get("/auth/ticktick", (req, res, next) => {
       process.env.TICKTICK_CLIENT_ID
     );
 
-    authorizationUrl.searchParams.set("response_type", "code");
-
     authorizationUrl.searchParams.set(
       "redirect_uri",
       process.env.TICKTICK_REDIRECT_URI
     );
 
-    authorizationUrl.searchParams.set("scope", "tasks:read tasks:write");
+    authorizationUrl.searchParams.set(
+      "response_type",
+      "code"
+    );
+
+    authorizationUrl.searchParams.set(
+      "scope",
+      TICKTICK_SCOPE
+    );
+
     authorizationUrl.searchParams.set("state", state);
 
     res.redirect(authorizationUrl.toString());
@@ -402,15 +388,20 @@ app.get("/auth/ticktick", (req, res, next) => {
 });
 
 app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
-  requireConfigured();
+  requireTickTickConfig();
 
   if (req.query.error) {
     clearCookie(res, "hero_ticktick_state");
     return res.redirect("/?ticktick=denied");
   }
 
-  const code = typeof req.query.code === "string" ? req.query.code : "";
-  const state = typeof req.query.state === "string" ? req.query.state : "";
+  const code = typeof req.query.code === "string"
+    ? req.query.code
+    : "";
+
+  const state = typeof req.query.state === "string"
+    ? req.query.state
+    : "";
 
   const savedState = decryptJson(
     readCookie(req, "hero_ticktick_state")
@@ -427,21 +418,15 @@ app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
     return res.redirect("/?ticktick=state_error");
   }
 
-  const payload = await requestToken({
-    grant_type: "authorization_code",
-    client_id: process.env.TICKTICK_CLIENT_ID,
-    client_secret: process.env.TICKTICK_CLIENT_SECRET,
-    code,
-    redirect_uri: process.env.TICKTICK_REDIRECT_URI
-  });
+  const accessToken = await exchangeAuthorizationCode(code);
 
-  writeStoredTokens(res, normalizeTokens(payload));
+  saveToken(res, accessToken);
 
   return res.redirect("/?ticktick=connected");
 }));
 
 app.post("/api/ticktick/task", asyncRoute(async (req, res) => {
-  requireConfigured();
+  requireTickTickConfig();
 
   const title = typeof req.body?.title === "string"
     ? req.body.title.trim().slice(0, 200)
@@ -467,13 +452,15 @@ app.post("/api/ticktick/task", asyncRoute(async (req, res) => {
       projectId: project.id,
       content: `Hero – Yaman\nالمجال: ${category}\nالنقاط: ${
         Number.isFinite(points) ? points : 0
-      }`,
-      priority: 0
+      }`
     }
   });
 
   if (!task?.id) {
-    throw new PublicError(502, "TickTick לא החזיר מזהה משימה.");
+    throw new PublicError(
+      502,
+      "TickTick לא החזיר מזהה משימה."
+    );
   }
 
   if (completed) {
@@ -499,7 +486,7 @@ app.post("/api/ticktick/task", asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/ticktick/task/complete", asyncRoute(async (req, res) => {
-  requireConfigured();
+  requireTickTickConfig();
 
   const projectId = typeof req.body?.projectId === "string"
     ? req.body.projectId.trim()
@@ -527,8 +514,7 @@ app.post("/api/ticktick/task/complete", asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/ticktick/disconnect", (req, res) => {
-  clearCookie(res, "hero_ticktick_tokens");
-  clearCookie(res, "hero_ticktick_state");
+  clearAuth(res);
   res.status(204).end();
 });
 
@@ -537,13 +523,12 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use((error, req, res, next) => {
   const status = Number(error?.status) || 500;
 
-  const message =
-    error instanceof PublicError
-      ? error.message
-      : "אירעה שגיאה בשרת. נסה שוב בעוד רגע.";
+  const message = error instanceof PublicError
+    ? error.message
+    : "אירעה שגיאה בשרת. נסה שוב בעוד רגע.";
 
   if (!(error instanceof PublicError)) {
-    console.error("Unexpected server error:", error);
+    console.error(error);
   }
 
   res.status(status).json({ error: message });
