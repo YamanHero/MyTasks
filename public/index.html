@@ -1,88 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hero | خطة يَمان</title>
+  <meta name="theme-color" content="#5b5bd6" />
+  <title>Hero — مساعد يَمان</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-  <main class="container">
+  <main class="app-shell">
     <header class="hero-header">
-      <div>
-        <p class="eyebrow">مساعد يَمان الشخصي</p>
-        <h1>أهلاً يَمان 👋</h1>
-        <p class="subtitle">نتقدم اليوم خطوة هادئة في الدراسة، المسؤولية، والإبداع.</p>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">🦸</div>
+        <div>
+          <h1>Hero — المساعد الشخصي ليَمان</h1>
+          <p id="headerDate">نرتب اليوم بهدوء وخطوة خطوة.</p>
+        </div>
       </div>
 
-      <div class="points-card">
-        <span>نقاط اليوم</span>
-        <strong id="points">0</strong>
-        <small>كل جهد جيد يُحسب</small>
+      <div class="header-actions">
+        <button class="btn btn-light" id="startDayBtn" type="button">ابدأ أسئلة الصباح</button>
+        <button class="btn btn-outline" id="resetDayBtn" type="button">بداية يوم جديد</button>
       </div>
     </header>
 
-    <section class="progress-section">
-      <div class="section-title">
-        <h2>تقدم اليوم</h2>
-        <span id="progressText">0 من 0 مهام</span>
-      </div>
+    <nav class="tabs" aria-label="التنقل بين أقسام التطبيق">
+      <button class="tab active" data-view-target="todayView" type="button">اليوم</button>
+      <button class="tab" data-view-target="creativeView" type="button">الإبداع وYouTube</button>
+      <button class="tab" data-view-target="weeklyView" type="button">الأسبوع ونقاط القوة</button>
+    </nav>
 
-      <div class="progress-track">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-    </section>
+    <section class="view active" id="todayView"></section>
+    <section class="view" id="creativeView"></section>
+    <section class="view" id="weeklyView"></section>
 
-    <section class="tasks-section">
-      <div class="section-title">
-        <h2>خطة اليوم</h2>
-        <button id="addTaskButton" class="add-button">+ إضافة مهمة</button>
-      </div>
-
-      <div id="tasksList" class="tasks-list"></div>
-    </section>
-
-    <section class="daily-message">
-      <h2>رسالة Hero لليوم</h2>
-      <p id="heroMessage">
-        لا تحتاج أن تفعل كل شيء دفعة واحدة. ابدأ بمهمة واحدة، ثم خذ استراحة قصيرة، وبعدها أكمل.
-      </p>
-    </section>
+    <footer class="footer">
+      هذا التطبيق يحفظ المعلومات على هذا الجهاز فقط. لا يطلب نشر أي معلومات شخصية عن يَمان.
+    </footer>
   </main>
 
-  <div id="taskModal" class="modal hidden">
-    <div class="modal-content">
-      <button id="closeModalButton" class="close-button">×</button>
-
-      <h2>إضافة مهمة جديدة</h2>
-
-      <form id="taskForm">
-        <label for="taskTitle">اسم المهمة</label>
-        <input
-          id="taskTitle"
-          type="text"
-          placeholder="مثال: تدريب دبلجة لمدة 20 دقيقة"
-          required
-        />
-
-        <label for="taskCategory">المجال</label>
-        <select id="taskCategory">
-          <option value="study">دراسة</option>
-          <option value="creative">إبداع</option>
-          <option value="home">مسؤولية في البيت</option>
-          <option value="sport">رياضة</option>
-          <option value="social">مهارات اجتماعية</option>
-          <option value="other">أخرى</option>
-        </select>
-
-        <label for="taskPoints">النقاط</label>
-        <input id="taskPoints" type="number" min="1" value="5" required />
-
-        <button type="submit" class="save-button">حفظ المهمة</button>
-      </form>
-    </div>
-  </div>
+  <div class="modal-root" id="modalRoot"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>
