@@ -18,7 +18,9 @@
       </div>
 
       <div class="header-side">
-        <button id="startDayButton" class="start-day-button" type="button">ابدأ يومي</button>
+        <button id="startDayButton" class="start-day-button" type="button">
+          ابدأ يومي
+        </button>
 
         <div class="points-card">
           <span>نقاط اليوم</span>
@@ -27,6 +29,27 @@
         </div>
       </div>
     </header>
+
+    <section class="ticktick-section" aria-live="polite">
+      <div class="ticktick-copy">
+        <div class="ticktick-icon" aria-hidden="true">✓</div>
+
+        <div>
+          <h2>ربط TickTick</h2>
+          <p id="ticktickStatus">جارٍ التحقق من حالة الاتصال...</p>
+        </div>
+      </div>
+
+      <div class="ticktick-actions">
+        <button id="ticktickConnectButton" class="ticktick-connect-button" type="button">
+          ربط TickTick
+        </button>
+
+        <button id="ticktickSyncButton" class="ticktick-sync-button hidden" type="button">
+          مزامنة المهام الآن
+        </button>
+      </div>
+    </section>
 
     <section class="morning-summary hidden" id="morningSummary" aria-live="polite"></section>
 
@@ -44,7 +67,9 @@
     <section class="tasks-section">
       <div class="section-title">
         <h2>خطة اليوم</h2>
-        <button id="addTaskButton" class="add-button" type="button">+ إضافة مهمة</button>
+        <button id="addTaskButton" class="add-button" type="button">
+          + إضافة مهمة
+        </button>
       </div>
 
       <div id="tasksList" class="tasks-list"></div>
@@ -56,16 +81,21 @@
           <h2>فكرة اليوم الإبداعية</h2>
           <p class="section-hint">خطوة صغيرة في الدبلجة أو الرسوم المتحركة.</p>
         </div>
+
         <span class="creative-label">دبلجة وYouTube</span>
       </div>
 
       <article class="creative-card">
         <div class="creative-icon" aria-hidden="true">🎙️</div>
+
         <div class="creative-content">
           <h3 id="creativeIdeaTitle">تدريب الدبلجة</h3>
           <p id="creativeIdeaText"></p>
         </div>
-        <button id="addCreativeTaskButton" class="creative-button" type="button">أضفها لخطة اليوم</button>
+
+        <button id="addCreativeTaskButton" class="creative-button" type="button">
+          أضفها لخطة اليوم
+        </button>
       </article>
     </section>
 
@@ -77,14 +107,15 @@
     </section>
   </main>
 
-  <div id="taskModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+  <div id="taskModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
-      <button id="closeModalButton" class="close-button" type="button" aria-label="إغلاق">×</button>
+      <button id="closeModalButton" class="close-button" type="button">×</button>
 
-      <h2 id="taskModalTitle">إضافة مهمة جديدة</h2>
+      <h2>إضافة مهمة جديدة</h2>
 
       <form id="taskForm">
         <label for="taskTitle">اسم المهمة</label>
+
         <input
           id="taskTitle"
           type="text"
@@ -94,6 +125,7 @@
         />
 
         <label for="taskCategory">المجال</label>
+
         <select id="taskCategory">
           <option value="study">دراسة</option>
           <option value="creative">إبداع</option>
@@ -104,6 +136,7 @@
         </select>
 
         <label for="taskPoints">النقاط</label>
+
         <input id="taskPoints" type="number" min="1" max="50" value="5" required />
 
         <button type="submit" class="save-button">حفظ المهمة</button>
@@ -111,25 +144,38 @@
     </div>
   </div>
 
-  <div id="morningModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="morningModalTitle">
+  <div id="morningModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content morning-modal-content">
-      <button id="closeMorningModalButton" class="close-button" type="button" aria-label="إغلاق">×</button>
+      <button id="closeMorningModalButton" class="close-button" type="button">×</button>
 
       <p class="modal-eyebrow">بداية هادئة لليوم</p>
-      <h2 id="morningModalTitle">صباح الخير يا يَمان</h2>
+      <h2>صباح الخير يا يَمان</h2>
       <p class="modal-intro">نجيب عن ثلاث أسئلة قصيرة، ثم نبدأ بأهم خطوة فقط.</p>
 
       <form id="morningForm">
         <fieldset>
           <legend>كيف طاقتك اليوم؟</legend>
+
           <div class="choice-options">
-            <label class="choice-option"><input type="radio" name="energy" value="منخفضة" required /> منخفضة</label>
-            <label class="choice-option"><input type="radio" name="energy" value="متوسطة" /> متوسطة</label>
-            <label class="choice-option"><input type="radio" name="energy" value="عالية" /> عالية</label>
+            <label class="choice-option">
+              <input type="radio" name="energy" value="منخفضة" required />
+              منخفضة
+            </label>
+
+            <label class="choice-option">
+              <input type="radio" name="energy" value="متوسطة" />
+              متوسطة
+            </label>
+
+            <label class="choice-option">
+              <input type="radio" name="energy" value="عالية" />
+              عالية
+            </label>
           </div>
         </fieldset>
 
         <label for="morningPriority">ما أهم مهمة تريد أن تبدأ بها؟</label>
+
         <input
           id="morningPriority"
           type="text"
@@ -140,11 +186,27 @@
 
         <fieldset>
           <legend>ما النشاط الإبداعي الذي تحبه اليوم؟</legend>
+
           <div class="choice-options">
-            <label class="choice-option"><input type="radio" name="creativeChoice" value="دبلجة" required /> دبلجة</label>
-            <label class="choice-option"><input type="radio" name="creativeChoice" value="رسوم متحركة" /> رسوم متحركة</label>
-            <label class="choice-option"><input type="radio" name="creativeChoice" value="رسم" /> رسم</label>
-            <label class="choice-option"><input type="radio" name="creativeChoice" value="وقت حر" /> وقت حر</label>
+            <label class="choice-option">
+              <input type="radio" name="creativeChoice" value="دبلجة" required />
+              دبلجة
+            </label>
+
+            <label class="choice-option">
+              <input type="radio" name="creativeChoice" value="رسوم متحركة" />
+              رسوم متحركة
+            </label>
+
+            <label class="choice-option">
+              <input type="radio" name="creativeChoice" value="رسم" />
+              رسم
+            </label>
+
+            <label class="choice-option">
+              <input type="radio" name="creativeChoice" value="وقت حر" />
+              وقت حر
+            </label>
           </div>
         </fieldset>
 
