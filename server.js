@@ -5,47 +5,22 @@ const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const database = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL
-    })
-  : null;
 
-async function initializeDatabase() {
-  if (!database) {
-    console.warn("DATABASE_URL is not configured.");
-    return;
-  }
-
-  await database.query(`
-    CREATE TABLE IF NOT EXISTS hero_families (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      name TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS hero_tasks (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      family_id UUID REFERENCES hero_families(id) ON DELETE CASCADE,
-      title TEXT NOT NULL,
-      category TEXT NOT NULL DEFAULT 'other',
-      points INTEGER NOT NULL DEFAULT 0,
-      completed BOOLEAN NOT NULL DEFAULT FALSE,
-      completed_at TIMESTAMPTZ,
-      ticktick_task_id TEXT,
-      ticktick_project_id TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  console.log("PostgreSQL is connected and Hero tables are ready.");
-}
 const TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize";
 const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
 const TICKTICK_SCOPE = "tasks:read tasks:write";
 const HERO_PROJECT_NAME = "Hero – Yaman";
+
+const TICKTICK_REDIRECT_URI =
+  "https://heroyaman-production.up.railway.app/auth/ticktick/callback";
+
+const database = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5
+    })
+  : null;
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
@@ -61,7 +36,6 @@ function isTickTickConfigured() {
   return Boolean(
     process.env.TICKTICK_CLIENT_ID &&
     process.env.TICKTICK_CLIENT_SECRET &&
-    process.env.TICKTICK_REDIRECT_URI &&
     process.env.SESSION_SECRET
   );
 }
@@ -211,9 +185,47 @@ function requireTickTickConfig() {
   if (!isTickTickConfigured()) {
     throw new PublicError(
       503,
-      "יש להגדיר ב-Railway: TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET, TICKTICK_REDIRECT_URI ו-SESSION_SECRET."
+      "יש להגדיר ב-Railway: TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET ו-SESSION_SECRET."
     );
   }
+}
+
+async function initializeDatabase() {
+  if (!database) {
+    console.warn("DATABASE_URL is not configured. Database features are disabled.");
+    return;
+  }
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS hero_families (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS hero_tasks (
+      id TEXT PRIMARY KEY,
+      family_id BIGINT REFERENCES hero_families(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'other',
+      points INTEGER NOT NULL DEFAULT 0 CHECK (points >= 0),
+      completed BOOLEAN NOT NULL DEFAULT FALSE,
+      completed_at TIMESTAMPTZ,
+      ticktick_task_id TEXT,
+      ticktick_project_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await database.query(`
+    CREATE INDEX IF NOT EXISTS hero_tasks_family_id_idx
+    ON hero_tasks (family_id);
+  `);
+
+  console.log("PostgreSQL is connected and Hero tables are ready.");
 }
 
 async function parseResponse(response) {
@@ -247,7 +259,7 @@ async function exchangeAuthorizationCode(code) {
     body: new URLSearchParams({
       code,
       grant_type: "authorization_code",
-      redirect_uri: process.env.TICKTICK_REDIRECT_URI,
+      redirect_uri: TICKTICK_REDIRECT_URI,
       scope: TICKTICK_SCOPE
     }).toString()
   });
@@ -360,9 +372,28 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     app: "Yaman Hero",
-    ticktickConfigured: isTickTickConfigured()
+    ticktickConfigured: isTickTickConfigured(),
+    databaseConfigured: Boolean(database)
   });
 });
+
+app.get("/api/database-status", asyncRoute(async (req, res) => {
+  if (!database) {
+    return res.status(503).json({
+      connected: false,
+      error: "DATABASE_URL is missing."
+    });
+  }
+
+  const result = await database.query(
+    "SELECT NOW() AS database_time"
+  );
+
+  res.json({
+    connected: true,
+    databaseTime: result.rows[0].database_time
+  });
+}));
 
 app.get("/api/ticktick/status", (req, res) => {
   res.json({
@@ -402,7 +433,7 @@ app.get("/auth/ticktick", (req, res, next) => {
 
     authorizationUrl.searchParams.set(
       "redirect_uri",
-      process.env.TICKTICK_REDIRECT_URI
+      TICKTICK_REDIRECT_URI
     );
 
     authorizationUrl.searchParams.set(
@@ -553,32 +584,7 @@ app.post("/api/ticktick/disconnect", (req, res) => {
   clearAuth(res);
   res.status(204).end();
 });
-app.get("/api/database-status", async (req, res) => {
-  if (!database) {
-    return res.status(503).json({
-      connected: false,
-      error: "DATABASE_URL is missing."
-    });
-  }
 
-  try {
-    const result = await database.query(
-      "SELECT NOW() AS database_time"
-    );
-
-    res.json({
-      connected: true,
-      databaseTime: result.rows[0].database_time
-    });
-  } catch (error) {
-    console.error("Database status check failed:", error);
-
-    res.status(503).json({
-      connected: false,
-      error: "Database connection failed."
-    });
-  }
-});
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((error, req, res, next) => {
@@ -595,6 +601,12 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: message });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Yaman Hero is running on port ${PORT}`);
+
+  try {
+    await initializeDatabase();
+  } catch (error) {
+    console.error("PostgreSQL initialization failed:", error);
+  }
 });
