@@ -3,31 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#18233d" />
-  <title>Hero — يوم يَمان</title>
+  <meta name="theme-color" content="#5b5bd6" />
+  <title>Hero — يوم يَمان · TickTick Daily Import</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+
   <style>
     :root {
-      --bg: #f4f7fb;
+      --bg: #f7f6ff;
       --surface: #ffffff;
-      --surface-soft: #f7f9fc;
-      --ink: #14213d;
-      --muted: #5d6b82;
-      --line: #dce4ef;
-      --brand: #2457e6;
-      --brand-strong: #173b9e;
-      --brand-soft: #e9efff;
-      --teal: #087c73;
-      --teal-soft: #e6f8f4;
-      --amber: #9a6300;
-      --amber-soft: #fff4d9;
-      --danger: #b53946;
-      --danger-soft: #fff0f1;
-      --navy: #18233d;
-      --shadow: 0 14px 34px rgba(22, 35, 61, 0.10);
-      --radius-xl: 26px;
+      --surface-soft: #f5f4ff;
+      --ink: #1f2340;
+      --muted: #5b5f7a;
+      --line: #dddaf3;
+      --brand: #5b5bd6;
+      --brand-strong: #4538c7;
+      --brand-soft: #ecebff;
+      --teal: #16856a;
+      --teal-soft: #e8f8f3;
+      --amber: #9b6600;
+      --amber-soft: #fff5d9;
+      --danger: #b63258;
+      --danger-soft: #fff0f4;
+      --navy: #231b4d;
+      --shadow: 0 12px 32px rgba(49, 46, 129, 0.10);
+      --shadow-action: 0 10px 22px rgba(91, 91, 214, 0.28);
+      --radius-xl: 24px;
       --radius-lg: 18px;
       --radius-md: 14px;
-      --tap: 48px;
+      --tap: 50px;
     }
 
     * { box-sizing: border-box; }
@@ -39,9 +44,11 @@
       min-height: 100vh;
       margin: 0;
       color: var(--ink);
-      background: linear-gradient(180deg, #eef3fb 0, var(--bg) 280px);
-      font-family: "Tajawal", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
-      line-height: 1.55;
+      background: linear-gradient(180deg, #f0edff 0, #f7f6ff 320px, var(--bg) 100%);
+      font-family: "Tajawal", "Noto Sans Arabic", "Geeza Pro", Tahoma, Arial, sans-serif;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     button, input, textarea, select { font: inherit; }
@@ -52,7 +59,7 @@
     input:focus-visible,
     textarea:focus-visible,
     select:focus-visible {
-      outline: 3px solid rgba(36, 87, 230, .35);
+      outline: 3px solid rgba(21, 94, 239, .42);
       outline-offset: 2px;
     }
 
@@ -71,8 +78,8 @@
       padding: 16px 18px;
       border-radius: var(--radius-xl);
       color: #fff;
-      background: var(--navy);
-      box-shadow: var(--shadow);
+      background: linear-gradient(135deg, #2f2a72 0%, #4f46c9 55%, #6d5ef0 100%);
+      box-shadow: 0 16px 36px rgba(67, 56, 202, 0.22);
     }
 
     .identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -84,14 +91,14 @@
       height: 47px;
       border: 1px solid rgba(255,255,255,.22);
       border-radius: 16px;
-      background: rgba(255,255,255,.10);
+      background: rgba(255,255,255,.14);
       color: #fff;
       font-size: 1.12rem;
-      font-weight: 900;
+      font-weight: 700;
     }
 
-    .identity h1 { margin: 0; font-size: clamp(1.13rem, 4vw, 1.4rem); line-height: 1.25; }
-    .identity p { margin: 3px 0 0; color: #d9e2ff; font-size: .86rem; }
+    .identity h1 { margin: 0; font-size: clamp(1.14rem, 4vw, 1.42rem); line-height: 1.35; font-weight: 800; }
+    .identity p { margin: 3px 0 0; color: #dbe7ff; font-size: .86rem; }
 
     .icon-button {
       display: inline-grid;
@@ -115,25 +122,25 @@
       padding: 7px;
       border: 1px solid var(--line);
       border-radius: 18px;
-      background: rgba(255,255,255,.86);
-      box-shadow: 0 8px 22px rgba(22,35,61,.05);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 22px rgba(49,46,129,.08);
     }
 
     .nav-button {
       min-height: 48px;
       padding: 8px 6px;
       border: 0;
-      border-radius: 12px;
+      border-radius: 14px;
       background: transparent;
       color: var(--muted);
       font-size: .87rem;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .nav-button[aria-current="page"] {
       background: var(--brand);
       color: #fff;
-      box-shadow: 0 5px 12px rgba(36,87,230,.22);
+      box-shadow: var(--shadow-action);
     }
 
     .screen { display: none; animation: appear .18s ease; }
@@ -149,22 +156,22 @@
       margin-bottom: 7px;
       color: var(--brand-strong);
       font-size: .78rem;
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: .02em;
     }
 
     h2, h3, p { overflow-wrap: anywhere; }
-    h2 { margin: 0; font-size: clamp(1.4rem, 5vw, 1.8rem); line-height: 1.28; }
-    h3 { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+    h2 { margin: 0; font-size: clamp(1.38rem, 5vw, 1.78rem); line-height: 1.45; font-weight: 800; }
+    h3 { margin: 0; font-size: 1.06rem; line-height: 1.5; font-weight: 700; }
     .muted { color: var(--muted); }
     .small { font-size: .88rem; }
 
     .card {
       padding: 20px;
-      border: 1px solid rgba(220,228,239,.95);
+      border: 1px solid var(--line);
       border-radius: var(--radius-lg);
       background: var(--surface);
-      box-shadow: 0 7px 18px rgba(22,35,61,.04);
+      box-shadow: 0 5px 16px rgba(20,33,61,.045);
     }
 
     .stack { display: grid; gap: 15px; }
@@ -173,9 +180,9 @@
       position: relative;
       overflow: hidden;
       padding: 23px;
-      border: 1px solid #cbd7ff;
+      border: 1px solid #d4cffc;
       border-radius: var(--radius-xl);
-      background: linear-gradient(145deg, #ffffff 0%, #f2f5ff 100%);
+      background: linear-gradient(145deg, #ffffff 0%, #f1efff 100%);
       box-shadow: var(--shadow);
     }
 
@@ -186,7 +193,7 @@
       bottom: -64px;
       width: 170px;
       height: 170px;
-      border: 24px solid rgba(36,87,230,.08);
+      border: 22px solid rgba(91,91,214,.09);
       border-radius: 50%;
       pointer-events: none;
     }
@@ -204,7 +211,7 @@
       background: var(--brand-soft);
       color: var(--brand-strong);
       font-size: .78rem;
-      font-weight: 900;
+      font-weight: 700;
       white-space: nowrap;
     }
 
@@ -212,7 +219,7 @@
     .status-pill.warn { background: var(--amber-soft); color: #765000; }
 
     .now-title { max-width: 590px; margin: 17px 0 9px; }
-    .now-step { margin: 0 0 19px; color: #3e4d67; font-size: 1rem; }
+    .now-step { margin: 0 0 20px; color: #334155; font-size: 1.03rem; font-weight: 500; }
 
     .action-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
@@ -223,19 +230,24 @@
       min-height: var(--tap);
       padding: 10px 16px;
       border: 1px solid transparent;
-      border-radius: 14px;
-      font-weight: 900;
+      border-radius: 16px;
+      font-weight: 700;
+      letter-spacing: .005em;
       text-align: center;
-      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
     }
 
     .btn:hover:not(:disabled) { transform: translateY(-1px); }
-    .btn-primary { background: var(--brand); color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: var(--brand-strong); }
-    .btn-secondary { background: #fff; border-color: #bec9dc; color: var(--ink); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary { background: var(--brand); color: #fff; box-shadow: var(--shadow-action); }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-strong); box-shadow: 0 10px 22px rgba(11,59,167,.24); }
+    .btn-secondary { background: #fff; border-color: #b9c7da; color: var(--ink); }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-soft); border-color: #8ea5c4; }
     .btn-soft { background: var(--brand-soft); color: var(--brand-strong); }
-    .btn-success { background: var(--teal); color: #fff; }
-    .btn-danger { background: #fff; border-color: #e9bcc1; color: var(--danger); }
+    .btn-soft:hover:not(:disabled) { background: #dfe9ff; }
+    .btn-success { background: var(--teal); color: #fff; box-shadow: 0 7px 16px rgba(11,122,75,.18); }
+    .btn-success:hover:not(:disabled) { background: #075f3a; }
+    .btn-danger { background: #fff; border-color: #e9b8c0; color: var(--danger); }
     .btn-link { min-height: 0; padding: 4px 0; border: 0; background: transparent; color: var(--brand); }
 
     .progress-panel {
@@ -254,14 +266,14 @@
       background: var(--teal-soft);
       color: var(--teal);
       font-size: 1.25rem;
-      font-weight: 900;
+      font-weight: 700;
     }
 
     .progress-track {
       height: 10px;
       overflow: hidden;
       border-radius: 999px;
-      background: #e5ebf3;
+      background: #e8e6f7;
     }
 
     .progress-value {
@@ -271,7 +283,7 @@
       transition: width .25s ease;
     }
 
-    .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
     .mini-card {
       padding: 13px 10px;
       border: 1px solid var(--line);
@@ -281,6 +293,100 @@
     }
     .mini-card strong { display: block; color: var(--ink); font-size: 1.15rem; }
     .mini-card span { display: block; margin-top: 2px; color: var(--muted); font-size: .76rem; }
+
+
+    .dashboard-shell {
+      position: relative;
+      overflow: hidden;
+      border-color: #d9d2ff;
+      background: linear-gradient(145deg, #faf9ff, #ffffff);
+    }
+    .dashboard-shell::after {
+      content: "";
+      position: absolute;
+      top: -34px;
+      left: -34px;
+      width: 110px;
+      height: 110px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(91,91,214,.10), rgba(124,58,237,.06));
+      pointer-events: none;
+    }
+    .dashboard-title {
+      position: relative;
+      z-index: 1;
+      margin-top: 3px;
+    }
+    .dashboard-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .dashboard-metric {
+      padding: 12px;
+      border: 1px solid #dfdbf8;
+      border-radius: 16px;
+      background: rgba(255,255,255,.88);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    .dashboard-metric strong {
+      display: block;
+      color: var(--navy);
+      font-size: 1.08rem;
+      font-weight: 700;
+    }
+    .dashboard-metric span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    .dashboard-metric.primary {
+      border-color: #cac3fb;
+      background: linear-gradient(145deg, #ecebff, #ffffff);
+    }
+    .dashboard-progress {
+      position: relative;
+      z-index: 1;
+      margin-top: 14px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      background: rgba(91,91,214,.05);
+      border: 1px solid rgba(91,91,214,.10);
+    }
+    .dashboard-progress-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .dashboard-progress-head strong {
+      color: var(--navy);
+      font-size: .95rem;
+    }
+    .dashboard-progress-head span {
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 700;
+    }
+    .dashboard-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .dashboard-badge {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #f0eeff;
+      color: var(--brand-strong);
+      font-size: .76rem;
+      font-weight: 700;
+    }
 
     .quiet-card {
       border-color: #c9e9e2;
@@ -308,7 +414,7 @@
       border-bottom: 1px solid var(--line);
     }
     .task-row:last-child { border-bottom: 0; }
-    .task-row.active { background: #f2f5ff; }
+    .task-row.active { background: #f3f1ff; }
     .task-row.done { background: #f2fbf8; }
 
     .task-index {
@@ -321,7 +427,7 @@
       background: #fff;
       color: var(--brand-strong);
       font-size: .82rem;
-      font-weight: 900;
+      font-weight: 700;
     }
     .task-row.done .task-index { border-color: #a9ddd2; background: var(--teal); color: #fff; }
     .task-copy { min-width: 0; }
@@ -339,7 +445,7 @@
       background: #fff;
       color: var(--brand-strong);
       font-size: .9rem;
-      font-weight: 900;
+      font-weight: 700;
     }
     .task-icon-btn.danger { color: var(--danger); border-color: #f0ccd0; }
     .task-icon-btn.success { color: #fff; background: var(--teal); border-color: var(--teal); }
@@ -351,20 +457,21 @@
     }
     .empty-state p { margin: 6px 0 16px; }
 
-    .timer-card { border-color: #bad6ff; background: linear-gradient(145deg, #eff6ff, #fff); }
+    .timer-card { border-color: #bad6ff; background: linear-gradient(145deg, #f0eeff, #fff); }
     .timer-value {
       direction: ltr;
       margin: 13px 0 4px;
       color: var(--navy);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-family: "IBM Plex Mono", "Tajawal", ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .01em;
       font-size: clamp(2.5rem, 11vw, 4rem);
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: -.05em;
       text-align: center;
     }
     .timer-note { margin: 0 0 17px; color: var(--muted); text-align: center; }
 
-    .intro-card { padding: 25px; border-color: #c9d6ff; background: linear-gradient(140deg, #edf2ff, #fff); }
+    .intro-card { padding: 25px; border-color: #c9d6ff; background: linear-gradient(140deg, #f1efff, #fff); }
     .intro-card h2 { max-width: 540px; }
     .intro-card p { max-width: 590px; margin: 10px 0 19px; color: #41506b; }
 
@@ -388,11 +495,38 @@
       border-radius: 15px;
       background: #fff;
       color: var(--ink);
-      font-weight: 900;
+      font-weight: 700;
       text-align: right;
     }
-    .option-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+    .option-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); box-shadow: inset 0 0 0 1px rgba(21,94,239,.16); }
     .option-button .sub { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; font-weight: 700; }
+
+
+    .ticktick-list-option {
+      align-items: center;
+    }
+    .ticktick-list-option .list-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-left: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 3px rgba(91, 91, 214, .10);
+      vertical-align: middle;
+    }
+    .ticktick-scope {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 8px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-size: .77rem;
+      font-weight: 700;
+    }
 
     .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
     .choice-button {
@@ -402,13 +536,13 @@
       border-radius: 15px;
       background: #fff;
       color: var(--ink);
-      font-weight: 900;
+      font-weight: 700;
       text-align: right;
     }
-    .choice-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+    .choice-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); box-shadow: inset 0 0 0 1px rgba(21,94,239,.16); }
 
     .form-grid { display: grid; gap: 13px; }
-    label { display: grid; gap: 7px; color: var(--ink); font-weight: 900; }
+    label { display: grid; gap: 7px; color: var(--ink); font-weight: 700; }
     input, textarea, select {
       width: 100%;
       min-height: var(--tap);
@@ -425,7 +559,7 @@
       padding: 23px;
       border: 1px solid #cddcff;
       border-radius: var(--radius-xl);
-      background: linear-gradient(145deg, #f3f6ff, #fff);
+      background: linear-gradient(145deg, #f4f1ff, #fff);
     }
     .idea-card p { margin: 9px 0 0; color: #40516d; }
 
@@ -502,7 +636,8 @@
     @media (min-width: 700px) {
       .app { padding-top: 28px; }
       .content-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(260px,.85fr); gap: 16px; align-items: start; }
-      .mini-grid { grid-template-columns: 1fr; }
+      .mini-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+      .dashboard-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
 
     @media (max-width: 520px) {
@@ -511,6 +646,7 @@
       .identity p { display: none; }
       .main-nav { gap: 3px; padding: 5px; }
       .nav-button { font-size: .78rem; }
+      .dashboard-grid { grid-template-columns: 1fr; }
       .now-card, .intro-card, .idea-card { padding: 19px; border-radius: 20px; }
       .task-row { grid-template-columns: 30px minmax(0,1fr) auto; padding: 13px; gap: 8px; }
       .task-actions { gap: 4px; }
@@ -520,6 +656,59 @@
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+
+    /* Action-first visual system: one strong action colour, clear success state, low-noise surfaces. */
+    .identity h1, h2, h3, .task-copy h3 { letter-spacing: 0; }
+    .identity h1 { font-weight: 700; }
+    .identity p { font-weight: 500; }
+    .nav-button { font-weight: 700; }
+    .eyebrow { color: var(--brand-strong); font-weight: 700; }
+    .status-pill { font-weight: 700; }
+    .status-pill.done { color: #05613c; }
+    .status-pill.warn { color: #754600; }
+    .progress-number { font-weight: 700; }
+    .task-row.active { background: #f1efff; box-shadow: inset 4px 0 0 var(--brand); }
+    .task-row.done { background: #f1fbf6; }
+    .task-copy h3 { font-weight: 700; }
+    .task-copy p, .mini-card span, .small { font-weight: 500; }
+    .task-icon-btn { color: var(--brand-strong); }
+    .task-icon-btn.success { background: var(--teal); border-color: var(--teal); }
+    .quiet-card { border-color: #bce4d5; background: linear-gradient(145deg, #f0fbf6, #fff); }
+    .quiet-card p { color: #245c45; }
+    .intro-card { border-color: #d6cffc; background: linear-gradient(140deg, #f3f0ff, #fff); }
+    .idea-card { border-color: #d8d2ff; background: linear-gradient(145deg, #f5f2ff, #fff); }
+    .timer-card { border-color: #d2cbff; background: linear-gradient(145deg, #f2efff, #fff); }
+    .review-card { border-color: #ecd6a2; background: #fffdf8; }
+    .script-box { color: #3f4663; background: #f7f5ff; }
+    input::placeholder, textarea::placeholder { color: #64748b; opacity: 1; }
+    input, textarea, select { font-weight: 500; }
+    .modal { border: 1px solid #dce5f2; }
+    .footer-note { color: #5e6281; }
+
+
+
+    /* Tajawal typographic rhythm: soft, readable, calm, and age-appropriate. */
+    .identity h1,
+    h2,
+    .task-copy h3,
+    .modal-head h2,
+    .progress-number {
+      font-family: "Tajawal", "Noto Sans Arabic", Tahoma, sans-serif;
+      letter-spacing: 0;
+    }
+
+    h2,
+    .modal-head h2,
+    .task-copy h3 {
+      font-weight: 700;
+    }
+
+    .identity p,
+    .task-copy p,
+    .small,
+    .footer-note {
+      font-weight: 400;
     }
   </style>
 </head>
@@ -561,8 +750,8 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "hero-yaman-app-v3";
-      const LEGACY_KEYS = ["hero-yaman-app-v2", "hero-yaman-app-v1", "yamanHeroTasks"];
+      const STORAGE_KEY = "hero-yaman-app-v4";
+      const LEGACY_KEYS = ["hero-yaman-app-v3", "hero-yaman-app-v2", "hero-yaman-app-v1", "yamanHeroTasks"];
       const MAX_TASKS = 3;
       const FOCUS_MINUTES = 20;
 
@@ -634,6 +823,8 @@
       let wizard = null;
       let timerInterval = null;
       let ticktickState = { configured: false, connected: false, projectName: "Hero – Yaman" };
+      let ticktickImportSession = null;
+      let ticktickProjectSelectionSession = null;
 
       function dateKey(date = new Date()) {
         return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
@@ -654,7 +845,9 @@
           activeStrengths: [],
           review: null,
           creativeIdeaIndex: 0,
-          socialSkillIndex: 0
+          socialSkillIndex: 0,
+          ticktickImportPromptDate: "",
+          ticktickImportProjectIds: null
         };
       }
 
@@ -683,7 +876,11 @@
           done: Boolean(task.done || task.completed),
           ticktickTaskId: task.ticktickTaskId || null,
           ticktickProjectId: task.ticktickProjectId || null,
-          ticktickCompleted: Boolean(task.ticktickCompleted)
+          ticktickCompleted: Boolean(task.ticktickCompleted),
+          ticktickImported: Boolean(task.ticktickImported),
+          ticktickDueDate: task.ticktickDueDate || null,
+          ticktickProjectName: task.ticktickProjectName || "",
+          generated: Boolean(task.generated) || /^(دراسة لمدة|مسؤولية منزلية قصيرة|نشاط إبداعي|حركة خفيفة أو مشي)/.test(String(task.title || ""))
         };
       }
 
@@ -711,7 +908,10 @@
           timer: { ...base.timer, ...(raw.timer || {}) },
           tasks: Array.isArray(raw.tasks) ? raw.tasks.map(normalizeTask) : [],
           activeStrengths: Array.isArray(raw.activeStrengths) ? raw.activeStrengths : [],
-          pointsByDate: raw.pointsByDate || {}
+          pointsByDate: raw.pointsByDate || {},
+          ticktickImportProjectIds: Array.isArray(raw.ticktickImportProjectIds)
+            ? [...new Set(raw.ticktickImportProjectIds.map(id => String(id).trim()).filter(Boolean))]
+            : null
         };
       }
 
@@ -744,7 +944,10 @@
           pointsByDate: state.pointsByDate || {},
           activeStrengths: state.activeStrengths || [],
           creativeIdeaIndex: state.creativeIdeaIndex || 0,
-          socialSkillIndex: state.socialSkillIndex || 0
+          socialSkillIndex: state.socialSkillIndex || 0,
+          ticktickImportProjectIds: Array.isArray(state.ticktickImportProjectIds)
+            ? [...state.ticktickImportProjectIds]
+            : null
         };
         state = { ...defaultState(), ...carry };
         saveState();
@@ -805,7 +1008,8 @@
       }
 
       function taskMeta(task) {
-        return `${TASK_TEMPLATES[task.type]?.label || "مهمة"} · +${task.points} نقطة`;
+        const base = `${TASK_TEMPLATES[task.type]?.label || "مهمة"} · +${task.points} نقطة`;
+        return task.ticktickImported ? `${base} · TickTick` : base;
       }
 
       function updateHeader() {
@@ -931,14 +1135,28 @@
       }
 
       function renderSummary(progress, complete, total) {
+        const remaining = Math.max(total - complete, 0);
+        const focus = state.profile.focus || "توازن";
+        const energy = state.profile.energy || "متوسطة";
         return `
-          <article class="card">
-            <div class="progress-panel">
-              <div class="progress-number">${complete}/${total || 3}</div>
-              <div>
-                <h3>تقدّم اليوم</h3>
-                <p class="muted small" style="margin:2px 0 8px">كل مهمة مكتملة هي خطوة حقيقية.</p>
-                <div class="progress-track" aria-label="تقدم اليوم"><div class="progress-value" style="width:${progress}%"></div></div>
+          <article class="card dashboard-shell">
+            <span class="eyebrow">لوحة اليوم</span>
+            <h3 class="dashboard-title">نظرة سريعة وواضحة</h3>
+            <div class="dashboard-grid">
+              <div class="dashboard-metric primary"><strong>${dailyPoints()}</strong><span>نقاط اليوم</span></div>
+              <div class="dashboard-metric"><strong>${complete}/${total || 3}</strong><span>المكتمل</span></div>
+              <div class="dashboard-metric"><strong>${remaining}</strong><span>المتبقي</span></div>
+              <div class="dashboard-metric"><strong>${escapeHTML(focus)}</strong><span>محور اليوم</span></div>
+            </div>
+            <div class="dashboard-progress">
+              <div class="dashboard-progress-head">
+                <strong>تقدّم اليوم</strong>
+                <span>${progress}%</span>
+              </div>
+              <div class="progress-track" aria-label="تقدم اليوم"><div class="progress-value" style="width:${progress}%"></div></div>
+              <div class="dashboard-badge-row">
+                <span class="dashboard-badge">الطاقة: ${escapeHTML(energy)}</span>
+                <span class="dashboard-badge">كل مهمة = خطوة واضحة</span>
               </div>
             </div>
           </article>`;
@@ -995,9 +1213,14 @@
             <article class="card list-card">
               <div class="section-head">
                 <div><h3>مهام اليوم</h3><span class="muted small">${state.tasks.length} من ${MAX_TASKS} مستخدمة</span></div>
-                <button class="btn btn-primary" type="button" data-action="add-task" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>إضافة مهمة</button>
+                <div class="task-actions">
+                  <button class="btn btn-soft" type="button" data-action="choose-ticktick-lists" ${ticktickState.connected ? "" : "disabled"}>قوائم TickTick</button>
+                  <button class="btn btn-soft" type="button" data-action="import-ticktick-today" ${ticktickState.connected ? "" : "disabled"}>استيراد اليوم</button>
+                  <button class="btn btn-primary" type="button" data-action="add-task" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>إضافة مهمة</button>
+                </div>
               </div>
               <ul class="task-list">${rows}</ul>
+              ${ticktickState.connected ? `<div style="padding:0 18px 16px"><span class="ticktick-scope">قوائم الاستيراد: ${escapeHTML(tickTickImportScopeLabel())}</span></div>` : ""}
             </article>
             <article class="card review-card">
               <h3>بعد إنجاز مهمة</h3>
@@ -1044,14 +1267,19 @@
         const strengths = ["الدبلجة وتقليد الأصوات", "الخيال والقصص", "الاهتمام بالتفاصيل", "استخدام الأجهزة", "حس الفكاهة", "التطور في الاستقلالية"];
         root.innerHTML = `
           <div class="stack">
-            <article class="card">
-              <span class="eyebrow">جهد الأسبوع</span>
-              <h2 id="progressTitle">${weekPoints()} نقطة</h2>
-              <p class="muted">هذه النقاط تقيس الجهد والمسؤولية والإبداع. لا توجد خصومات أبداً، ولا ترتبط بالصلاة.</p>
+            <article class="card dashboard-shell">
+              <span class="eyebrow">لوحة التقدّم</span>
+              <h2 id="progressTitle" class="dashboard-title">${weekPoints()} نقطة هذا الأسبوع</h2>
+              <p class="muted">هذه اللوحة تعرض الجهد الحقيقي: مسؤولية، إبداع، وبدايات صغيرة متكررة. لا توجد خصومات أبداً، ولا ترتبط بالصلاة.</p>
               <div class="mini-grid" style="margin-top:15px">
+                <div class="mini-card"><strong>${weekPoints()}</strong><span>نقاط الأسبوع</span></div>
                 <div class="mini-card"><strong>${dailyPoints()}</strong><span>نقاط اليوم</span></div>
                 <div class="mini-card"><strong>${completedTasks().length}</strong><span>مهام مكتملة</span></div>
                 <div class="mini-card"><strong>${state.activeStrengths.length}</strong><span>نقاط قوة ظهرت</span></div>
+              </div>
+              <div class="dashboard-badge-row">
+                <span class="dashboard-badge">التركيز: ${escapeHTML(state.profile.focus || "توازن")}</span>
+                <span class="dashboard-badge">الطاقة: ${escapeHTML(state.profile.energy || "متوسطة")}</span>
               </div>
             </article>
             <article class="card">
@@ -1087,6 +1315,7 @@
 
       function closeModal() {
         document.getElementById("modalRoot").innerHTML = "";
+        ticktickImportSession = null;
       }
 
       function openGuide(task) {
@@ -1142,12 +1371,16 @@
             <article class="card" style="padding:15px">
               <h3>TickTick</h3>
               <p class="muted small">${status}</p>
+              ${ticktickState.connected ? `<p class="muted small">يستورد Hero المهام المفتوحة المحددة لليوم فقط، ثم يطلب اختيار ما يناسب خطة يَمان. لا يضيف شيئاً بدون اختيارك.</p>` : ""}
               <div class="action-row" style="margin-top:10px">
                 ${ticktickState.connected
-                  ? `<button class="btn btn-soft" type="button" data-action="sync-ticktick">مزامنة الآن</button>
+                  ? `<button class="btn btn-primary" type="button" data-action="import-ticktick-today">استيراد مهام اليوم</button>
+                     <button class="btn btn-soft" type="button" data-action="choose-ticktick-lists">اختيار قوائم الاستيراد</button>
+                     <button class="btn btn-soft" type="button" data-action="sync-ticktick">إرسال مهام Hero إلى TickTick</button>
                      <button class="btn btn-danger" type="button" data-action="disconnect-ticktick">فصل الاتصال</button>`
                   : `<button class="btn btn-primary" type="button" data-action="connect-ticktick" ${ticktickState.configured ? "" : "disabled"}>ربط TickTick</button>`}
               </div>
+              ${ticktickState.connected ? `<span class="ticktick-scope">قوائم الاستيراد: ${escapeHTML(tickTickImportScopeLabel())}</span>` : ""}
             </article>
             <article class="card" style="padding:15px">
               <h3>بداية يوم جديد</h3>
@@ -1222,7 +1455,7 @@
         for (const item of candidates) {
           if (tasks.length === MAX_TASKS) break;
           if (!tasks.some(task => task.type === item.type)) {
-            tasks.push({ id: newId(), ...item, points: TASK_TEMPLATES[item.type].points, done: false });
+            tasks.push({ id: newId(), ...item, points: TASK_TEMPLATES[item.type].points, done: false, generated: true });
           }
         }
 
@@ -1236,7 +1469,10 @@
         activeScreen = "now";
         renderAll();
         showToast("أحسنت يا يَمان. أمامك الآن مهمة واحدة فقط.");
-        if (ticktickState.connected) syncAllTasks();
+        if (ticktickState.connected) {
+          syncAllTasks();
+          setTimeout(() => maybeOfferDailyTickTickImport(), 350);
+        }
       }
 
       function startTask(taskId) {
@@ -1366,6 +1602,352 @@
         if (ticktickState.connected) syncTask(task.id);
       }
 
+      function todayTickTickDate() {
+        return dateKey();
+      }
+
+      function classifyImportedTickTickTask(task) {
+        const text = `${task.title || ""} ${task.content || ""}`.toLowerCase();
+        if (/رياض|علوم|واجب|درس|study|homework|math|science/.test(text)) return "study";
+        if (/دبلج|رسم|صوت|فيديو|youtube|animation|record/.test(text)) return "creative";
+        if (/رياضة|مشي|حركة|تمرين|sport|walk|exercise/.test(text)) return "movement";
+        if (/غسيل|ملابس|ترتيب|نفايات|زبالة|بيت|laundry|clean|home/.test(text)) return "home";
+        if (/صديق|حديث|اجتماع|social|friend/.test(text)) return "social";
+        return "other";
+      }
+
+      function formatTickTickDueDate(value) {
+        if (!value) return "اليوم";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "اليوم";
+        return new Intl.DateTimeFormat("ar", {
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(date);
+      }
+
+      function existingTickTickTaskIds() {
+        return new Set(
+          state.tasks
+            .map(task => String(task.ticktickTaskId || ""))
+            .filter(Boolean)
+        );
+      }
+
+      function importReplaceableTasks() {
+        return state.tasks.filter(task =>
+          task.generated &&
+          !task.done &&
+          String(task.id) !== String(state.activeTaskId || "")
+        );
+      }
+
+      function importCapacity() {
+        return Math.max(0, MAX_TASKS - state.tasks.length) + importReplaceableTasks().length;
+      }
+
+      function selectedTickTickProjectIds() {
+        return Array.isArray(state.ticktickImportProjectIds)
+          ? state.ticktickImportProjectIds.map(id => String(id)).filter(Boolean)
+          : [];
+      }
+
+      function tickTickImportScopeLabel() {
+        const selected = selectedTickTickProjectIds();
+        if (!selected.length) return "كل القوائم النشطة";
+        return selected.length === 1 ? "قائمة واحدة مختارة" : `${selected.length} قوائم مختارة`;
+      }
+
+      async function fetchTickTickProjects() {
+        const response = await apiRequest("/api/ticktick/projects");
+        return Array.isArray(response?.projects) ? response.projects : [];
+      }
+
+      async function fetchTickTickTodayTasks() {
+        const params = new URLSearchParams({ date: todayTickTickDate() });
+        const selectedProjects = selectedTickTickProjectIds();
+        if (selectedProjects.length) params.set("projectIds", selectedProjects.join(","));
+        const response = await apiRequest(`/api/ticktick/today-tasks?${params.toString()}`);
+        return Array.isArray(response?.tasks) ? response.tasks : [];
+      }
+
+      async function openTickTickProjectSelector() {
+        if (!ticktickState.connected) {
+          showToast("اربط TickTick أولاً، ثم اختر قوائم الاستيراد.");
+          return;
+        }
+
+        showToast("جارٍ جلب قوائم TickTick...");
+
+        try {
+          const projects = await fetchTickTickProjects();
+          if (!projects.length) {
+            showToast("لم نجد قوائم نشطة في TickTick.");
+            return;
+          }
+
+          const saved = selectedTickTickProjectIds();
+          const availableIds = new Set(projects.map(project => String(project.id)));
+          const selectedIds = new Set(
+            saved.length
+              ? saved.filter(id => availableIds.has(String(id)))
+              : projects.map(project => String(project.id))
+          );
+
+          ticktickProjectSelectionSession = { projects, selectedIds };
+          renderTickTickProjectSelector();
+        } catch (error) {
+          if (error.status === 401) await refreshTickTickStatus();
+          showToast("تعذر جلب قوائم TickTick الآن. جرّب مرة أخرى.");
+        }
+      }
+
+      function renderTickTickProjectSelector() {
+        if (!ticktickProjectSelectionSession) return;
+
+        const session = ticktickProjectSelectionSession;
+        const selectedCount = session.selectedIds.size;
+        const allSelected = selectedCount === session.projects.length;
+
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">مصدر الاستيراد</span>
+            <h2>اختر قوائم TickTick</h2>
+            <p class="muted">سيستورد Hero مهام اليوم من القوائم التي تحددها هنا فقط. يمكنك تغيير الاختيار في أي وقت.</p>
+          </div>
+          <div class="action-row" style="margin-top:16px">
+            <button class="btn btn-soft" type="button" data-action="toggle-all-import-projects">${allSelected ? "إلغاء تحديد الكل" : "تحديد كل القوائم"}</button>
+          </div>
+          <div class="option-grid" style="margin-top:12px">
+            ${session.projects.map(project => {
+              const id = String(project.id);
+              const selected = session.selectedIds.has(id);
+              const color = /^#[0-9a-fA-F]{3,8}$/.test(String(project.color || "")) ? String(project.color) : "#5b5bd6";
+              return `<button class="option-button ticktick-list-option" type="button" data-action="toggle-import-project" data-project-id="${escapeHTML(id)}" aria-pressed="${selected}">
+                <span><span class="list-dot" style="background:${escapeHTML(color)}"></span>${selected ? "✓ " : ""}${escapeHTML(project.name)}<span class="sub">قائمة TickTick</span></span>
+                <span aria-hidden="true">${selected ? "✓" : ""}</span>
+              </button>`;
+            }).join("")}
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" type="button" data-action="close-project-selector">إلغاء</button>
+            <button class="btn btn-primary" type="button" data-action="save-import-projects" ${selectedCount ? "" : "disabled"}>حفظ ${selectedCount} قائمة</button>
+          </div>`);
+      }
+
+      function toggleTickTickProjectSelection(projectId) {
+        if (!ticktickProjectSelectionSession) return;
+        const id = String(projectId || "");
+        const selected = ticktickProjectSelectionSession.selectedIds;
+        if (selected.has(id)) selected.delete(id);
+        else selected.add(id);
+        renderTickTickProjectSelector();
+      }
+
+      function toggleAllTickTickProjectSelections() {
+        if (!ticktickProjectSelectionSession) return;
+        const session = ticktickProjectSelectionSession;
+        if (session.selectedIds.size === session.projects.length) {
+          session.selectedIds.clear();
+        } else {
+          session.selectedIds = new Set(session.projects.map(project => String(project.id)));
+        }
+        renderTickTickProjectSelector();
+      }
+
+      function saveTickTickProjectSelections() {
+        if (!ticktickProjectSelectionSession) return;
+        const session = ticktickProjectSelectionSession;
+        const selectedIds = [...session.selectedIds];
+        if (!selectedIds.length) {
+          showToast("اختر قائمة واحدة على الأقل.");
+          return;
+        }
+
+        state.ticktickImportProjectIds = selectedIds.length === session.projects.length ? null : selectedIds;
+        state.ticktickImportPromptDate = "";
+        saveState();
+        ticktickProjectSelectionSession = null;
+        closeModal();
+        renderAll();
+        showToast(`تم حفظ قوائم الاستيراد: ${tickTickImportScopeLabel()}.`);
+      }
+
+      async function openTickTickImport() {
+        if (!ticktickState.connected) {
+          showToast("اربط TickTick أولاً، ثم استورد مهام اليوم.");
+          return;
+        }
+
+        showToast("جارٍ جلب مهام TickTick لليوم...");
+
+        try {
+          const tasks = await fetchTickTickTodayTasks();
+          openTickTickImportSelection(tasks, false);
+        } catch (error) {
+          if (error.status === 401) await refreshTickTickStatus();
+          showToast("تعذر جلب مهام TickTick الآن. جرّب مرة أخرى.");
+        }
+      }
+
+      async function maybeOfferDailyTickTickImport() {
+        if (
+          !ticktickState.connected ||
+          !state.profile.ready ||
+          state.ticktickImportPromptDate === state.date
+        ) {
+          return;
+        }
+
+        try {
+          const tasks = await fetchTickTickTodayTasks();
+          state.ticktickImportPromptDate = state.date;
+          saveState();
+
+          const existingIds = existingTickTickTaskIds();
+          const available = tasks.filter(task => !existingIds.has(String(task.id || "")));
+
+          if (available.length && importCapacity() > 0) {
+            openTickTickImportSelection(tasks, true);
+          }
+        } catch {
+          // Do not interrupt Yaman's daily flow if the external service is temporarily unavailable.
+        }
+      }
+
+      function openTickTickImportSelection(tasks, automatic) {
+        const existingIds = existingTickTickTaskIds();
+        const available = tasks.filter(task =>
+          task && task.id && task.title && !existingIds.has(String(task.id))
+        );
+
+        if (!available.length) {
+          showToast("لا توجد مهام جديدة ومفتوحة لليوم في TickTick.");
+          return;
+        }
+
+        const limit = importCapacity();
+        if (limit <= 0) {
+          showToast("خطة اليوم ممتلئة. احذف مهمة أو أوقف مهمة مقترحة قبل الاستيراد.");
+          return;
+        }
+
+        ticktickImportSession = {
+          automatic: Boolean(automatic),
+          tasks: available,
+          selectedIds: new Set()
+        };
+
+        renderTickTickImportSelection();
+      }
+
+      function renderTickTickImportSelection() {
+        if (!ticktickImportSession) return;
+
+        const session = ticktickImportSession;
+        const capacity = importCapacity();
+        const replaceable = importReplaceableTasks().length;
+        const selectedCount = session.selectedIds.size;
+        const replacingCopy = replaceable
+          ? `إذا اخترت أكثر من الأماكن المتاحة، سيستبدل Hero ${replaceable} من اقتراحاته غير المبدوءة فقط.`
+          : "لن تُحذف أي مهمة موجودة.";
+
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">${session.automatic ? "اقتراح يومي من TickTick" : "استيراد من TickTick"}</span>
+            <h2>اختر ما يناسب اليوم</h2>
+            <p class="muted">وجدنا ${session.tasks.length} مهام مفتوحة لليوم. اختر فقط ما يناسب يَمان، حتى ${capacity} مهام كحد أقصى.</p>
+          </div>
+          <div class="note small" style="margin-top:16px">${escapeHTML(replacingCopy)}</div>
+          <div class="option-grid" style="margin-top:16px">
+            ${session.tasks.map(task => {
+              const selected = session.selectedIds.has(String(task.id));
+              const project = task.projectName ? ` · ${escapeHTML(task.projectName)}` : "";
+              const due = task.dueDate ? ` · ${escapeHTML(formatTickTickDueDate(task.dueDate))}` : "";
+              return `<button class="option-button" type="button" data-action="toggle-import-task" data-import-task-id="${escapeHTML(task.id)}" aria-pressed="${selected}">
+                <span>${selected ? "✓ " : ""}${escapeHTML(task.title)}<span class="sub">TickTick${project}${due}</span></span>
+                <span aria-hidden="true">${selected ? "✓" : ""}</span>
+              </button>`;
+            }).join("")}
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" type="button" data-action="close-modal">لاحقاً</button>
+            <button class="btn btn-primary" type="button" data-action="confirm-ticktick-import" ${selectedCount ? "" : "disabled"}>أضف ${selectedCount} إلى الخطة</button>
+          </div>`);
+      }
+
+      function toggleTickTickImportSelection(taskId) {
+        if (!ticktickImportSession) return;
+        const id = String(taskId || "");
+        const selected = ticktickImportSession.selectedIds;
+
+        if (selected.has(id)) {
+          selected.delete(id);
+          renderTickTickImportSelection();
+          return;
+        }
+
+        if (selected.size >= importCapacity()) {
+          showToast("نختار عدداً صغيراً حتى تبقى خطة اليوم واضحة.");
+          return;
+        }
+
+        selected.add(id);
+        renderTickTickImportSelection();
+      }
+
+      function importSelectedTickTickTasks() {
+        if (!ticktickImportSession) return;
+
+        const selectedTasks = ticktickImportSession.tasks.filter(task =>
+          ticktickImportSession.selectedIds.has(String(task.id))
+        );
+
+        if (!selectedTasks.length) {
+          showToast("اختر مهمة واحدة على الأقل.");
+          return;
+        }
+
+        const overflow = Math.max(0, state.tasks.length + selectedTasks.length - MAX_TASKS);
+        const replaceable = importReplaceableTasks();
+
+        if (overflow > replaceable.length) {
+          showToast("لا توجد مساحة كافية. احذف مهمة غير مناسبة ثم جرّب مرة أخرى.");
+          return;
+        }
+
+        const removeIds = new Set(replaceable.slice(0, overflow).map(task => task.id));
+        state.tasks = state.tasks.filter(task => !removeIds.has(task.id));
+
+        for (const source of selectedTasks) {
+          const type = classifyImportedTickTickTask(source);
+          state.tasks.push({
+            id: newId(),
+            title: String(source.title).trim().slice(0, 180),
+            type,
+            points: TASK_TEMPLATES[type].points,
+            done: false,
+            ticktickTaskId: String(source.id),
+            ticktickProjectId: String(source.projectId || ""),
+            ticktickCompleted: false,
+            ticktickImported: true,
+            ticktickDueDate: source.dueDate || null,
+            ticktickProjectName: source.projectName || "",
+            generated: false
+          });
+        }
+
+        if (!state.profile.ready) {
+          state.profile = { ready: true, energy: "متوسطة", commitments: [], focus: "توازن" };
+        }
+
+        saveState();
+        ticktickImportSession = null;
+        closeModal();
+        renderAll();
+        showToast(`تمت إضافة ${selectedTasks.length} مهام من TickTick إلى خطة اليوم.`);
+      }
+
       async function apiRequest(url, options = {}) {
         const response = await fetch(url, {
           ...options,
@@ -1470,7 +2052,7 @@
 
       function bindEvents() {
         document.addEventListener("click", async event => {
-          const button = event.target.closest("[data-action], [data-screen]");
+          const button = event.target.closest("[data-action], [data-screen], [data-wizard-single], [data-wizard-multi]");
           if (!button) return;
 
           if (button.dataset.screen) {
@@ -1507,6 +2089,17 @@
           if (action === "connect-ticktick") connectTickTick();
           if (action === "sync-ticktick") syncAllTasks();
           if (action === "disconnect-ticktick") disconnectTickTick();
+          if (action === "import-ticktick-today") openTickTickImport();
+          if (action === "choose-ticktick-lists") openTickTickProjectSelector();
+          if (action === "toggle-import-project") toggleTickTickProjectSelection(button.dataset.projectId);
+          if (action === "toggle-all-import-projects") toggleAllTickTickProjectSelections();
+          if (action === "save-import-projects") saveTickTickProjectSelections();
+          if (action === "close-project-selector") {
+            ticktickProjectSelectionSession = null;
+            closeModal();
+          }
+          if (action === "toggle-import-task") toggleTickTickImportSelection(button.dataset.importTaskId);
+          if (action === "confirm-ticktick-import") importSelectedTickTickTasks();
 
           if (action === "wizard-back") {
             wizard.step = Math.max(0, wizard.step - 1);
@@ -1529,12 +2122,14 @@
           }
 
           if (button.dataset.wizardSingle) {
+            event.preventDefault();
             const key = wizard.step === 0 ? "energy" : "focus";
             wizard.answers[key] = button.dataset.wizardSingle;
             renderWizard();
           }
 
           if (button.dataset.wizardMulti) {
+            event.preventDefault();
             const value = button.dataset.wizardMulti;
             let selected = [...(wizard.answers.commitments || [])];
             if (value === "لا يوجد موعد مهم") {
@@ -1605,6 +2200,8 @@
         if (notice === "connected") showToast("تم ربط TickTick بنجاح.");
         if (notice === "denied") showToast("لم يتم منح Hero إذن الوصول إلى TickTick.");
         if (notice === "state_error") showToast("انتهت جلسة الربط. حاول مرة أخرى.");
+        if (notice === "connected") setTimeout(() => maybeOfferDailyTickTickImport(), 500);
+        else maybeOfferDailyTickTickImport();
       })();
     })();
   </script>
