@@ -710,6 +710,30 @@
     .footer-note {
       font-weight: 400;
     }
+
+
+    /* Plan tools: events and AI idea builder */
+    .plan-tools-grid { display: grid; gap: 15px; }
+    .agenda-card { border-color: #d9d3fb; background: linear-gradient(145deg, #fbfaff, #fff); }
+    .agenda-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .event-list { display:grid; gap:9px; margin-top:14px; }
+    .event-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; padding:11px 12px; border:1px solid #e1ddf9; border-radius:15px; background:#fff; }
+    .event-time { min-width:54px; padding:7px 8px; border-radius:11px; background:#ecebff; color:var(--brand-strong); font-size:.82rem; font-weight:700; text-align:center; direction:ltr; }
+    .event-copy strong { display:block; color:var(--ink); font-size:.94rem; }
+    .event-copy span { display:block; margin-top:2px; color:var(--muted); font-size:.78rem; }
+    .event-remove { width:34px; height:34px; padding:0; border:1px solid #f0c4d0; border-radius:10px; background:#fff; color:var(--danger); font-weight:700; }
+    .idea-builder-card { border-color:#d5d0ff; background:linear-gradient(145deg, #f7f5ff, #fff); }
+    .idea-builder-card textarea { min-height:94px; }
+    .idea-help { margin:9px 0 0; color:var(--muted); font-size:.82rem; line-height:1.7; }
+    .idea-results { display:grid; gap:10px; margin-top:15px; }
+    .idea-result { padding:14px; border:1px solid #dcd7fb; border-radius:16px; background:#fff; }
+    .idea-result h3 { color:var(--navy); }
+    .idea-result p { margin:6px 0 0; color:var(--muted); font-size:.89rem; }
+    .idea-first-step { margin-top:10px; padding:9px 10px; border-radius:12px; background:#f4f2ff; color:#45406f; font-size:.84rem; }
+    .idea-source { display:inline-flex; margin-top:11px; padding:5px 8px; border-radius:999px; background:#eeecff; color:var(--brand-strong); font-size:.72rem; font-weight:700; }
+    .ai-note { margin-top:11px; padding:10px 12px; border-radius:14px; background:#fffbeb; border:1px solid #f3dda0; color:#735a17; font-size:.8rem; line-height:1.65; }
+    @media (min-width: 700px) { .plan-tools-grid { grid-template-columns: repeat(2, minmax(0,1fr)); align-items:start; } }
+
   </style>
 </head>
 
@@ -750,8 +774,8 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "hero-yaman-app-v4";
-      const LEGACY_KEYS = ["hero-yaman-app-v3", "hero-yaman-app-v2", "hero-yaman-app-v1", "yamanHeroTasks"];
+      const STORAGE_KEY = "hero-yaman-app-v5";
+      const LEGACY_KEYS = ["hero-yaman-app-v4", "hero-yaman-app-v3", "hero-yaman-app-v2", "hero-yaman-app-v1", "yamanHeroTasks"];
       const MAX_TASKS = 3;
       const FOCUS_MINUTES = 20;
 
@@ -847,7 +871,11 @@
           creativeIdeaIndex: 0,
           socialSkillIndex: 0,
           ticktickImportPromptDate: "",
-          ticktickImportProjectIds: null
+          ticktickImportProjectIds: null,
+          calendarEvents: [],
+          ideaDraft: "",
+          ideaSuggestions: [],
+          ideaSuggestionMode: ""
         };
       }
 
@@ -884,6 +912,21 @@
         };
       }
 
+
+      function normalizeCalendarEvent(event) {
+        const rawDate = String(event?.date || dateKey()).slice(0, 10);
+        const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : dateKey();
+        const rawTime = String(event?.time || "").slice(0, 5);
+        const safeTime = /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : "";
+        return {
+          id: event?.id || newId(),
+          title: String(event?.title || "موعد").trim().slice(0, 100),
+          date: safeDate,
+          time: safeTime,
+          note: String(event?.note || "").trim().slice(0, 220)
+        };
+      }
+
       function loadState() {
         let raw = null;
         try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
@@ -911,7 +954,13 @@
           pointsByDate: raw.pointsByDate || {},
           ticktickImportProjectIds: Array.isArray(raw.ticktickImportProjectIds)
             ? [...new Set(raw.ticktickImportProjectIds.map(id => String(id).trim()).filter(Boolean))]
-            : null
+            : null,
+          calendarEvents: Array.isArray(raw.calendarEvents)
+            ? raw.calendarEvents.map(normalizeCalendarEvent)
+            : [],
+          ideaDraft: typeof raw.ideaDraft === "string" ? raw.ideaDraft.slice(0, 600) : "",
+          ideaSuggestions: Array.isArray(raw.ideaSuggestions) ? raw.ideaSuggestions.slice(0, 3) : [],
+          ideaSuggestionMode: typeof raw.ideaSuggestionMode === "string" ? raw.ideaSuggestionMode : ""
         };
       }
 
@@ -947,7 +996,8 @@
           socialSkillIndex: state.socialSkillIndex || 0,
           ticktickImportProjectIds: Array.isArray(state.ticktickImportProjectIds)
             ? [...state.ticktickImportProjectIds]
-            : null
+            : null,
+          calendarEvents: (state.calendarEvents || []).map(normalizeCalendarEvent).filter(event => event.date >= dateKey())
         };
         state = { ...defaultState(), ...carry };
         saveState();
@@ -1162,6 +1212,57 @@
           </article>`;
       }
 
+      function eventsForDate(date = state.date) {
+        return (state.calendarEvents || [])
+          .map(normalizeCalendarEvent)
+          .filter(event => event.date === date)
+          .sort((a, b) => String(a.time || "99:99").localeCompare(String(b.time || "99:99")));
+      }
+
+      function formatEventDate(value) {
+        try {
+          return new Intl.DateTimeFormat("ar", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
+        } catch {
+          return value;
+        }
+      }
+
+      function eventRowsMarkup(events) {
+        if (!events.length) {
+          return `<div class="empty-state" style="padding:16px 0 4px;text-align:right"><p>لا توجد مواعيد مسجلة لهذا اليوم.</p></div>`;
+        }
+        return events.map(event => `
+          <div class="event-row">
+            <span class="event-time">${escapeHTML(event.time || "—")}</span>
+            <div class="event-copy">
+              <strong>${escapeHTML(event.title)}</strong>
+              <span>${escapeHTML(event.note || "موعد في خطة اليوم")}</span>
+            </div>
+            <button class="event-remove" type="button" data-action="delete-calendar-event" data-event-id="${escapeHTML(event.id)}" aria-label="حذف الموعد">×</button>
+          </div>`).join("");
+      }
+
+      function ideaSuggestionsMarkup() {
+        const suggestions = Array.isArray(state.ideaSuggestions) ? state.ideaSuggestions : [];
+        if (!suggestions.length) return "";
+        const source = state.ideaSuggestionMode === "openai" ? "اقتراحات AI" : "اقتراحات أساسية";
+        return `
+          <div class="idea-results" aria-live="polite">
+            ${suggestions.map((idea, index) => {
+              const type = TASK_TEMPLATES[idea.category] ? idea.category : "creative";
+              return `<article class="idea-result">
+                <h3>${escapeHTML(idea.title || "فكرة جديدة")}</h3>
+                <p>${escapeHTML(idea.summary || "فكرة قصيرة يمكنك تطويرها بطريقتك.")}</p>
+                <div class="idea-first-step"><strong>ابدأ بهذا فقط:</strong> ${escapeHTML(idea.firstStep || "اكتب أو سجل أول جملة.")}</div>
+                <div class="action-row" style="margin-top:11px">
+                  <button class="btn btn-soft" type="button" data-action="apply-idea" data-idea-index="${index}" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>أضفها إلى خطة اليوم</button>
+                </div>
+              </article>`;
+            }).join("")}
+            <span class="idea-source">${source}</span>
+          </div>`;
+      }
+
       function renderPlan() {
         const root = document.getElementById("screenPlan");
 
@@ -1199,6 +1300,9 @@
           : `<li class="empty-state"><h3>لا توجد مهام بعد</h3><p>لنضيف مهمة واحدة واضحة فقط.</p></li>`;
 
         const commitmentText = state.profile.commitments.length ? state.profile.commitments.join(" · ") : "لا توجد مواعيد ثابتة";
+        const todayEvents = eventsForDate(state.date);
+        const futureEvents = (state.calendarEvents || []).map(normalizeCalendarEvent).filter(event => event.date > state.date).length;
+
         root.innerHTML = `
           <div class="stack">
             <article class="card">
@@ -1210,18 +1314,48 @@
                 <button class="btn btn-secondary" type="button" data-action="reset-day">بداية يوم جديد</button>
               </div>
             </article>
+
             <article class="card list-card">
               <div class="section-head">
                 <div><h3>مهام اليوم</h3><span class="muted small">${state.tasks.length} من ${MAX_TASKS} مستخدمة</span></div>
                 <div class="task-actions">
-                  <button class="btn btn-soft" type="button" data-action="choose-ticktick-lists" ${ticktickState.connected ? "" : "disabled"}>قوائم TickTick</button>
-                  <button class="btn btn-soft" type="button" data-action="import-ticktick-today" ${ticktickState.connected ? "" : "disabled"}>استيراد اليوم</button>
+                  <button class="btn btn-soft" type="button" data-action="choose-ticktick-lists">قوائم TickTick</button>
+                  <button class="btn btn-soft" type="button" data-action="import-ticktick-today">استيراد اليوم</button>
                   <button class="btn btn-primary" type="button" data-action="add-task" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>إضافة مهمة</button>
                 </div>
               </div>
               <ul class="task-list">${rows}</ul>
-              ${ticktickState.connected ? `<div style="padding:0 18px 16px"><span class="ticktick-scope">قوائم الاستيراد: ${escapeHTML(tickTickImportScopeLabel())}</span></div>` : ""}
+              <div style="padding:0 18px 16px"><span class="ticktick-scope">قوائم الاستيراد: ${escapeHTML(tickTickImportScopeLabel())}</span></div>
             </article>
+
+            <div class="plan-tools-grid">
+              <article class="card agenda-card">
+                <div class="agenda-head">
+                  <div>
+                    <span class="eyebrow">مواعيدي</span>
+                    <h3>مواعيد اليوم</h3>
+                    <p class="muted small" style="margin:5px 0 0">${todayEvents.length ? `${todayEvents.length} موعد اليوم` : "أضف الرياضة، العلاج، موعد عائلي أو أي التزام."}${futureEvents ? ` · ${futureEvents} موعد قادم` : ""}</p>
+                  </div>
+                  <button class="btn btn-soft" type="button" data-action="add-calendar-event">إضافة موعد</button>
+                </div>
+                <div class="event-list">${eventRowsMarkup(todayEvents)}</div>
+              </article>
+
+              <article class="card idea-builder-card">
+                <span class="eyebrow">فكرتي مع Hero</span>
+                <h3>اكتب فكرة صغيرة، ونبنيها معاً</h3>
+                <form id="ideaForm" class="form-grid" style="margin-top:12px">
+                  <label>ما الفكرة التي تريدها؟
+                    <textarea id="ideaText" maxlength="600" placeholder="مثال: أريد قصة عن روبوت يحب كرة القدم ويقلد الأصوات">${escapeHTML(state.ideaDraft || "")}</textarea>
+                  </label>
+                  <button class="btn btn-primary" id="ideaSubmitBtn" type="submit">اقترح 3 أفكار</button>
+                </form>
+                <p class="idea-help">سنقترح أفكاراً قصيرة مع أول خطوة واضحة. أنت تختار الفكرة، ولا يتم نشر أي شيء.</p>
+                <div class="ai-note">للحصول على اقتراحات AI حقيقية יש להגדיר ב־Railway את <strong>OPENAI_API_KEY</strong>. بدون المفتاح، سيعطي Hero اقتراحات أساسية تعمل محلياً.</div>
+                ${ideaSuggestionsMarkup()}
+              </article>
+            </div>
+
             <article class="card review-card">
               <h3>بعد إنجاز مهمة</h3>
               <p class="muted">ليس عليك أن تقفز فوراً للمهمة التالية. خذ دقيقة ماء أو حركة، ثم عُد إلى شاشة “الآن”.</p>
@@ -1574,7 +1708,14 @@
       }
 
       function resetDay() {
-        const carry = { pointsByDate: state.pointsByDate || {}, activeStrengths: state.activeStrengths || [], creativeIdeaIndex: state.creativeIdeaIndex || 0, socialSkillIndex: state.socialSkillIndex || 0 };
+        const carry = {
+          pointsByDate: state.pointsByDate || {},
+          activeStrengths: state.activeStrengths || [],
+          creativeIdeaIndex: state.creativeIdeaIndex || 0,
+          socialSkillIndex: state.socialSkillIndex || 0,
+          ticktickImportProjectIds: Array.isArray(state.ticktickImportProjectIds) ? [...state.ticktickImportProjectIds] : null,
+          calendarEvents: (state.calendarEvents || []).map(normalizeCalendarEvent).filter(event => event.date >= dateKey())
+        };
         state = { ...defaultState(), ...carry };
         saveState();
         closeModal();
@@ -1600,6 +1741,97 @@
         renderAll();
         showToast("أضفنا تدريب الدبلجة إلى الخطة.");
         if (ticktickState.connected) syncTask(task.id);
+      }
+
+
+      function openAddCalendarEvent() {
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">موعد جديد</span>
+            <h2>أضف موعداً إلى الخطة</h2>
+            <p class="muted">المواعيد لا تمنح نقاطاً. هي فقط تساعد يَمان أن يرى يومه بوضوح.</p>
+          </div>
+          <form class="form-grid" id="calendarEventForm" style="margin-top:18px">
+            <label>ما الموعد؟
+              <input id="eventTitle" required maxlength="100" placeholder="مثال: رياضة مع المدرب">
+            </label>
+            <label>التاريخ
+              <input id="eventDate" type="date" required value="${escapeHTML(state.date)}">
+            </label>
+            <label>الوقت (اختياري)
+              <input id="eventTime" type="time">
+            </label>
+            <label>ملاحظة قصيرة (اختياري)
+              <input id="eventNote" maxlength="220" placeholder="مثال: خذ زجاجة ماء">
+            </label>
+            <div class="modal-foot">
+              <button class="btn btn-secondary" type="button" data-action="close-modal">إلغاء</button>
+              <button class="btn btn-primary" type="submit">حفظ الموعد</button>
+            </div>
+          </form>`);
+      }
+
+      function deleteCalendarEvent(eventId) {
+        state.calendarEvents = (state.calendarEvents || []).filter(event => String(event.id) !== String(eventId));
+        saveState();
+        renderPlan();
+        showToast("تم حذف الموعد.");
+      }
+
+      async function requestIdeaSuggestions() {
+        const input = document.getElementById("ideaText");
+        const submit = document.getElementById("ideaSubmitBtn");
+        const idea = String(input?.value || "").trim();
+        if (idea.length < 4) {
+          showToast("اكتب فكرة قصيرة من عدة كلمات، ثم نساعدك في تطويرها.");
+          return;
+        }
+        if (submit) {
+          submit.disabled = true;
+          submit.textContent = "جارٍ التفكير...";
+        }
+        try {
+          const result = await apiRequest("/api/ideas", {
+            method: "POST",
+            body: JSON.stringify({ idea })
+          });
+          state.ideaDraft = idea;
+          state.ideaSuggestions = Array.isArray(result?.ideas) ? result.ideas.slice(0, 3) : [];
+          state.ideaSuggestionMode = result?.source === "openai" ? "openai" : "local";
+          saveState();
+          renderPlan();
+          showToast(state.ideaSuggestionMode === "openai" ? "ظهرت 3 أفكار من AI. اختر فكرة واحدة فقط." : "ظهرت 3 أفكار أساسية. يمكنك تفعيل AI من Railway لاحقاً.");
+        } catch (error) {
+          showToast(error?.message || "تعذر إنشاء الأفكار الآن. جرّب مرة أخرى.");
+          if (submit) {
+            submit.disabled = false;
+            submit.textContent = "اقترح 3 أفكار";
+          }
+        }
+      }
+
+      function applyIdeaSuggestion(index) {
+        const ideas = Array.isArray(state.ideaSuggestions) ? state.ideaSuggestions : [];
+        const idea = ideas[Number(index)];
+        if (!idea) return;
+        if (state.tasks.length >= MAX_TASKS) {
+          showToast("خطة اليوم فيها ثلاث مهام. احذف مهمة غير مناسبة قبل إضافة فكرة جديدة.");
+          return;
+        }
+        const type = TASK_TEMPLATES[idea.category] ? idea.category : "creative";
+        const title = String(idea.taskTitle || idea.firstStep || idea.title || "فكرة إبداعية قصيرة").trim().slice(0, 180);
+        state.tasks.push({
+          id: newId(),
+          title,
+          type,
+          points: TASK_TEMPLATES[type].points,
+          done: false,
+          generated: false
+        });
+        saveState();
+        renderAll();
+        showToast("أُضيفت الفكرة كمهمة قصيرة. ابدأ بالخطوة الأولى فقط.");
+        if (ticktickState.connected) syncTask(state.tasks[state.tasks.length - 1].id);
       }
 
       function todayTickTickDate() {
@@ -1672,10 +1904,7 @@
       }
 
       async function openTickTickProjectSelector() {
-        if (!ticktickState.connected) {
-          showToast("اربط TickTick أولاً، ثم اختر قوائم الاستيراد.");
-          return;
-        }
+        if (!(await requireActiveTickTick())) return;
 
         showToast("جارٍ جلب قوائم TickTick...");
 
@@ -1774,10 +2003,7 @@
       }
 
       async function openTickTickImport() {
-        if (!ticktickState.connected) {
-          showToast("اربط TickTick أولاً، ثم استورد مهام اليوم.");
-          return;
-        }
+        if (!(await requireActiveTickTick())) return;
 
         showToast("جارٍ جلب مهام TickTick لليوم...");
 
@@ -1951,13 +2177,15 @@
       async function apiRequest(url, options = {}) {
         const response = await fetch(url, {
           ...options,
+          credentials: "include",
+          cache: "no-store",
           headers: { "Content-Type": "application/json", ...(options.headers || {}) }
         });
         const text = await response.text();
         let body = null;
         try { body = text ? JSON.parse(text) : null; } catch {}
         if (!response.ok) {
-          const error = new Error(body?.error || "تعذر الاتصال بـ TickTick.");
+          const error = new Error(body?.error || "تعذر الاتصال بالخدمة الآن.");
           error.status = response.status;
           throw error;
         }
@@ -1966,12 +2194,30 @@
 
       async function refreshTickTickStatus() {
         try {
-          const response = await fetch("/api/ticktick/status", { cache: "no-store" });
+          const response = await fetch("/api/ticktick/status", {
+            cache: "no-store",
+            credentials: "include"
+          });
           if (!response.ok) throw new Error();
           ticktickState = await response.json();
         } catch {
           ticktickState = { configured: false, connected: false, projectName: "Hero – Yaman" };
         }
+        return ticktickState;
+      }
+
+      async function requireActiveTickTick() {
+        await refreshTickTickStatus();
+        renderAll();
+        if (!ticktickState.configured) {
+          showToast("يجب إعداد TickTick في Railway أولاً.");
+          return false;
+        }
+        if (!ticktickState.connected) {
+          showToast("ربط TickTick غير نشط. افتح الإعدادات واضغط ربط TickTick.");
+          return false;
+        }
+        return true;
       }
 
       function renderTickTickStatus() {
@@ -2012,10 +2258,7 @@
       }
 
       async function syncAllTasks() {
-        if (!ticktickState.connected) {
-          showToast("اربط TickTick أولاً.");
-          return;
-        }
+        if (!(await requireActiveTickTick())) return;
         let synced = 0;
         for (const task of [...state.tasks]) {
           try { await syncTask(task.id); synced += 1; } catch {}
@@ -2075,6 +2318,9 @@
           if (action === "complete-task") completeTask(taskId);
           if (action === "delete-task") deleteTask(taskId);
           if (action === "add-task") openAddTask();
+          if (action === "add-calendar-event") openAddCalendarEvent();
+          if (action === "delete-calendar-event") deleteCalendarEvent(button.dataset.eventId);
+          if (action === "apply-idea") applyIdeaSuggestion(button.dataset.ideaIndex);
           if (action === "add-creative-task") addCreativeTask();
           if (action === "next-idea") {
             state.creativeIdeaIndex = (state.creativeIdeaIndex + 1) % CREATIVE_IDEAS.length;
@@ -2143,7 +2389,7 @@
           }
         });
 
-        document.addEventListener("submit", event => {
+        document.addEventListener("submit", async event => {
           if (event.target.id === "addTaskForm") {
             event.preventDefault();
             const title = document.getElementById("newTaskTitle").value.trim();
@@ -2163,6 +2409,31 @@
             renderAll();
             showToast("أُضيفت المهمة. اخترها من شاشة “الآن” عندما تصبح جاهزاً.");
             if (ticktickState.connected) syncTask(task.id);
+          }
+
+          if (event.target.id === "calendarEventForm") {
+            event.preventDefault();
+            const title = document.getElementById("eventTitle").value.trim();
+            const date = document.getElementById("eventDate").value;
+            const time = document.getElementById("eventTime").value;
+            const note = document.getElementById("eventNote").value.trim();
+            if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              showToast("اكتب اسم الموعد واختر تاريخاً صحيحاً.");
+              return;
+            }
+            state.calendarEvents = [
+              ...(state.calendarEvents || []),
+              normalizeCalendarEvent({ id: newId(), title, date, time, note })
+            ];
+            saveState();
+            closeModal();
+            renderPlan();
+            showToast(`تم حفظ موعد: ${title}.`);
+          }
+
+          if (event.target.id === "ideaForm") {
+            event.preventDefault();
+            await requestIdeaSuggestions();
           }
 
           if (event.target.id === "reviewForm") {
