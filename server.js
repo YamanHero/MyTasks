@@ -24,9 +24,9 @@ class PublicError extends Error {
 function isTickTickConfigured() {
   return Boolean(
     process.env.TICKTICK_CLIENT_ID &&
-    process.env.TICKTICK_CLIENT_SECRET &&
-    process.env.TICKTICK_REDIRECT_URI &&
-    process.env.SESSION_SECRET
+      process.env.TICKTICK_CLIENT_SECRET &&
+      process.env.TICKTICK_REDIRECT_URI &&
+      process.env.SESSION_SECRET
   );
 }
 
@@ -146,6 +146,62 @@ function decryptJson(value) {
   }
 }
 
+/*
+  OAuth state חתום, ללא תלות בעוגייה זמנית.
+  זה מונע את שגיאת state_error כאשר Safari או חלון חיצוני
+  אינם מחזירים את עוגיית ה-state לאחר אישור TickTick.
+*/
+function createOAuthState() {
+  const issuedAt = Date.now().toString();
+  const nonce = crypto.randomBytes(24).toString("base64url");
+  const payload = `${issuedAt}.${nonce}`;
+
+  const signature = crypto
+    .createHmac("sha256", encryptionKey())
+    .update(`ticktick-oauth:${payload}`)
+    .digest("base64url");
+
+  return `${payload}.${signature}`;
+}
+
+function verifyOAuthState(value) {
+  try {
+    const [issuedAtValue, nonce, signature] = String(value || "").split(".");
+
+    if (!issuedAtValue || !nonce || !signature) {
+      return false;
+    }
+
+    const issuedAt = Number(issuedAtValue);
+    const maxAge = 10 * 60 * 1000;
+
+    if (
+      !Number.isFinite(issuedAt) ||
+      issuedAt > Date.now() + 60_000 ||
+      Date.now() - issuedAt > maxAge
+    ) {
+      return false;
+    }
+
+    const payload = `${issuedAtValue}.${nonce}`;
+
+    const expected = crypto
+      .createHmac("sha256", encryptionKey())
+      .update(`ticktick-oauth:${payload}`)
+      .digest("base64url");
+
+    const receivedBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+
+    return (
+      receivedBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getStoredTokens(req) {
   return decryptJson(readCookie(req, "hero_ticktick_tokens"));
 }
@@ -205,7 +261,9 @@ async function requestToken(params) {
         ? body.error || body.message || "unknown_error"
         : "unknown_error";
 
-    console.error("TickTick token request failed:", response.status, reason);
+    console.error("TickTick token request failed:", response.status, reason, {
+      redirectUri: process.env.TICKTICK_REDIRECT_URI || ""
+    });
 
     throw new PublicError(
       502,
@@ -232,6 +290,7 @@ async function refreshTokens(req, res, tokens) {
   });
 
   const refreshed = normalizeTokens(payload, tokens);
+
   writeStoredTokens(res, refreshed);
 
   return refreshed;
@@ -443,6 +502,21 @@ app.get("/api/ticktick/status", (req, res) => {
   });
 });
 
+app.get("/api/ticktick/diagnostics", (req, res) => {
+  const configured = isTickTickConfigured();
+  const cookieHeader = req.headers.cookie || "";
+  const hasTokenCookie = /(?:^|;\s*)hero_ticktick_tokens=/.test(cookieHeader);
+
+  res.json({
+    configured,
+    connected: configured && Boolean(getStoredTokens(req)?.accessToken),
+    hasTokenCookie,
+    redirectUri: process.env.TICKTICK_REDIRECT_URI || "",
+    cookieSecure: cookieIsSecure(),
+    appTimeZone: APP_TIME_ZONE
+  });
+});
+
 app.get(
   "/api/ticktick/projects",
   asyncRoute(async (req, res) => {
@@ -481,6 +555,7 @@ app.get(
     requireConfigured();
 
     const today = dateKeyInTimeZone(new Date());
+
     const requestedDate =
       typeof req.query.date === "string" ? req.query.date : "";
 
@@ -489,7 +564,10 @@ app.get(
       : today;
 
     if (targetDate !== today) {
-      throw new PublicError(400, "אפשר לייבא רק את משימות היום הנוכחי.");
+      throw new PublicError(
+        400,
+        "אפשר לייבא רק את משימות היום הנוכחי."
+      );
     }
 
     const projects = await tickTickRequest(req, res, "/project");
@@ -554,6 +632,7 @@ app.get(
         }
 
         failedProjects += 1;
+
         console.warn(
           "Could not load TickTick project for daily import:",
           project.id
@@ -598,18 +677,6 @@ app.get("/auth/ticktick", (req, res, next) => {
   try {
     requireConfigured();
 
-    const state = crypto.randomBytes(32).toString("base64url");
-
-    const statePayload = encryptJson({
-      state,
-      expiresAt: Date.now() + 10 * 60 * 1000
-    });
-
-    appendSetCookie(
-      res,
-      makeCookie("hero_ticktick_state", statePayload, 10 * 60)
-    );
-
     const authorizationUrl = new URL(TICKTICK_AUTH_URL);
 
     authorizationUrl.searchParams.set(
@@ -629,7 +696,7 @@ app.get("/auth/ticktick", (req, res, next) => {
       "tasks:read tasks:write"
     );
 
-    authorizationUrl.searchParams.set("state", state);
+    authorizationUrl.searchParams.set("state", createOAuthState());
 
     res.redirect(authorizationUrl.toString());
   } catch (error) {
@@ -643,25 +710,16 @@ app.get(
     requireConfigured();
 
     if (req.query.error) {
-      clearCookie(res, "hero_ticktick_state");
       return res.redirect("/?ticktick=denied");
     }
 
-    const code = typeof req.query.code === "string" ? req.query.code : "";
-    const state = typeof req.query.state === "string" ? req.query.state : "";
+    const code =
+      typeof req.query.code === "string" ? req.query.code : "";
 
-    const savedState = decryptJson(
-      readCookie(req, "hero_ticktick_state")
-    );
+    const state =
+      typeof req.query.state === "string" ? req.query.state : "";
 
-    clearCookie(res, "hero_ticktick_state");
-
-    if (
-      !code ||
-      !savedState ||
-      savedState.state !== state ||
-      Number(savedState.expiresAt) < Date.now()
-    ) {
+    if (!code || !verifyOAuthState(state)) {
       return res.redirect("/?ticktick=state_error");
     }
 
@@ -716,7 +774,10 @@ app.post(
     });
 
     if (!task?.id) {
-      throw new PublicError(502, "TickTick לא החזיר מזהה משימה.");
+      throw new PublicError(
+        502,
+        "TickTick לא החזיר מזהה משימה."
+      );
     }
 
     if (completed) {
@@ -760,7 +821,10 @@ app.post(
         : "";
 
     if (!projectId || !taskId) {
-      throw new PublicError(400, "חסרים מזהי המשימה ב-TickTick.");
+      throw new PublicError(
+        400,
+        "חסרים מזהי המשימה ב-TickTick."
+      );
     }
 
     await tickTickRequest(
@@ -779,6 +843,7 @@ app.post(
 app.post("/api/ticktick/disconnect", (req, res) => {
   clearCookie(res, "hero_ticktick_tokens");
   clearCookie(res, "hero_ticktick_state");
+
   res.status(204).end();
 });
 
