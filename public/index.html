@@ -2197,6 +2197,11 @@
       (async () => {
         const notice = getTickTickNotice();
         await refreshTickTickStatus();
+
+        // The first render happens before the asynchronous TickTick status check.
+        // Render again so buttons for import, list selection and sync reflect the real connection state.
+        renderAll();
+
         if (notice === "connected") showToast("تم ربط TickTick بنجاح.");
         if (notice === "denied") showToast("لم يتم منح Hero إذن الوصول إلى TickTick.");
         if (notice === "state_error") showToast("انتهت جلسة الربط. حاول مرة أخرى.");
