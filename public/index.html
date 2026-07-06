@@ -3,839 +3,556 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#5b5bd6" />
-  <title>Hero — مساعد يَمان</title>
-
+  <meta name="theme-color" content="#18233d" />
+  <title>Hero — يوم يَمان</title>
   <style>
     :root {
-      --bg: #f5f8ff;
-      --card: #ffffff;
-      --ink: #1f2a44;
-      --muted: #64748b;
-      --line: #e6ebf5;
-      --primary: #5b5bd6;
-      --primary-dark: #4343b8;
-      --success: #199473;
-      --soft-success: #e9fbf5;
-      --soft-purple: #f0efff;
-      --soft-yellow: #fff7e6;
-      --danger: #d45353;
-      --accent: #f7b94f;
-      --shadow: 0 12px 35px rgba(38, 50, 88, 0.09);
-      --radius: 20px;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f7f9fc;
+      --ink: #14213d;
+      --muted: #5d6b82;
+      --line: #dce4ef;
+      --brand: #2457e6;
+      --brand-strong: #173b9e;
+      --brand-soft: #e9efff;
+      --teal: #087c73;
+      --teal-soft: #e6f8f4;
+      --amber: #9a6300;
+      --amber-soft: #fff4d9;
+      --danger: #b53946;
+      --danger-soft: #fff0f1;
+      --navy: #18233d;
+      --shadow: 0 14px 34px rgba(22, 35, 61, 0.10);
+      --radius-xl: 26px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --tap: 48px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+
+    html { min-height: 100%; background: var(--bg); }
 
     body {
-      margin: 0;
+      min-width: 320px;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top right, rgba(91, 91, 214, 0.13), transparent 28rem),
-        radial-gradient(circle at bottom left, rgba(247, 185, 79, 0.17), transparent 30rem),
-        var(--bg);
+      margin: 0;
       color: var(--ink);
-      font-family: Tahoma, Arial, sans-serif;
+      background: linear-gradient(180deg, #eef3fb 0, var(--bg) 280px);
+      font-family: "Tajawal", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+      line-height: 1.55;
     }
 
-    button,
-    input,
-    textarea,
-    select {
-      font: inherit;
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .52; }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 3px solid rgba(36, 87, 230, .35);
+      outline-offset: 2px;
     }
 
-    button {
-      cursor: pointer;
-    }
-
-    .app-shell {
-      width: min(1180px, calc(100% - 32px));
+    .app {
+      width: min(100% - 28px, 840px);
       margin: 0 auto;
-      padding: 24px 0 48px;
+      padding: 16px 0 102px;
     }
 
-    .hero-header {
+    .topbar {
       display: flex;
-      gap: 20px;
-      justify-content: space-between;
       align-items: center;
-      background: linear-gradient(135deg, #5b5bd6, #7e67d9);
-      color: white;
-      padding: 24px;
-      border-radius: 26px;
+      justify-content: space-between;
+      gap: 14px;
+      min-height: 86px;
+      padding: 16px 18px;
+      border-radius: var(--radius-xl);
+      color: #fff;
+      background: var(--navy);
       box-shadow: var(--shadow);
     }
 
-    .brand {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-    }
-
-    .brand-mark {
+    .identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .avatar {
       display: grid;
       place-items: center;
-      width: 58px;
-      height: 58px;
-      background: rgba(255, 255, 255, 0.17);
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      border-radius: 18px;
-      font-size: 28px;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: clamp(1.35rem, 3vw, 2rem);
-    }
-
-    .brand p {
-      margin: 6px 0 0;
-      color: rgba(255, 255, 255, 0.85);
-      font-size: 0.95rem;
-    }
-    .header-actions,
-    .ticktick-actions,
-    .inline-actions,
-    .prayer-actions,
-    .choice-row,
-    .guide-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      border: 0;
-      border-radius: 13px;
-      padding: 11px 15px;
-      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
-      font-weight: 700;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-    }
-
-    .btn:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-      transform: none;
-    }
-
-    .btn-light {
-      color: var(--primary-dark);
-      background: white;
-    }
-
-    .btn-primary {
-      color: white;
-      background: var(--primary);
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-    }
-
-    .btn-soft {
-      color: var(--primary-dark);
-      background: var(--soft-purple);
-    }
-
-    .btn-success {
-      color: white;
-      background: var(--success);
-    }
-
-    .btn-outline {
-      color: var(--primary-dark);
-      background: transparent;
-      border: 1px solid #cfcdf7;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .ticktick-panel {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      margin-top: 18px;
-      padding: 17px 20px;
-      border: 1px solid #ccefe5;
-      border-radius: 18px;
-      background: linear-gradient(135deg, #effaf7, #ffffff);
-    }
-
-    .ticktick-copy {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .ticktick-icon {
-      display: grid;
-      place-items: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 13px;
-      color: white;
-      background: var(--success);
-      font-size: 20px;
+      flex: 0 0 auto;
+      width: 47px;
+      height: 47px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 16px;
+      background: rgba(255,255,255,.10);
+      color: #fff;
+      font-size: 1.12rem;
       font-weight: 900;
     }
 
-    .ticktick-copy h2,
-    .ticktick-copy p {
-      margin: 0;
+    .identity h1 { margin: 0; font-size: clamp(1.13rem, 4vw, 1.4rem); line-height: 1.25; }
+    .identity p { margin: 3px 0 0; color: #d9e2ff; font-size: .86rem; }
+
+    .icon-button {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: var(--tap);
+      height: var(--tap);
+      padding: 0;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 14px;
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      font-size: 1.22rem;
     }
 
-    .ticktick-copy h2 {
-      font-size: 1rem;
-    }
-
-    .ticktick-copy p {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 0.88rem;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin: 24px 0;
-    }
-
-    .tab {
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 10px 16px;
-      background: white;
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    .tab.active {
-      color: white;
-      background: var(--primary);
-      border-color: var(--primary);
-    }
-
-    .view {
-      display: none;
-    }
-
-    .view.active {
-      display: block;
-    }
-
-    .grid {
+    .main-nav {
       display: grid;
-      gap: 18px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      margin: 16px 0 22px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 8px 22px rgba(22,35,61,.05);
     }
 
-    .grid.two {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .nav-button {
+      min-height: 48px;
+      padding: 8px 6px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-size: .87rem;
+      font-weight: 800;
     }
 
-    .grid.three {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .nav-button[aria-current="page"] {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: 0 5px 12px rgba(36,87,230,.22);
     }
+
+    .screen { display: none; animation: appear .18s ease; }
+    .screen.active { display: block; }
+
+    @keyframes appear {
+      from { opacity: .01; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--brand-strong);
+      font-size: .78rem;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    h2, h3, p { overflow-wrap: anywhere; }
+    h2 { margin: 0; font-size: clamp(1.4rem, 5vw, 1.8rem); line-height: 1.28; }
+    h3 { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+    .muted { color: var(--muted); }
+    .small { font-size: .88rem; }
 
     .card {
-      background: var(--card);
-      border: 1px solid rgba(230, 235, 245, 0.95);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 21px;
+      padding: 20px;
+      border: 1px solid rgba(220,228,239,.95);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: 0 7px 18px rgba(22,35,61,.04);
     }
 
-    .card h2,
-    .card h3 {
-      margin: 0 0 12px;
-    }
+    .stack { display: grid; gap: 15px; }
 
-    .card h2 {
-      font-size: 1.2rem;
-    }
-
-    .card h3 {
-      font-size: 1.02rem;
-    }
-
-    .muted {
-      color: var(--muted);
-      line-height: 1.75;
-    }
-
-    .small {
-      font-size: 0.87rem;
-    }
-
-    .morning-banner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      margin-bottom: 18px;
-      padding: 18px;
-      border: 1px solid #d9d4ff;
-      background: linear-gradient(135deg, #f1efff, #fbfaff);
-      border-radius: 18px;
-    }
-
-    .morning-banner strong {
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .score-card {
+    .now-card {
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, #fff8e9, #fffdf8);
+      padding: 23px;
+      border: 1px solid #cbd7ff;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(145deg, #ffffff 0%, #f2f5ff 100%);
+      box-shadow: var(--shadow);
     }
 
-    .score-card::before {
-      content: "★";
+    .now-card::after {
+      content: "";
       position: absolute;
-      left: -10px;
-      bottom: -35px;
-      font-size: 120px;
-      color: rgba(247, 185, 79, 0.16);
+      left: -64px;
+      bottom: -64px;
+      width: 170px;
+      height: 170px;
+      border: 24px solid rgba(36,87,230,.08);
+      border-radius: 50%;
+      pointer-events: none;
     }
 
-    .score-number {
-      font-size: 2.8rem;
-      color: #bd7c08;
-      font-weight: 900;
-      line-height: 1;
-      margin: 10px 0 8px;
-    }
+    .now-content { position: relative; z-index: 1; }
+    .now-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
-    .mini-stat {
-      padding: 15px;
-      border-radius: 16px;
-      background: #f8fafc;
-      border: 1px solid var(--line);
-    }
-
-    .mini-stat strong {
-      display: block;
-      font-size: 1.35rem;
-      margin-bottom: 4px;
-    }
-
-    .schedule {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 14px;
-      border-style: hidden;
-      box-shadow: 0 0 0 1px var(--line);
-    }
-
-    .schedule th,
-    .schedule td {
-      padding: 12px 11px;
-      text-align: right;
-      border: 1px solid var(--line);
-      vertical-align: top;
-      line-height: 1.55;
-    }
-
-    .schedule th {
-      background: #f8fafc;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .task-list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 11px;
-    }
-
-    .task {
-      display: flex;
+    .status-pill {
+      display: inline-flex;
       align-items: center;
-      gap: 11px;
-      padding: 13px;
-      border: 1px solid var(--line);
-      border-radius: 15px;
-      background: #fbfcff;
-    }
-
-    .task.done {
-      background: var(--soft-success);
-      border-color: #b6eadb;
-    }
-
-    .task-copy {
-      min-width: 0;
-      flex: 1;
-      border: 0;
-      padding: 0;
-      color: inherit;
-      background: transparent;
-      text-align: right;
-    }
-
-    .task-copy:hover {
-      cursor: pointer;
-    }
-
-    .task-title {
-      margin: 0 0 5px;
-      font-weight: 800;
-      line-height: 1.55;
-    }
-
-    .task.done .task-title {
-      text-decoration: line-through;
-      color: #418474;
-    }
-
-    .task-meta {
-      color: var(--muted);
-      font-size: 0.83rem;
-    }
-
-    .task-guide-link {
-      display: inline-block;
-      margin-top: 5px;
-      color: var(--primary);
-      font-size: 0.76rem;
-      font-weight: 800;
-    }
-
-    .badge {
-      flex: 0 0 auto;
-      padding: 6px 9px;
+      gap: 7px;
+      min-height: 30px;
+      padding: 5px 10px;
       border-radius: 999px;
-      color: #976000;
-      background: #fff0c9;
-      font-size: 0.78rem;
-      font-weight: 800;
-    }
-
-    .task-complete {
-      flex: 0 0 auto;
-      border: 0;
-      background: var(--success);
-      color: white;
-      border-radius: 11px;
-      padding: 9px 11px;
-      font-weight: 800;
-    }
-
-    .task-remove {
-      border: 0;
-      color: var(--danger);
-      background: transparent;
-      font-size: 1.1rem;
-      padding: 7px;
-    }
-
-    .add-task-form {
-      display: grid;
-      grid-template-columns: 1.7fr 1fr auto;
-      gap: 10px;
-      margin-top: 15px;
-    }
-
-    input,
-    textarea,
-    select {
-      width: 100%;
-      padding: 11px 12px;
-      border: 1px solid #d8dfeb;
-      border-radius: 12px;
-      background: white;
-      color: var(--ink);
-      outline: none;
-    }
-
-    input:focus,
-    textarea:focus,
-    select:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.12);
-    }
-
-    textarea {
-      min-height: 98px;
-      resize: vertical;
-      line-height: 1.6;
-    }
-
-    .note {
-      border-radius: 14px;
-      padding: 13px;
-      line-height: 1.7;
-      background: #f8fafc;
-      color: var(--muted);
-    }
-
-    .note.spiritual {
-      background: #effaf7;
-      border: 1px solid #ccefe5;
-      color: #326859;
-    }
-
-    .note.warning {
-      background: var(--soft-yellow);
-      border: 1px solid #ffe3a4;
-      color: #825b13;
-    }
-
-    .choice-chip,
-    .strength-toggle {
-      border: 1px solid #dfe4f1;
-      border-radius: 999px;
-      padding: 9px 12px;
-      color: var(--ink);
-      background: white;
-      font-weight: 700;
-    }
-
-    .choice-chip.selected,
-    .strength-toggle.active {
-      color: white;
-      background: var(--primary);
-      border-color: var(--primary);
-    }
-
-    .form-row {
-      display: grid;
-      gap: 11px;
-      margin-bottom: 13px;
-    }
-
-    .form-row label {
-      font-weight: 800;
-    }
-
-    .idea-box {
-      padding: 18px;
-      background: linear-gradient(135deg, #eef6ff, #fafcff);
-      border: 1px solid #d6e8ff;
-      border-radius: 16px;
-      min-height: 150px;
-      line-height: 1.85;
-    }
-
-    .idea-title {
-      color: var(--primary-dark);
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-size: .78rem;
       font-weight: 900;
-      margin-bottom: 9px;
-    }
-
-    .social-script {
-      padding: 15px;
-      border-radius: 15px;
-      color: #244463;
-      background: #eef7ff;
-      border: 1px solid #d3eaff;
-      line-height: 1.8;
-    }
-
-    .strength-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 9px;
-    }
-
-    .review-output {
-      margin-top: 15px;
-      padding: 16px;
-      border-radius: 16px;
-      background: #f9fbff;
-      border: 1px solid var(--line);
-      line-height: 1.9;
-    }
-
-    .empty {
-      padding: 20px;
-      text-align: center;
-      color: var(--muted);
-      border: 1px dashed #d9e0eb;
-      border-radius: 16px;
-      background: #fcfdff;
-    }
-
-    .modal-root:empty {
-      display: none;
-    }
-
-    .modal-root {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      background: rgba(20, 26, 45, 0.52);
-    }
-
-    .modal {
-      width: min(650px, 100%);
-      max-height: min(770px, calc(100vh - 40px));
-      overflow: auto;
-      border-radius: 25px;
-      background: white;
-      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.3);
-      padding: 26px;
-    }
-
-    .modal-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: flex-start;
-      margin-bottom: 18px;
-    }
-
-    .step-pill {
-      padding: 6px 10px;
-      border-radius: 999px;
-      color: var(--primary-dark);
-      background: var(--soft-purple);
-      font-size: 0.82rem;
-      font-weight: 800;
       white-space: nowrap;
     }
 
-    .wizard-options {
-      display: grid;
-      gap: 10px;
-      margin: 18px 0;
-    }
+    .status-pill.done { background: var(--teal-soft); color: #076057; }
+    .status-pill.warn { background: var(--amber-soft); color: #765000; }
 
-    .wizard-option {
-      width: 100%;
-      text-align: right;
-      color: var(--ink);
-      background: white;
-      border: 1px solid #dfe4f1;
-      border-radius: 15px;
-      padding: 14px;
-      font-weight: 700;
-    }
+    .now-title { max-width: 590px; margin: 17px 0 9px; }
+    .now-step { margin: 0 0 19px; color: #3e4d67; font-size: 1rem; }
 
-    .wizard-option.selected {
-      color: white;
-      background: var(--primary);
-      border-color: var(--primary);
-    }
+    .action-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
-    .wizard-footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .guide-meta {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin: 16px 0;
-    }
-
-    .guide-meta-item {
-      padding: 13px;
-      border: 1px solid var(--line);
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: var(--tap);
+      padding: 10px 16px;
+      border: 1px solid transparent;
       border-radius: 14px;
-      background: #f8fafc;
+      font-weight: 900;
+      text-align: center;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
     }
 
-    .guide-meta-item span {
-      display: block;
-      margin-bottom: 5px;
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-strong); }
+    .btn-secondary { background: #fff; border-color: #bec9dc; color: var(--ink); }
+    .btn-soft { background: var(--brand-soft); color: var(--brand-strong); }
+    .btn-success { background: var(--teal); color: #fff; }
+    .btn-danger { background: #fff; border-color: #e9bcc1; color: var(--danger); }
+    .btn-link { min-height: 0; padding: 4px 0; border: 0; background: transparent; color: var(--brand); }
+
+    .progress-panel {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .progress-number {
+      display: grid;
+      place-items: center;
+      width: 68px;
+      height: 68px;
+      border-radius: 20px;
+      background: var(--teal-soft);
+      color: var(--teal);
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .progress-track {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e5ebf3;
+    }
+
+    .progress-value {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--teal);
+      transition: width .25s ease;
+    }
+
+    .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .mini-card {
+      padding: 13px 10px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface-soft);
+      text-align: center;
+    }
+    .mini-card strong { display: block; color: var(--ink); font-size: 1.15rem; }
+    .mini-card span { display: block; margin-top: 2px; color: var(--muted); font-size: .76rem; }
+
+    .quiet-card {
+      border-color: #c9e9e2;
+      background: linear-gradient(145deg, #f3fcfa, #fff);
+    }
+    .quiet-card p { margin: 7px 0 0; color: #32645c; }
+
+    .list-card { padding: 0; overflow: hidden; }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 19px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .task-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+    .task-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 11px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .task-row:last-child { border-bottom: 0; }
+    .task-row.active { background: #f2f5ff; }
+    .task-row.done { background: #f2fbf8; }
+
+    .task-index {
+      display: grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      border: 1px solid #ccd8f0;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--brand-strong);
+      font-size: .82rem;
+      font-weight: 900;
+    }
+    .task-row.done .task-index { border-color: #a9ddd2; background: var(--teal); color: #fff; }
+    .task-copy { min-width: 0; }
+    .task-copy h3 { font-size: .96rem; }
+    .task-copy p { margin: 2px 0 0; color: var(--muted); font-size: .8rem; }
+    .task-actions { display: flex; align-items: center; gap: 7px; }
+    .task-icon-btn {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid #c9d4e6;
+      border-radius: 11px;
+      background: #fff;
+      color: var(--brand-strong);
+      font-size: .9rem;
+      font-weight: 900;
+    }
+    .task-icon-btn.danger { color: var(--danger); border-color: #f0ccd0; }
+    .task-icon-btn.success { color: #fff; background: var(--teal); border-color: var(--teal); }
+
+    .empty-state {
+      padding: 28px 18px;
+      text-align: center;
       color: var(--muted);
-      font-size: 0.82rem;
     }
+    .empty-state p { margin: 6px 0 16px; }
 
-    .guide-steps-box {
-      padding: 16px;
-      border-radius: 16px;
-      background: #f7f9fc;
+    .timer-card { border-color: #bad6ff; background: linear-gradient(145deg, #eff6ff, #fff); }
+    .timer-value {
+      direction: ltr;
+      margin: 13px 0 4px;
+      color: var(--navy);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: clamp(2.5rem, 11vw, 4rem);
+      font-weight: 900;
+      letter-spacing: -.05em;
+      text-align: center;
     }
+    .timer-note { margin: 0 0 17px; color: var(--muted); text-align: center; }
 
-    .guide-steps {
-      margin: 0;
-      padding-right: 22px;
-      line-height: 2;
+    .intro-card { padding: 25px; border-color: #c9d6ff; background: linear-gradient(140deg, #edf2ff, #fff); }
+    .intro-card h2 { max-width: 540px; }
+    .intro-card p { max-width: 590px; margin: 10px 0 19px; color: #41506b; }
+
+    .steps-indicator { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 15px 0 22px; }
+    .step-dot {
+      height: 8px;
+      border-radius: 999px;
+      background: #dce4ef;
     }
+    .step-dot.active { background: var(--brand); }
+    .step-dot.complete { background: var(--teal); }
 
-    .guide-tip {
-      margin-top: 14px;
+    .option-grid { display: grid; gap: 10px; }
+    .option-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 60px;
+      padding: 12px 15px;
+      border: 1px solid #cbd5e5;
+      border-radius: 15px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 900;
+      text-align: right;
+    }
+    .option-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+    .option-button .sub { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; font-weight: 700; }
+
+    .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .choice-button {
+      min-height: 72px;
+      padding: 11px;
+      border: 1px solid #cbd5e5;
+      border-radius: 15px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 900;
+      text-align: right;
+    }
+    .choice-button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+
+    .form-grid { display: grid; gap: 13px; }
+    label { display: grid; gap: 7px; color: var(--ink); font-weight: 900; }
+    input, textarea, select {
+      width: 100%;
+      min-height: var(--tap);
+      padding: 11px 12px;
+      border: 1px solid #c8d3e2;
+      border-radius: 13px;
+      background: #fff;
+      color: var(--ink);
+    }
+    textarea { min-height: 98px; resize: vertical; }
+
+    .idea-card {
+      min-height: 220px;
+      padding: 23px;
+      border: 1px solid #cddcff;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(145deg, #f3f6ff, #fff);
+    }
+    .idea-card p { margin: 9px 0 0; color: #40516d; }
+
+    .script-box {
       padding: 15px;
-      border-right: 4px solid var(--accent);
+      border-right: 4px solid var(--brand);
       border-radius: 12px;
-      background: #fff9e8;
-      color: #67511b;
-      line-height: 1.75;
+      background: var(--surface-soft);
+      color: #384861;
     }
+
+    .review-card { border-color: #f0dba8; background: #fffdf8; }
+    .review-card p { margin-top: 6px; }
+
+    .modal-root:empty { display: none; }
+    .modal-root {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      background: rgba(15, 25, 45, .62);
+    }
+    .modal {
+      position: relative;
+      width: min(100%, 590px);
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+      padding: 24px;
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: 0 28px 84px rgba(10,18,35,.35);
+    }
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 1.2rem;
+    }
+    .modal-head { padding-left: 46px; }
+    .modal-head h2 { font-size: 1.35rem; }
+    .modal-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; }
 
     .toast {
       position: fixed;
-      left: 22px;
-      bottom: 22px;
-      z-index: 20;
-      max-width: min(420px, calc(100% - 44px));
+      left: 16px;
+      bottom: 17px;
+      z-index: 70;
+      max-width: min(420px, calc(100% - 32px));
+      padding: 13px 15px;
+      border-radius: 14px;
+      background: var(--navy);
+      color: #fff;
+      box-shadow: var(--shadow);
       transform: translateY(150%);
       opacity: 0;
-      color: white;
-      background: #1f2a44;
-      border-radius: 14px;
-      padding: 13px 16px;
-      box-shadow: var(--shadow);
-      transition: 0.25s ease;
-      line-height: 1.65;
+      transition: .22s ease;
+      font-weight: 700;
     }
+    .toast.show { transform: translateY(0); opacity: 1; }
 
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
+    .footer-note { margin: 20px 0 0; color: var(--muted); font-size: .78rem; text-align: center; }
 
-    .footer {
-      margin-top: 26px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.86rem;
-      line-height: 1.75;
-    }
-
-    @media (max-width: 860px) {
-      .grid.two,
-      .grid.three {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-header,
-      .morning-banner,
-      .ticktick-panel {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .add-task-form {
-        grid-template-columns: 1fr;
-      }
+    @media (min-width: 700px) {
+      .app { padding-top: 28px; }
+      .content-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(260px,.85fr); gap: 16px; align-items: start; }
+      .mini-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 520px) {
-      .app-shell {
-        width: min(100% - 20px, 1180px);
-        padding-top: 10px;
-      }
+      .app { width: min(100% - 20px, 840px); padding-top: 10px; }
+      .topbar { border-radius: 20px; padding: 14px; }
+      .identity p { display: none; }
+      .main-nav { gap: 3px; padding: 5px; }
+      .nav-button { font-size: .78rem; }
+      .now-card, .intro-card, .idea-card { padding: 19px; border-radius: 20px; }
+      .task-row { grid-template-columns: 30px minmax(0,1fr) auto; padding: 13px; gap: 8px; }
+      .task-actions { gap: 4px; }
+      .task-icon-btn { width: 35px; height: 35px; }
+      .modal { padding: 20px 17px 17px; border-radius: 20px; }
+    }
 
-      .hero-header,
-      .card,
-      .modal {
-        padding: 17px;
-        border-radius: 18px;
-      }
-
-      .task {
-        align-items: flex-start;
-        flex-wrap: wrap;
-      }
-
-      .task-complete {
-        width: 100%;
-      }
-
-      .schedule {
-        font-size: 0.86rem;
-      }
-
-      .guide-meta {
-        grid-template-columns: 1fr;
-      }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
     }
   </style>
 </head>
 
 <body>
-  <main class="app-shell">
-    <header class="hero-header">
-      <div class="brand">
-        <div class="brand-mark">🦸</div>
-
+  <div class="app">
+    <header class="topbar">
+      <div class="identity">
+        <div class="avatar" aria-hidden="true">Y</div>
         <div>
-          <h1>Hero — المساعد الشخصي ليَمان</h1>
-          <p id="headerDate">نرتب اليوم بهدوء وخطوة خطوة.</p>
+          <h1>Hero <span aria-hidden="true">—</span> يوم يَمان</h1>
+          <p id="headerDate">خطوة واحدة واضحة في كل مرة.</p>
         </div>
       </div>
-
-      <div class="header-actions">
-        <button class="btn btn-light" id="startDayBtn" type="button">
-          ابدأ أسئلة الصباح
-        </button>
-
-        <button class="btn btn-outline" id="resetDayBtn" type="button">
-          بداية يوم جديد
-        </button>
-      </div>
+      <button class="icon-button" type="button" id="settingsBtn" aria-label="إعدادات التطبيق">⚙</button>
     </header>
 
-    <section class="ticktick-panel">
-      <div class="ticktick-copy">
-        <div class="ticktick-icon">✓</div>
-
-        <div>
-          <h2>TickTick</h2>
-          <p id="ticktickStatus">جارٍ التحقق من الاتصال...</p>
-        </div>
-      </div>
-
-      <div class="ticktick-actions">
-        <button class="btn btn-primary" id="ticktickConnectBtn" type="button">
-          ربط TickTick
-        </button>
-
-        <button class="btn btn-success hidden" id="ticktickSyncBtn" type="button">
-          مزامنة المهام الآن
-        </button>
-
-        <button class="btn btn-outline hidden" id="ticktickDisconnectBtn" type="button">
-          فصل الاتصال
-        </button>
-      </div>
-    </section>
-
-    <nav class="tabs">
-      <button class="tab active" data-view-target="todayView" type="button">
-        اليوم
-      </button>
-
-      <button class="tab" data-view-target="creativeView" type="button">
-        الإبداع وYouTube
-      </button>
-
-      <button class="tab" data-view-target="weeklyView" type="button">
-        الأسبوع ونقاط القوة
-      </button>
+    <nav class="main-nav" aria-label="التنقل الرئيسي">
+      <button class="nav-button" type="button" data-screen="now" aria-current="page">الآن</button>
+      <button class="nav-button" type="button" data-screen="plan">خطتي</button>
+      <button class="nav-button" type="button" data-screen="creative">الإبداع</button>
+      <button class="nav-button" type="button" data-screen="progress">تقدمي</button>
     </nav>
 
-    <section class="view active" id="todayView"></section>
-    <section class="view" id="creativeView"></section>
-    <section class="view" id="weeklyView"></section>
+    <main>
+      <section class="screen active" id="screenNow" aria-labelledby="nowTitle"></section>
+      <section class="screen" id="screenPlan" aria-labelledby="planTitle"></section>
+      <section class="screen" id="screenCreative" aria-labelledby="creativeTitle"></section>
+      <section class="screen" id="screenProgress" aria-labelledby="progressTitle"></section>
+    </main>
 
-    <footer class="footer">
-      هذا التطبيق يحفظ البيانات على الجهاز. ربط TickTick اختياري ومخصص لمهام Hero فقط.
-    </footer>
-  </main>
+    <p class="footer-note">Hero يحفظ الخطة على هذا الجهاز. ربط TickTick اختياري ومخصص لمهام Hero فقط.</p>
+  </div>
 
   <div class="modal-root" id="modalRoot"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -844,123 +561,82 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "hero-yaman-app-v2";
-      const LEGACY_KEYS = ["hero-yaman-app-v1", "yamanHeroTasks"];
+      const STORAGE_KEY = "hero-yaman-app-v3";
+      const LEGACY_KEYS = ["hero-yaman-app-v2", "hero-yaman-app-v1", "yamanHeroTasks"];
+      const MAX_TASKS = 3;
+      const FOCUS_MINUTES = 20;
 
       const TASK_TEMPLATES = {
-        routine: { label: "روتين وعناية شخصية", points: 5 },
-        home: { label: "مسؤولية منزلية", points: 10 },
-        studyStart: { label: "بدء الدراسة", points: 10 },
-        studySession: { label: "جلسة دراسة", points: 15 },
-        movement: { label: "حركة أو رياضة", points: 10 },
-        creative: { label: "دبلجة أو رسم أو YouTube", points: 15 },
-        social: { label: "تدريب اجتماعي", points: 10 },
-        tomorrow: { label: "تجهيز الغد", points: 5 },
-        video: { label: "مشروع فيديو أو تسجيل", points: 25 },
-        other: { label: "مهمة يومية", points: 5 }
+        study: { label: "دراسة", points: 15, duration: "20 دقيقة" },
+        home: { label: "مسؤولية منزلية", points: 10, duration: "10 دقائق" },
+        creative: { label: "إبداع", points: 15, duration: "15 دقيقة" },
+        movement: { label: "حركة", points: 10, duration: "15 دقيقة" },
+        social: { label: "مهارة اجتماعية", points: 10, duration: "5 دقائق" },
+        routine: { label: "روتين", points: 5, duration: "5 دقائق" },
+        other: { label: "مهمة أخرى", points: 5, duration: "10 دقائق" }
       };
 
-      const STRENGTHS = [
-        "الدبلجة وتقليد الأصوات",
-        "الخيال والقصص",
-        "ابتكار شخصيات",
-        "الاهتمام بالتفاصيل",
-        "التركيز في المواضيع التي يحبها",
-        "استخدام الأجهزة والتطبيقات",
-        "حس الفكاهة",
-        "التعلم عندما يكون الشرح واضحاً",
-        "التطور في المسؤولية والاستقلالية"
-      ];
-
-      const SOCIAL_SCRIPTS = {
-        "بدء محادثة": "يمكنك أن تقول: «مرحباً، ما الشخصية التي تحبها أكثر؟» وإذا لم يرد الشخص، انتظر قليلاً ثم قل: «لا بأس، نتكلم لاحقاً.»",
-        "طلب المساعدة": "يمكنك أن تقول: «هل يمكنك أن تساعدني في هذه الخطوة؟ أنا لا أفهمها بعد.»",
-        "الانضمام إلى نشاط": "يمكنك أن تقول: «هل يمكن أن أنضم إليكم؟ أحب أن أشارك.»",
-        "انتظار الدور": "يمكنك أن تقول لنفسك: «سأنتظر قليلاً، وبعدها يأتي دوري.»",
-        "التعامل مع المزاح": "إذا كان المزاح يزعجك، قل بهدوء: «هذا الكلام لا يعجبني، أرجوك توقف.»",
-        "قول لا يناسبني باحترام": "يمكنك أن تقول: «شكراً، لكن هذا لا يناسبني الآن.»",
-        "الاعتذار عند الحاجة": "يمكنك أن تقول: «آسف، لم أقصد أن أزعجك. سأحاول أن أصلح الأمر.»",
-        "التعامل مع الخلاف": "يمكنك أن تقول: «نحن نختلف، لكن يمكن أن نتكلم بهدوء ونفهم بعضنا.»",
-        "معرفة وقت الاستراحة": "يمكنك أن تقول: «أحتاج استراحة قصيرة، ثم أعود وأكمل.»"
+      const GUIDES = {
+        study: {
+          intro: "ليس المطلوب إنهاء كل الدرس. المطلوب أن تبدأ بجزء صغير وواضح.",
+          steps: ["حضّر الدفتر والقلم والكتاب.", "اختر سؤالاً واحداً أو فقرة قصيرة.", "ركّز حتى ينتهي المؤقت.", "ضع علامة على الشيء الصعب لتسأل عنه لاحقاً."],
+          tip: "ابدأ بالسؤال الأسهل؛ البداية أهم من الكمال."
+        },
+        home: {
+          intro: "المسؤولية أسهل عندما نعرف أول خطوة فقط.",
+          steps: ["حدد شيئاً واحداً مطلوباً الآن.", "حضّر ما تحتاجه.", "أنجز الجزء الصغير بهدوء.", "رتّب المكان وأخبر أحد الوالدين عند الانتهاء."],
+          tip: "اطلب المساعدة في أي جهاز أو مادة لست متأكداً منها."
+        },
+        creative: {
+          intro: "المطلوب تجربة قصيرة، لا نتيجة كاملة من أول مرة.",
+          steps: ["اختر شخصية أو فكرة واحدة.", "جرّب جملة واحدة بصوت عادي.", "قل الجملة بصوت الشخصية مرتين أو ثلاثاً.", "سجّل نسخة قصيرة واستمع لشيء أعجبك فيها."],
+          tip: "لا تحذف المحاولة الأولى بسرعة؛ قد تسمع فيها فكرة جميلة."
+        },
+        movement: {
+          intro: "الحركة القصيرة تساعد الجسم والذهن على العودة للتركيز.",
+          steps: ["اشرب قليلاً من الماء.", "ابدأ بحركة خفيفة لدقيقتين.", "اختر تمريناً تحبه.", "خذ نفساً هادئاً عند الانتهاء."],
+          tip: "المهم أن تتحرك، وليس أن تكون الأسرع."
+        },
+        social: {
+          intro: "نتدرّب على جملة واحدة فقط. هذا يكفي اليوم.",
+          steps: ["اختر الجملة التي ستقولها.", "قلها ببطء.", "جرّبها مع شخص تثق به.", "لاحظ ما نجح."],
+          tip: "التحية أو سؤال بسيط بداية ممتازة."
+        },
+        routine: {
+          intro: "روتين قصير يساعدك أن تبدأ اليوم بهدوء.",
+          steps: ["اختر أول شيء فقط.", "حضّر ما تحتاجه.", "أنجزه بهدوء.", "تأكد أن المكان مرتب."],
+          tip: "خمس دقائق بداية ممتازة."
+        },
+        other: {
+          intro: "نقسم المهمة إلى خطوات صغيرة حتى تكون سهلة للبدء.",
+          steps: ["حدد المطلوب بدقة.", "ابدأ أول خطوة لمدة خمس دقائق.", "خذ استراحة قصيرة إن احتجت.", "ارجع لإكمال الجزء التالي."],
+          tip: "قل لنفسك: سأبدأ فقط بخمس دقائق."
+        }
       };
 
       const CREATIVE_IDEAS = [
-        {
-          title: "روبوت يتعلم المشاعر",
-          text: "روبوت مضحك يكتشف أن الناس لا يقولون دائماً ما يشعرون به. في النهاية يتعلم أن يسأل بلطف: «هل أنت بخير؟»"
-        },
-        {
-          title: "القطة المحققة",
-          text: "قطة تتكلم تبحث عن الصوت المفقود من مدينة الأصوات. كل شخصية تعطيها دليلاً بصوت مختلف."
-        },
-        {
-          title: "مدرسة الكواكب",
-          text: "كوكب صغير ينتقل إلى مدرسة خيالية ويخاف من التعارف، ثم يجد صديقاً يساعده على بدء حديث."
-        },
-        {
-          title: "البطل الهادئ",
-          text: "شخصية ترى خلافاً بين صديقين، فتستخدم الصبر واللطف لتساعدهما على التفاهم."
-        },
-        {
-          title: "آلة تبديل الأصوات",
-          text: "مخترع صغير يصنع آلة تبدل الأصوات. المشكلة تبدأ عندما يصبح صوت الكلب مثل صوت روبوت!"
-        }
+        ["روبوت يتعلم المشاعر", "روبوت مضحك يكتشف أن الناس لا يقولون دائماً ما يشعرون به، فيتعلم أن يسأل: «هل أنت بخير؟»"],
+        ["آلة تبديل الأصوات", "مخترع صغير يصنع آلة تغيّر الأصوات، ثم تصبح أصوات الحيوانات غريبة ومضحكة."],
+        ["مدرسة الكواكب", "كوكب صغير يبدأ في مدرسة خيالية ويكتشف طريقة سهلة للتعرّف إلى صديق جديد."],
+        ["القطة المحققة", "قطة متكلمة تبحث عن الصوت المفقود من مدينة الأصوات، وكل شخصية تعطيها دليلاً."],
+        ["البطل الهادئ", "شخصية تساعد صديقين مختلفين على الحديث بهدوء وفهم كل واحد للآخر."]
       ];
 
-      const MORNING_QUESTIONS = [
-        {
-          key: "sleep",
-          title: "كيف نمت اليوم؟",
-          type: "single",
-          options: ["نمت بشكل جيد", "نومي كان متوسطاً", "أحتاج إلى راحة أكثر"]
-        },
-        {
-          key: "energy",
-          title: "هل طاقتك منخفضة أم متوسطة أم عالية؟",
-          type: "single",
-          options: ["منخفضة", "متوسطة", "عالية"]
-        },
-        {
-          key: "schedule",
-          title: "هل لديك اليوم مدرسة، رياضة، علاج، خروج، أو موعد عائلي؟",
-          type: "multiple",
-          options: [
-            "مدرسة",
-            "رياضة",
-            "علاج",
-            "خروج",
-            "موعد عائلي",
-            "لا يوجد موعد مهم"
-          ]
-        },
-        {
-          key: "priority",
-          title: "ما أهم شيء تريد أن تنجزه اليوم؟",
-          type: "text",
-          placeholder: "مثال: أفهم درس الكسور أو أنهي واجب العلوم"
-        },
-        {
-          key: "fun",
-          title: "ما النشاط الممتع أو الإبداعي الذي تريد أن تفعله؟",
-          type: "single",
-          options: [
-            "دبلجة",
-            "رسوم متحركة",
-            "رسم",
-            "فكرة YouTube آمنة",
-            "لعبة أو وقت حر"
-          ]
-        }
+      const SOCIAL_SCRIPTS = [
+        ["بدء محادثة", "مرحباً، ما الشخصية التي تحبها أكثر؟"],
+        ["طلب المساعدة", "هل يمكنك أن تساعدني في هذه الخطوة؟ أنا لا أفهمها بعد."],
+        ["استراحة محترمة", "أحتاج استراحة قصيرة، ثم أعود وأكمل."],
+        ["الانضمام إلى نشاط", "هل يمكن أن أنضم إليكم؟ أحب أن أشارك."]
       ];
 
-      function todayKey() {
-        const date = new Date();
+      let state = loadState();
+      let activeScreen = "now";
+      let wizard = null;
+      let timerInterval = null;
+      let ticktickState = { configured: false, connected: false, projectName: "Hero – Yaman" };
 
-        return [
-          date.getFullYear(),
-          String(date.getMonth() + 1).padStart(2, "0"),
-          String(date.getDate()).padStart(2, "0")
-        ].join("-");
+      function dateKey(date = new Date()) {
+        return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
       }
 
       function newId() {
@@ -969,37 +645,41 @@
 
       function defaultState() {
         return {
-          date: todayKey(),
-          profile: {
-            ready: false,
-            sleep: "",
-            energy: "",
-            schedule: [],
-            priority: "",
-            fun: ""
-          },
+          date: dateKey(),
+          profile: { ready: false, energy: "", commitments: [], focus: "" },
           tasks: [],
-          bonusClaimed: false,
-          prayerMessage: "",
-          spiritualFocus: "",
-          midday: null,
-          review: null,
-          socialSkill: "بدء محادثة",
+          activeTaskId: null,
+          timer: { taskId: null, remaining: FOCUS_MINUTES * 60, running: false, startedAt: null },
+          pointsByDate: {},
           activeStrengths: [],
-          weeklyReview: null,
-          lastCreativeIdea: CREATIVE_IDEAS[0],
-          pointsByDate: {}
+          review: null,
+          creativeIdeaIndex: 0,
+          socialSkillIndex: 0
         };
       }
 
-      function normalizeTask(task) {
-        const type = task.type || task.category || "other";
+      function normalizeType(value) {
+        const map = {
+          studySession: "study",
+          studyStart: "study",
+          home: "home",
+          creative: "creative",
+          movement: "movement",
+          social: "social",
+          routine: "routine",
+          tomorrow: "routine",
+          video: "creative"
+        };
+        return TASK_TEMPLATES[value] ? value : (map[value] || "other");
+      }
 
+      function normalizeTask(task) {
+        const type = normalizeType(task.type || task.category || "other");
         return {
           id: task.id || newId(),
-          title: String(task.title || "مهمة"),
-          type: TASK_TEMPLATES[type] ? type : "other",
-          points: Number(task.points) || TASK_TEMPLATES[type]?.points || 5,
+          title: String(task.title || "مهمة قصيرة"),
+          type,
+          points: Number(task.points) || TASK_TEMPLATES[type].points,
           done: Boolean(task.done || task.completed),
           ticktickTaskId: task.ticktickTaskId || null,
           ticktickProjectId: task.ticktickProjectId || null,
@@ -1008,60 +688,32 @@
       }
 
       function loadState() {
-        const base = defaultState();
         let raw = null;
-
-        try {
-          raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        } catch {}
+        try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
 
         if (!raw) {
           for (const key of LEGACY_KEYS) {
             try {
-              const old = JSON.parse(localStorage.getItem(key) || "null");
-
-              if (Array.isArray(old)) {
-                raw = { tasks: old };
-                break;
-              }
-
-              if (old && typeof old === "object") {
-                raw = old;
-                break;
-              }
+              const previous = JSON.parse(localStorage.getItem(key) || "null");
+              if (Array.isArray(previous)) { raw = { tasks: previous }; break; }
+              if (previous && typeof previous === "object") { raw = previous; break; }
             } catch {}
           }
         }
 
-        if (!raw || typeof raw !== "object") {
-          return base;
-        }
+        const base = defaultState();
+        if (!raw || typeof raw !== "object") return base;
 
         return {
           ...base,
           ...raw,
-          profile: {
-            ...base.profile,
-            ...(raw.profile || {})
-          },
-          tasks: Array.isArray(raw.tasks)
-            ? raw.tasks.map(normalizeTask)
-            : [],
-          activeStrengths: Array.isArray(raw.activeStrengths)
-            ? raw.activeStrengths
-            : [],
+          profile: { ...base.profile, ...(raw.profile || {}) },
+          timer: { ...base.timer, ...(raw.timer || {}) },
+          tasks: Array.isArray(raw.tasks) ? raw.tasks.map(normalizeTask) : [],
+          activeStrengths: Array.isArray(raw.activeStrengths) ? raw.activeStrengths : [],
           pointsByDate: raw.pointsByDate || {}
         };
       }
-
-      let state = loadState();
-      let wizard = null;
-
-      let ticktickState = {
-        configured: false,
-        connected: false,
-        projectName: "Hero – Yaman"
-      };
 
       function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1069,1939 +721,892 @@
 
       function escapeHTML(value) {
         return String(value ?? "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
           .replace(/'/g, "&#039;");
       }
 
       function formatDate() {
-        return new Intl.DateTimeFormat("ar", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric"
-        }).format(new Date());
+        return new Intl.DateTimeFormat("ar", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
       }
 
       function showToast(message) {
         const toast = document.getElementById("toast");
-
         toast.textContent = message;
         toast.classList.add("show");
-
-        clearTimeout(showToast.timer);
-
-        showToast.timer = setTimeout(() => {
-          toast.classList.remove("show");
-        }, 3600);
+        clearTimeout(showToast.timeout);
+        showToast.timeout = setTimeout(() => toast.classList.remove("show"), 3300);
       }
 
-      function carryForwardIfNewDay() {
-        if (state.date === todayKey()) {
-          return;
-        }
-
-        const old = state;
-
-        state = {
-          ...defaultState(),
-          pointsByDate: old.pointsByDate || {},
-          socialSkill: old.socialSkill || "بدء محادثة",
-          activeStrengths: old.activeStrengths || [],
-          weeklyReview: old.weeklyReview || null,
-          lastCreativeIdea: old.lastCreativeIdea || CREATIVE_IDEAS[0]
+      function carryForward() {
+        if (state.date === dateKey()) return;
+        const carry = {
+          pointsByDate: state.pointsByDate || {},
+          activeStrengths: state.activeStrengths || [],
+          creativeIdeaIndex: state.creativeIdeaIndex || 0,
+          socialSkillIndex: state.socialSkillIndex || 0
         };
-
+        state = { ...defaultState(), ...carry };
         saveState();
       }
 
-      function getDailyPoints() {
-        return state.tasks
-          .filter((task) => task.done)
-          .reduce((sum, task) => sum + Number(task.points || 0), 0) +
-          (state.bonusClaimed ? 10 : 0);
+      function completedTasks() {
+        return state.tasks.filter(task => task.done);
       }
 
-      function getWeekStart() {
-        const date = new Date();
-        const day = date.getDay();
-
-        date.setDate(date.getDate() + (day === 0 ? -6 : 1 - day));
-        date.setHours(12, 0, 0, 0);
-
-        return date;
+      function dailyPoints() {
+        return completedTasks().reduce((sum, task) => sum + Number(task.points || 0), 0);
       }
 
-      function dateToKey(date) {
-        return [
-          date.getFullYear(),
-          String(date.getMonth() + 1).padStart(2, "0"),
-          String(date.getDate()).padStart(2, "0")
-        ].join("-");
+      function saveDailyPoints() {
+        state.pointsByDate[state.date] = dailyPoints();
+        saveState();
       }
 
-      function getWeeklyPoints() {
-        const start = getWeekStart();
+      function weekPoints() {
+        const start = new Date();
+        const day = start.getDay();
+        start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day));
+        start.setHours(12, 0, 0, 0);
         let total = 0;
-
         for (let i = 0; i < 7; i += 1) {
-          const day = new Date(start);
-
-          day.setDate(start.getDate() + i);
-
-          total += Number(state.pointsByDate[dateToKey(day)] || 0);
+          const date = new Date(start);
+          date.setDate(start.getDate() + i);
+          total += Number(state.pointsByDate[dateKey(date)] || 0);
         }
-
         return total;
       }
 
-      function syncPoints() {
-        state.pointsByDate[state.date] = getDailyPoints();
-        saveState();
-      }
-
       function findTask(id) {
-        return state.tasks.find(
-          (task) => String(task.id) === String(id)
-        );
+        return state.tasks.find(task => String(task.id) === String(id));
       }
 
-      function patchTask(id, updates) {
-        state.tasks = state.tasks.map((task) =>
-          String(task.id) === String(id)
-            ? { ...task, ...updates }
-            : task
-        );
-
-        saveState();
-
-        return findTask(id);
+      function nextTask() {
+        return state.tasks.find(task => !task.done) || null;
       }
 
-      function getTaskGuide(task) {
+      function taskGuide(task) {
         const title = String(task.title || "");
-
         if (/غسيل|ملابس|نشافة/.test(title)) {
           return {
-            duration: "10 إلى 15 دقيقة",
-            intro: "مهمة الغسيل تصبح سهلة عندما نرتبها بالترتيب الصحيح.",
-            steps: [
-              "اجمع الملابس المطلوبة في سلة واحدة.",
-              "افصل الملابس البيضاء عن الملابس الملونة إذا طُلب منك ذلك.",
-              "ضع الملابس في الغسالة أو النشافة حسب تعليمات الأهل.",
-              "تأكد أن المكان مرتب وأخبر أحد الوالدين."
-            ],
-            tip: "اسأل قبل إضافة مسحوق أو تشغيل الجهاز إذا لم تكن متأكداً."
+            intro: "نرتب الغسيل خطوة خطوة حتى تبقى المهمة قصيرة وواضحة.",
+            steps: ["اجمع الملابس المطلوبة في سلة واحدة.", "افصل الأبيض عن الملوّن إذا طلب منك ذلك.", "ضع الملابس في المكان الصحيح حسب تعليمات الأهل.", "رتّب المكان وأخبر أحد الوالدين عند الانتهاء."],
+            tip: "اسأل قبل تشغيل جهاز لم تتعلم استخدامه."
           };
         }
-
         if (/زبالة|نفايات/.test(title)) {
           return {
-            duration: "5 إلى 10 دقائق",
-            intro: "هذه مسؤولية مهمة تساعد كل العائلة.",
-            steps: [
-              "أغلق كيس النفايات جيداً.",
-              "تأكد أن الطريق إلى الخارج آمن.",
-              "خذ المفتاح إذا احتجت إليه.",
-              "ضع الكيس في الحاوية ثم عد مباشرة."
-            ],
-            tip: "لا تحمل كيساً ثقيلاً جداً وحدك. اطلب المساعدة عند الحاجة."
+            intro: "هذه مسؤولية مهمة تساعد العائلة.",
+            steps: ["أغلق الكيس جيداً.", "تأكد أن الطريق آمن.", "خذ المفتاح إن احتجت.", "ضع الكيس في الحاوية ثم عد مباشرة."],
+            tip: "لا تحمل كيساً ثقيلاً جداً وحدك."
           };
         }
-
-        if (/دبلجة|تسجيل|صوت/.test(title)) {
-          return {
-            duration: "10 إلى 20 دقيقة",
-            intro: "سنركز على صوت واحد وجملة واحدة فقط.",
-            steps: [
-              "اختر شخصية أو مشهداً قصيراً.",
-              "اقرأ الجملة مرة بصوت عادي.",
-              "جرّبها بصوت الشخصية مرتين أو ثلاثاً.",
-              "سجّل نسخة قصيرة واستمع إليها بهدوء."
-            ],
-            tip: "لا تقلد الصوت فقط؛ فكر كيف تشعر الشخصية وهي تتكلم."
-          };
-        }
-
-        const guides = {
-          routine: {
-            duration: "10 دقائق",
-            intro: "نبدأ بروتين بسيط حتى يكون اليوم مرتباً وهادئاً.",
-            steps: [
-              "اختر شيئاً واحداً لتبدأ به.",
-              "حضّر ما تحتاجه قبل البدء.",
-              "أنجز المهمة بهدوء.",
-              "تأكد أن المكان مرتب وآمن."
-            ],
-            tip: "ابدأ بخمس دقائق فقط."
-          },
-
-          home: {
-            duration: "10 إلى 15 دقيقة",
-            intro: "المسؤولية في البيت تصبح أسهل عندما نقسمها إلى خطوات صغيرة.",
-            steps: [
-              "حدد أول شيء مطلوب فقط.",
-              "حضّر الأدوات.",
-              "أنجز جزءاً واحداً بهدوء.",
-              "أخبر أحد الوالدين عندما تنتهي."
-            ],
-            tip: "لا تستخدم جهازاً لم تتعلم تشغيله."
-          },
-
-          studyStart: {
-            duration: "5 دقائق كبداية",
-            intro: "المطلوب الآن هو البدء فقط، وليس إنهاء كل الدرس.",
-            steps: [
-              "جهز الدفتر والقلم والكتاب.",
-              "اختر سؤالاً أو فقرة قصيرة.",
-              "اضبط مؤقتاً لخمس دقائق.",
-              "بعدها قرر إن كنت ستكمل أو تأخذ استراحة."
-            ],
-            tip: "ابدأ بالسؤال الأسهل."
-          },
-
-          studySession: {
-            duration: "20 دقيقة ثم 5 دقائق استراحة",
-            intro: "لا نحتاج أن ننهي كل الدرس الآن. نبدأ بجزء صغير وواضح.",
-            steps: [
-              "حضّر الدفتر والقلم والكتاب فقط.",
-              "اضبط مؤقتاً لمدة 20 دقيقة.",
-              "ابدأ بسؤال واحد سهل أو فقرة قصيرة.",
-              "ضع علامة على الشيء الصعب لتسأل عنه لاحقاً."
-            ],
-            tip: "خمس دقائق من التركيز أفضل من تأجيل طويل."
-          },
-
-          movement: {
-            duration: "15 إلى 30 دقيقة",
-            intro: "الحركة تساعد الجسم والذهن على الشعور بطاقة أفضل.",
-            steps: [
-              "اشرب قليلاً من الماء.",
-              "ابدأ بحركة خفيفة لمدة دقيقتين.",
-              "اختر تمريناً تحبه.",
-              "خذ نفساً هادئاً بعد الانتهاء."
-            ],
-            tip: "المهم الاستمرار، وليس أن تكون الأسرع."
-          },
-
-          creative: {
-            duration: "10 إلى 20 دقيقة",
-            intro: "الإبداع يحتاج تجربة، وليس نتيجة مثالية من أول مرة.",
-            steps: [
-              "اختر فكرة أو شخصية واحدة فقط.",
-              "جرّب صوتاً أو رسماً بسيطاً لمدة دقيقة.",
-              "سجّل نسخة قصيرة أو ارسم جزءاً صغيراً.",
-              "اختر شيئاً أعجبك في المحاولة."
-            ],
-            tip: "لا تحذف المحاولة الأولى بسرعة."
-          },
-
-          social: {
-            duration: "5 إلى 10 دقائق",
-            intro: "المهارة الاجتماعية تتطور بالتدريب القصير والهادئ.",
-            steps: [
-              "اختر جملة واحدة للتدرب.",
-              "قلها بصوت هادئ.",
-              "جرّبها مع شخص تثق به.",
-              "لاحظ ما نجح."
-            ],
-            tip: "التحية أو سؤال بسيط بداية ممتازة."
-          },
-
-          tomorrow: {
-            duration: "10 دقائق",
-            intro: "تجهيز الغد يمنحك صباحاً أهدأ وأسهل.",
-            steps: [
-              "حضّر الملابس.",
-              "ضع الأدوات المهمة في مكان واضح.",
-              "تأكد من الحقيبة أو الجهاز.",
-              "اسأل إن كان هناك شيء آخر للغد."
-            ],
-            tip: "ضع الأشياء قرب الباب أو في مكان ثابت."
-          },
-
-          video: {
-            duration: "20 إلى 30 دقيقة",
-            intro: "مشروع الفيديو ينجح عندما نعمل على جزء واحد فقط.",
-            steps: [
-              "اختر عنواناً أو فكرة قصيرة.",
-              "اكتب ثلاثة أسطر فقط.",
-              "سجل أو ارسم نسخة أولى.",
-              "راجعها مع أحد الوالدين قبل النشر."
-            ],
-            tip: "نستخدم أفكاراً وشخصيات أصلية."
-          }
-        };
-
-        return guides[task.type] || {
-          duration: "10 دقائق كبداية",
-          intro: "نقسم المهمة إلى أصغر خطوة ممكنة حتى تصبح سهلة للبدء.",
-          steps: [
-            "حدد ما المطلوب بالضبط.",
-            "ابدأ بأول خطوة لمدة خمس دقائق.",
-            "خذ استراحة قصيرة إذا احتجت.",
-            "ارجع وأكمل الجزء التالي."
-          ],
-          tip: "قل لنفسك: سأبدأ فقط بخمس دقائق."
-        };
+        return GUIDES[task.type] || GUIDES.other;
       }
 
-      async function apiRequest(url, options = {}) {
-        const response = await fetch(url, {
-          ...options,
-          headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {})
-          }
+      function taskMeta(task) {
+        return `${TASK_TEMPLATES[task.type]?.label || "مهمة"} · +${task.points} نقطة`;
+      }
+
+      function updateHeader() {
+        document.getElementById("headerDate").textContent = `اليوم ${formatDate()} · خطوة واحدة واضحة في كل مرة.`;
+      }
+
+      function setScreen(screen) {
+        activeScreen = screen;
+        document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === `screen${screen[0].toUpperCase()}${screen.slice(1)}`));
+        document.querySelectorAll("[data-screen]").forEach(button => {
+          button.setAttribute("aria-current", button.dataset.screen === screen ? "page" : "false");
         });
-
-        const text = await response.text();
-        let body = null;
-
-        try {
-          body = text ? JSON.parse(text) : null;
-        } catch {}
-
-        if (!response.ok) {
-          const error = new Error(
-            body?.error || "تعذر الاتصال بـ TickTick."
-          );
-
-          error.status = response.status;
-
-          throw error;
-        }
-
-        return body;
+        if (screen !== "now") stopVisualTimer();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
-      async function refreshTickTickStatus() {
-        try {
-          const response = await fetch("/api/ticktick/status", {
-            cache: "no-store"
-          });
-
-          if (!response.ok) {
-            throw new Error();
-          }
-
-          ticktickState = await response.json();
-        } catch {
-          ticktickState = {
-            configured: false,
-            connected: false,
-            projectName: "Hero – Yaman"
-          };
-        }
-
-        renderTickTick();
+      function renderAll() {
+        carryForward();
+        updateHeader();
+        renderNow();
+        renderPlan();
+        renderCreative();
+        renderProgress();
+        renderTickTickStatus();
+        setScreen(activeScreen);
       }
 
-      function renderTickTick() {
-        const status = document.getElementById("ticktickStatus");
-        const connect = document.getElementById("ticktickConnectBtn");
-        const sync = document.getElementById("ticktickSyncBtn");
-        const disconnect = document.getElementById("ticktickDisconnectBtn");
+      function renderNow() {
+        const root = document.getElementById("screenNow");
+        const task = nextTask();
+        const complete = completedTasks().length;
+        const total = state.tasks.length;
+        const progress = total ? Math.round((complete / total) * 100) : 0;
+        const active = state.activeTaskId ? findTask(state.activeTaskId) : null;
 
-        if (!ticktickState.configured) {
-          status.textContent =
-            "لم يتم إعداد TickTick بعد. أضف مفاتيح الاتصال في Railway أولاً.";
-
-          connect.textContent = "إعداد TickTick";
-          sync.classList.add("hidden");
-          disconnect.classList.add("hidden");
+        if (!state.profile.ready) {
+          root.innerHTML = `
+            <article class="intro-card">
+              <span class="eyebrow">ابدأ بهدوء</span>
+              <h2 id="nowTitle">ما الذي نفعله الآن؟ نبني خطة قصيرة لليوم.</h2>
+              <p>ثلاثة اختيارات بسيطة فقط، ثم تظهر لك مهمة واحدة واضحة لتبدأ بها. لا يوجد ضغط ولا خصم نقاط.</p>
+              <button class="btn btn-primary" type="button" data-action="open-wizard">بناء خطة اليوم</button>
+            </article>
+            <article class="card quiet-card" style="margin-top:15px">
+              <h3>تذكير هادئ للصلاة</h3>
+              <p>قبل الصلاة: أوقف الشاشة قليلاً، توضأ إن احتجت، وخذ نفسين هادئين.</p>
+            </article>`;
           return;
         }
-
-        if (!ticktickState.connected) {
-          status.textContent =
-            "غير متصل. اضغط ربط TickTick للموافقة مرة واحدة.";
-
-          connect.textContent = "ربط TickTick";
-          sync.classList.add("hidden");
-          disconnect.classList.add("hidden");
-          return;
-        }
-
-        status.textContent =
-          `متصل ✓ المهام الجديدة تتزامن مع قائمة ${ticktickState.projectName}.`;
-
-        connect.textContent = "إعادة ربط";
-        sync.classList.remove("hidden");
-        disconnect.classList.remove("hidden");
-      }
-
-      async function sendTaskToTickTick(task) {
-        if (!ticktickState.connected || task.ticktickTaskId) {
-          return task;
-        }
-
-        const result = await apiRequest("/api/ticktick/task", {
-          method: "POST",
-          body: JSON.stringify({
-            title: task.title,
-            category: task.type,
-            points: task.points,
-            completed: task.done
-          })
-        });
-
-        return patchTask(task.id, {
-          ticktickTaskId: result.task.id,
-          ticktickProjectId: result.task.projectId,
-          ticktickCompleted: Boolean(result.task.completed)
-        });
-      }
-
-      async function completeTaskInTickTick(task) {
-        if (
-          !ticktickState.connected ||
-          !task.done ||
-          task.ticktickCompleted
-        ) {
-          return task;
-        }
-
-        let current = task;
-
-        if (!current.ticktickTaskId) {
-          current = await sendTaskToTickTick(current);
-
-          if (current.ticktickCompleted) {
-            return current;
-          }
-        }
-
-        await apiRequest("/api/ticktick/task/complete", {
-          method: "POST",
-          body: JSON.stringify({
-            projectId: current.ticktickProjectId,
-            taskId: current.ticktickTaskId
-          })
-        });
-
-        return patchTask(current.id, {
-          ticktickCompleted: true
-        });
-      }
-
-      async function syncTask(id) {
-        let task = findTask(id);
 
         if (!task) {
+          root.innerHTML = `
+            <article class="now-card">
+              <div class="now-content">
+                <span class="eyebrow">اكتمل اليوم</span>
+                <h2 id="nowTitle" class="now-title">أحسنت يا يَمان. أنهيت مهامك الرئيسية.</h2>
+                <p class="now-step">الآن اختر راحة حقيقية، أو افتح “تقدمي” واكتب شيئاً واحداً تفخر به.</p>
+                <div class="action-row">
+                  <button class="btn btn-primary" type="button" data-screen="progress">فتح تقدمي</button>
+                  <button class="btn btn-secondary" type="button" data-action="open-plan">عرض الخطة</button>
+                </div>
+              </div>
+            </article>
+            ${renderSummary(progress, complete, total)}
+            <article class="card quiet-card">
+              <h3>وقت هادئ</h3><p>أنت لا تحتاج أن تضيف مهمة جديدة الآن. الراحة جزء مهم من اليوم.</p>
+            </article>`;
           return;
         }
 
-        if (!task.ticktickTaskId) {
-          task = await sendTaskToTickTick(task);
-        }
+        const guide = taskGuide(task);
+        const isActive = active && active.id === task.id;
+        const mainCard = isActive
+          ? `
+            <article class="card timer-card">
+              <span class="eyebrow">أنت تعمل الآن على</span>
+              <h2 id="nowTitle">${escapeHTML(task.title)}</h2>
+              <div class="timer-value" id="timerValue">${formatTime(currentTimerRemaining())}</div>
+              <p class="timer-note">${state.timer.running ? "المؤقت يعمل. ركّز على الخطوة الحالية فقط." : "يمكنك بدء المؤقت أو أخذ استراحة قصيرة."}</p>
+              <div class="action-row">
+                <button class="btn btn-primary" type="button" data-action="toggle-timer">${state.timer.running ? "إيقاف مؤقت" : "بدء مؤقت 20 دقيقة"}</button>
+                <button class="btn btn-success" type="button" data-action="complete-task" data-task-id="${task.id}">أنجزتها</button>
+                <button class="btn btn-secondary" type="button" data-action="open-guide" data-task-id="${task.id}">عرض الخطوات</button>
+              </div>
+            </article>`
+          : `
+            <article class="now-card">
+              <div class="now-content">
+                <div class="now-top">
+                  <span class="eyebrow" style="margin:0">المهمة التالية</span>
+                  <span class="status-pill">${escapeHTML(TASK_TEMPLATES[task.type]?.label || "مهمة")}</span>
+                </div>
+                <h2 id="nowTitle" class="now-title">${escapeHTML(task.title)}</h2>
+                <p class="now-step"><strong>ابدأ بهذا فقط:</strong> ${escapeHTML(guide.steps[0])}</p>
+                <div class="action-row">
+                  <button class="btn btn-primary" type="button" data-action="start-task" data-task-id="${task.id}">ابدأ الآن</button>
+                  <button class="btn btn-secondary" type="button" data-action="open-guide" data-task-id="${task.id}">شاهد الخطوات</button>
+                </div>
+              </div>
+            </article>`;
 
-        if (task.done && !task.ticktickCompleted) {
-          await completeTaskInTickTick(task);
-        }
+        root.innerHTML = `
+          <div class="content-grid">
+            <div class="stack">
+              ${mainCard}
+              <article class="card quiet-card">
+                <h3>تذكير هادئ للصلاة</h3>
+                <p>قبل الصلاة: أوقف الشاشة قليلاً، توضأ إن احتجت، وخذ نفسين هادئين.</p>
+              </article>
+            </div>
+            <div class="stack">
+              ${renderSummary(progress, complete, total)}
+              <article class="card">
+                <span class="eyebrow">خطة اليوم</span>
+                <h3>${total - complete} مهمة متبقية</h3>
+                <p class="muted small">لا تحتاج للتفكير في كل المهام. سنعرض واحدة فقط في كل مرة.</p>
+                <button class="btn btn-soft" type="button" data-action="open-plan" style="margin-top:8px">فتح الخطة</button>
+              </article>
+            </div>
+          </div>`;
+
+        if (isActive) startVisualTimer();
       }
 
-      async function syncAllTasks() {
-        if (!ticktickState.connected) {
-          showToast("اربط TickTick أولاً، ثم جرّب المزامنة.");
+      function renderSummary(progress, complete, total) {
+        return `
+          <article class="card">
+            <div class="progress-panel">
+              <div class="progress-number">${complete}/${total || 3}</div>
+              <div>
+                <h3>تقدّم اليوم</h3>
+                <p class="muted small" style="margin:2px 0 8px">كل مهمة مكتملة هي خطوة حقيقية.</p>
+                <div class="progress-track" aria-label="تقدم اليوم"><div class="progress-value" style="width:${progress}%"></div></div>
+              </div>
+            </div>
+          </article>`;
+      }
+
+      function renderPlan() {
+        const root = document.getElementById("screenPlan");
+
+        if (!state.profile.ready) {
+          root.innerHTML = `
+            <article class="intro-card">
+              <span class="eyebrow">خطة قصيرة</span>
+              <h2 id="planTitle">قبل أن نضيف مهاماً، نختار شكل اليوم.</h2>
+              <p>نبدأ بالطاقة، ثم المواعيد، ثم الشيء الأهم. بعدها يصنع Hero ثلاث مهام فقط.</p>
+              <button class="btn btn-primary" type="button" data-action="open-wizard">ابدأ إعداد الخطة</button>
+            </article>`;
           return;
         }
 
-        const button = document.getElementById("ticktickSyncBtn");
+        const rows = state.tasks.length
+          ? state.tasks.map((task, index) => {
+              const isActive = state.activeTaskId === task.id && !task.done;
+              return `
+                <li class="task-row ${task.done ? "done" : ""} ${isActive ? "active" : ""}">
+                  <span class="task-index">${task.done ? "✓" : index + 1}</span>
+                  <div class="task-copy">
+                    <h3>${escapeHTML(task.title)}</h3>
+                    <p>${escapeHTML(taskMeta(task))}${isActive ? " · تعمل عليها الآن" : ""}</p>
+                  </div>
+                  <div class="task-actions">
+                    ${task.done
+                      ? `<span class="status-pill done">تم</span>`
+                      : `
+                        <button class="task-icon-btn" type="button" data-action="open-guide" data-task-id="${task.id}" aria-label="عرض خطوات المهمة">i</button>
+                        <button class="task-icon-btn success" type="button" data-action="start-task" data-task-id="${task.id}" aria-label="بدء المهمة">▶</button>
+                        <button class="task-icon-btn danger" type="button" data-action="delete-task" data-task-id="${task.id}" aria-label="حذف المهمة">×</button>`}
+                  </div>
+                </li>`;
+            }).join("")
+          : `<li class="empty-state"><h3>لا توجد مهام بعد</h3><p>لنضيف مهمة واحدة واضحة فقط.</p></li>`;
 
-        button.disabled = true;
-        button.textContent = "جارٍ المزامنة...";
-
-        let success = 0;
-        let failed = 0;
-
-        for (const task of [...state.tasks]) {
-          try {
-            await syncTask(task.id);
-            success += 1;
-          } catch (error) {
-            failed += 1;
-
-            if (error.status === 401) {
-              await refreshTickTickStatus();
-              break;
-            }
-          }
-        }
-
-        button.disabled = false;
-        button.textContent = "مزامنة المهام الآن";
-
-        renderAll();
-
-        showToast(
-          failed === 0
-            ? `تمت مزامنة ${success} مهام مع TickTick.`
-            : `تمت مزامنة ${success} مهام. تعذرت مزامنة ${failed} مهمة.`
-        );
+        const commitmentText = state.profile.commitments.length ? state.profile.commitments.join(" · ") : "لا توجد مواعيد ثابتة";
+        root.innerHTML = `
+          <div class="stack">
+            <article class="card">
+              <span class="eyebrow">ملخص الخطة</span>
+              <h2 id="planTitle">ثلاث مهام كحد أقصى. هذا يكفي.</h2>
+              <p class="muted">الطاقة: <strong>${escapeHTML(state.profile.energy)}</strong> · المواعيد: ${escapeHTML(commitmentText)}</p>
+              <div class="action-row" style="margin-top:12px">
+                <button class="btn btn-soft" type="button" data-action="open-wizard">تعديل الخطة</button>
+                <button class="btn btn-secondary" type="button" data-action="reset-day">بداية يوم جديد</button>
+              </div>
+            </article>
+            <article class="card list-card">
+              <div class="section-head">
+                <div><h3>مهام اليوم</h3><span class="muted small">${state.tasks.length} من ${MAX_TASKS} مستخدمة</span></div>
+                <button class="btn btn-primary" type="button" data-action="add-task" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>إضافة مهمة</button>
+              </div>
+              <ul class="task-list">${rows}</ul>
+            </article>
+            <article class="card review-card">
+              <h3>بعد إنجاز مهمة</h3>
+              <p class="muted">ليس عليك أن تقفز فوراً للمهمة التالية. خذ دقيقة ماء أو حركة، ثم عُد إلى شاشة “الآن”.</p>
+            </article>
+          </div>`;
       }
 
-      async function markTaskDone(id) {
-        let task = findTask(id);
-
-        if (!task || task.done) {
-          return;
-        }
-
-        task = patchTask(id, { done: true });
-
-        syncPoints();
-        renderAll();
-
-        if (ticktickState.connected) {
-          try {
-            await syncTask(task.id);
-          } catch (error) {
-            if (error.status === 401) {
-              await refreshTickTickStatus();
-            }
-
-            showToast(
-              "تم حفظ الإنجاز في Hero، لكن لم يكتمل التحديث في TickTick."
-            );
-
-            return;
-          }
-        }
-
-        showToast(
-          `أحسنت يا يَمان. أنهيت المهمة وحصلت على ${task.points} نقطة.`
-        );
+      function renderCreative() {
+        const root = document.getElementById("screenCreative");
+        const idea = CREATIVE_IDEAS[state.creativeIdeaIndex % CREATIVE_IDEAS.length];
+        const social = SOCIAL_SCRIPTS[state.socialSkillIndex % SOCIAL_SCRIPTS.length];
+        root.innerHTML = `
+          <div class="stack">
+            <article class="idea-card">
+              <span class="eyebrow">فكرة هذا الأسبوع</span>
+              <h2 id="creativeTitle">${escapeHTML(idea[0])}</h2>
+              <p>${escapeHTML(idea[1])}</p>
+              <div class="action-row" style="margin-top:19px">
+                <button class="btn btn-primary" type="button" data-action="add-creative-task" ${state.tasks.length >= MAX_TASKS ? "disabled" : ""}>أضف تدريباً للخطة</button>
+                <button class="btn btn-secondary" type="button" data-action="next-idea">فكرة أخرى</button>
+              </div>
+            </article>
+            <article class="card">
+              <span class="eyebrow">بداية نص قصيرة</span>
+              <div class="script-box">
+                الراوي: في مدينة الأصوات، كان هناك <strong>${escapeHTML(idea[0])}</strong>.<br>
+                الشخصية: «لدي مشكلة صغيرة، لكنني سأتعلم منها.»<br>
+                الصديق: «أنا معك. نبدأ خطوة خطوة.»
+              </div>
+            </article>
+            <article class="card">
+              <span class="eyebrow">مهارة اجتماعية صغيرة</span>
+              <h3>${escapeHTML(social[0])}</h3>
+              <p class="muted">${escapeHTML(social[1])}</p>
+              <button class="btn btn-soft" type="button" data-action="next-social" style="margin-top:8px">مهارة أخرى</button>
+            </article>
+          </div>`;
       }
 
-      function renderHeader() {
-        document.getElementById("headerDate").textContent =
-          `اليوم ${formatDate()} — نرتب اليوم بهدوء وخطوة خطوة.`;
+      function renderProgress() {
+        const root = document.getElementById("screenProgress");
+        const review = state.review || {};
+        const strengths = ["الدبلجة وتقليد الأصوات", "الخيال والقصص", "الاهتمام بالتفاصيل", "استخدام الأجهزة", "حس الفكاهة", "التطور في الاستقلالية"];
+        root.innerHTML = `
+          <div class="stack">
+            <article class="card">
+              <span class="eyebrow">جهد الأسبوع</span>
+              <h2 id="progressTitle">${weekPoints()} نقطة</h2>
+              <p class="muted">هذه النقاط تقيس الجهد والمسؤولية والإبداع. لا توجد خصومات أبداً، ولا ترتبط بالصلاة.</p>
+              <div class="mini-grid" style="margin-top:15px">
+                <div class="mini-card"><strong>${dailyPoints()}</strong><span>نقاط اليوم</span></div>
+                <div class="mini-card"><strong>${completedTasks().length}</strong><span>مهام مكتملة</span></div>
+                <div class="mini-card"><strong>${state.activeStrengths.length}</strong><span>نقاط قوة ظهرت</span></div>
+              </div>
+            </article>
+            <article class="card">
+              <span class="eyebrow">نقاط قوتي</span>
+              <h3>اختر ما ظهر منك هذا الأسبوع</h3>
+              <div class="choice-grid" style="margin-top:13px">
+                ${strengths.map(strength => `
+                  <button class="choice-button" type="button" data-action="toggle-strength" data-strength="${escapeHTML(strength)}" aria-pressed="${state.activeStrengths.includes(strength)}">
+                    ${state.activeStrengths.includes(strength) ? "✓ " : ""}${escapeHTML(strength)}
+                  </button>`).join("")}
+              </div>
+            </article>
+            <article class="card review-card">
+              <span class="eyebrow">نهاية اليوم — دقيقتان فقط</span>
+              <form class="form-grid" id="reviewForm">
+                <label>شيء واحد تفخر به اليوم
+                  <input id="reviewProud" maxlength="140" value="${escapeHTML(review.proud || "")}" placeholder="مثال: بدأت حتى وأنا لم أكن متحمساً">
+                </label>
+                <label>أول خطوة صغيرة للغد
+                  <input id="reviewTomorrow" maxlength="140" value="${escapeHTML(review.tomorrow || "")}" placeholder="مثال: أفتح دفتر الرياضيات لخمس دقائق">
+                </label>
+                <button class="btn btn-success" type="submit">حفظ الملاحظة</button>
+              </form>
+            </article>
+          </div>`;
+      }
+
+      function openModal(content) {
+        const root = document.getElementById("modalRoot");
+        root.innerHTML = `<section class="modal" role="dialog" aria-modal="true">${content}<button class="modal-close" type="button" data-action="close-modal" aria-label="إغلاق">×</button></section>`;
+        root.querySelector(".modal-close").focus();
       }
 
       function closeModal() {
         document.getElementById("modalRoot").innerHTML = "";
       }
 
-      function openTaskGuide(task) {
-        const guide = getTaskGuide(task);
-
-        document.getElementById("modalRoot").innerHTML = `
-          <section class="modal" role="dialog" aria-modal="true">
-            <div class="modal-top">
-              <div>
-                <p class="small muted" style="margin:0 0 7px">
-                  خطة تنفيذ المهمة
-                </p>
-
-                <h2 style="margin:0">${escapeHTML(task.title)}</h2>
-              </div>
-
-              <button class="btn btn-outline" id="closeGuideBtn" type="button">
-                إغلاق
-              </button>
-            </div>
-
+      function openGuide(task) {
+        const guide = taskGuide(task);
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">خطة التنفيذ</span>
+            <h2>${escapeHTML(task.title)}</h2>
             <p class="muted">${escapeHTML(guide.intro)}</p>
-
-            <div class="guide-meta">
-              <div class="guide-meta-item">
-                <span>الوقت المقترح</span>
-                <strong>${escapeHTML(guide.duration)}</strong>
-              </div>
-
-              <div class="guide-meta-item">
-                <span>النقاط</span>
-                <strong>+${task.points}</strong>
-              </div>
-            </div>
-
-            <section class="guide-steps-box">
-              <h3>خطوات بسيطة</h3>
-
-              <ol class="guide-steps">
-                ${guide.steps
-                  .map((step) => `<li>${escapeHTML(step)}</li>`)
-                  .join("")}
-              </ol>
-            </section>
-
-            <div class="guide-tip">
-              <strong>نصيحة Hero</strong><br>
-              ${escapeHTML(guide.tip)}
-            </div>
-
-            <div class="guide-actions" style="margin-top:18px">
-              <button class="btn btn-primary" id="guideStartBtn" type="button">
-                ابدأ الآن
-              </button>
-
-              <button
-                class="btn btn-success"
-                id="guideDoneBtn"
-                type="button"
-                ${task.done ? "disabled" : ""}
-              >
-                ${task.done ? "تم الإنجاز ✓" : "أنجزتها"}
-              </button>
-            </div>
-          </section>
-        `;
-
-        document
-          .getElementById("closeGuideBtn")
-          .addEventListener("click", closeModal);
-
-        document
-          .getElementById("guideStartBtn")
-          .addEventListener("click", () => {
-            closeModal();
-            showToast(`ابدأ الآن بالخطوة الأولى: ${guide.steps[0]}`);
-          });
-
-        document
-          .getElementById("guideDoneBtn")
-          .addEventListener("click", async () => {
-            closeModal();
-            await markTaskDone(task.id);
-          });
+          </div>
+          <ol class="stack" style="margin:20px 0;padding:0;list-style:none">
+            ${guide.steps.map((step, index) => `<li class="card" style="padding:13px"><strong>${index + 1}.</strong> ${escapeHTML(step)}</li>`).join("")}
+          </ol>
+          <div class="card" style="padding:14px;background:#fff8e7;border-color:#f2d68c"><strong>نصيحة Hero:</strong> ${escapeHTML(guide.tip)}</div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" type="button" data-action="close-modal">لاحقاً</button>
+            <button class="btn btn-primary" type="button" data-action="start-task" data-task-id="${task.id}">ابدأ هذه المهمة</button>
+          </div>`);
       }
 
-      function renderToday() {
-        const view = document.getElementById("todayView");
-
-        const dailyPoints = getDailyPoints();
-        const weeklyPoints = getWeeklyPoints();
-
-        const completedCount = state.tasks.filter(
-          (task) => task.done
-        ).length;
-
-        const taskLimitReached = state.tasks.length >= 3;
-
-        const morningSummary = state.profile.ready
-          ? `
-            <div class="morning-banner">
-              <div>
-                <strong>أحسنت يا يَمان. بدأت يومك بخطة واضحة.</strong>
-
-                <div class="muted small">
-                  طاقتك: ${escapeHTML(state.profile.energy || "لم تُحدَّد")}
-                  ${
-                    state.profile.priority
-                      ? ` — أهم شيء اليوم: ${escapeHTML(state.profile.priority)}`
-                      : ""
-                  }
-                </div>
-              </div>
-
-              <button class="btn btn-soft" id="restartMorningBtn" type="button">
-                تعديل أسئلة الصباح
-              </button>
-            </div>
-          `
-          : `
-            <div class="morning-banner">
-              <div>
-                <strong>صباح الخير يا يَمان.</strong>
-
-                <div class="muted small">
-                  اليوم لا نحتاج أن نفعل كل شيء بشكل كامل. نختار أشياء مهمة وشيئاً ممتعاً.
-                </div>
-              </div>
-
-              <button class="btn btn-primary" id="openMorningBtn" type="button">
-                ابدأ الآن
-              </button>
-            </div>
-          `;
-
-        const taskItems = state.tasks.length
-          ? state.tasks
-              .map(
-                (task) => `
-                  <li class="task ${task.done ? "done" : ""}">
-                    <button class="task-copy" type="button" data-open-guide="${task.id}">
-                      <p class="task-title">${escapeHTML(task.title)}</p>
-
-                      <div class="task-meta">
-                        ${escapeHTML(TASK_TEMPLATES[task.type]?.label || "مهمة")} —
-                        ${task.points} نقطة
-                      </div>
-
-                      <span class="task-guide-link">
-                        اضغط لعرض الشرح والخطوات
-                      </span>
-                    </button>
-
-                    ${
-                      task.done
-                        ? `<span class="badge">تم الإنجاز +${task.points}</span>`
-                        : `
-                          <button class="task-complete" type="button" data-complete-task="${task.id}">
-                            أنجزتها
-                          </button>
-
-                          <button class="task-remove" type="button" data-remove-task="${task.id}" aria-label="حذف المهمة">
-                            ×
-                          </button>
-                        `
-                    }
-                  </li>
-                `
-              )
-              .join("")
-          : `
-            <li class="empty">
-              لا توجد مهام رئيسية بعد. نبدأ بثلاث مهام بسيطة فقط.
-            </li>
-          `;
-
-        const addTaskOptions = Object.entries(TASK_TEMPLATES)
-          .map(
-            ([key, item]) =>
-              `<option value="${key}">${item.label} — ${item.points} نقطة</option>`
-          )
-          .join("");
-
-        const prayerAnswer = state.prayerMessage
-          ? `<div class="note spiritual" style="margin-top:12px">${escapeHTML(state.prayerMessage)}</div>`
-          : "";
-
-        const spiritualFocus = state.spiritualFocus
-          ? `
-            <div class="note spiritual" style="margin-top:12px">
-              اختيارك الجميل الآن:
-              <strong>${escapeHTML(state.spiritualFocus)}</strong>
-            </div>
-          `
-          : "";
-
-        const middayOutput = state.midday
-          ? `
-            <div class="review-output">
-              <strong>متابعة منتصف اليوم</strong><br>
-              ما أنجزته: ${escapeHTML(state.midday.done || "خطوة صغيرة تُحسب.")}<br>
-              ما كان سهلاً: ${escapeHTML(state.midday.easy || "—")}<br>
-              ما كان صعباً: ${escapeHTML(state.midday.hard || "—")}<br>
-              الخطة الآن: ${escapeHTML(state.midday.adjustment)}
-            </div>
-          `
-          : "";
-
-        const reviewOutput = state.review
-          ? `
-            <div class="review-output">
-              <strong>تقييم اليوم</strong><br>
-              ما نجح اليوم: ${escapeHTML(state.review.best || "كل محاولة هادئة تعتبر تقدماً.")}<br>
-              ما يحتاج إلى تحسين: ${escapeHTML(state.review.hard || "نتعلم بطريقة أهدأ غداً.")}<br>
-              خطوة الغد الصغيرة: ${escapeHTML(state.review.tomorrow || "نبدأ بخمس دقائق فقط.")}<br>
-              نقاط اليوم: ${dailyPoints}<br>
-              مجموع نقاط الأسبوع: ${weeklyPoints}
-            </div>
-          `
-          : "";
-
-        view.innerHTML = `
-          ${morningSummary}
-
-          <div class="grid three">
-            <article class="card score-card">
-              <h2>نقاط اليوم الإيجابية</h2>
-
-              <div class="score-number">${dailyPoints}</div>
-
-              <div class="muted small">
-                النقاط تشجع الجهد والاستمرار. لا توجد خصومات أبداً.
-              </div>
-
-              ${
-                !state.bonusClaimed
-                  ? `
-                    <button class="btn btn-success" id="bonusBtn" type="button" style="margin-top:14px">
-                      حاولت رغم وجود صعوبة +10
-                    </button>
-                  `
-                  : `
-                    <div class="note spiritual" style="margin-top:14px">
-                      أحسنت. أخذت نقاط المحاولة اليوم لأنك استمريت بهدوء.
-                    </div>
-                  `
-              }
-            </article>
-
-            <article class="card">
-              <h2>تقدم المهام</h2>
-
-              <div class="mini-stat">
-                <strong>${completedCount} من ${state.tasks.length}</strong>
-                <span class="muted small">مهام رئيسية مكتملة اليوم</span>
-              </div>
-
-              <div class="mini-stat" style="margin-top:10px">
-                <strong>${weeklyPoints}</strong>
-                <span class="muted small">مجموع نقاط هذا الأسبوع</span>
-              </div>
-            </article>
-
-            <article class="card">
-              <h2>توازن اليوم</h2>
-
-              <div class="muted">
-                الدراسة مهمة، والراحة مهمة أيضاً. خذ وقتاً للحركة والعائلة وشيء تستمتع به.
-              </div>
-
-              <div class="note warning" style="margin-top:13px">
-                إذا كنت متعباً: نختار أهم مهمة واحدة فقط اليوم.
-              </div>
-            </article>
+      function openAddTask() {
+        const options = Object.entries(TASK_TEMPLATES).map(([key, item]) => `<option value="${key}">${item.label} · +${item.points} نقطة</option>`).join("");
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">مهمة واحدة واضحة</span>
+            <h2>أضف مهمة لليوم</h2>
+            <p class="muted">اكتبها قصيرة، بحيث تعرف ما تبدأ به فوراً.</p>
           </div>
-
-          <div class="grid two" style="margin-top:18px">
-            <article class="card">
-              <h2>خطة يَمان اليوم</h2>
-
-              <table class="schedule">
-                <thead>
-                  <tr>
-                    <th>الوقت</th>
-                    <th>النشاط</th>
-                    <th>التصنيف</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  <tr>
-                    <td>الصباح</td>
-                    <td>ترتيب السرير، إفطار، عناية شخصية</td>
-                    <td>روتين</td>
-                  </tr>
-
-                  <tr>
-                    <td>بعد الإفطار</td>
-                    <td>دراسة رياضيات أو علوم لمدة قصيرة</td>
-                    <td>دراسة</td>
-                  </tr>
-
-                  <tr>
-                    <td>قبل الظهر</td>
-                    <td>حركة خفيفة أو استراحة حقيقية</td>
-                    <td>توازن</td>
-                  </tr>
-
-                  <tr>
-                    <td>الظهر</td>
-                    <td>مهمة منزلية قصيرة وآمنة</td>
-                    <td>مسؤولية</td>
-                  </tr>
-
-                  <tr>
-                    <td>بعد الظهر</td>
-                    <td>دبلجة أو رسوم متحركة أو YouTube</td>
-                    <td>إبداع</td>
-                  </tr>
-
-                  <tr>
-                    <td>المساء</td>
-                    <td>رياضة، عائلة أو وقت حر</td>
-                    <td>توازن</td>
-                  </tr>
-
-                  <tr>
-                    <td>قبل النوم</td>
-                    <td>تجهيز الغد وتقييم بسيط</td>
-                    <td>تنظيم</td>
-                  </tr>
-                </tbody>
-              </table>
-            </article>
-
-            <article class="card">
-              <h2>الصلاة والهدوء الروحي</h2>
-
-              <div class="note spiritual">
-                اقترب وقت الصلاة يا يَمان. هل أنت على وضوء، أم تحتاج أن تتوضأ بهدوء؟
-              </div>
-
-              <div class="prayer-actions" style="margin-top:13px">
-                <button class="btn btn-soft" type="button" data-prayer="ready">
-                  أنا على وضوء
-                </button>
-
-                <button class="btn btn-soft" type="button" data-prayer="need">
-                  أحتاج إلى الوضوء
-                </button>
-              </div>
-
-              ${prayerAnswer}
-
-              <div style="margin-top:16px">
-                <h3>خلق جميل بعد الصلاة</h3>
-
-                <div class="choice-row">
-                  ${["الصبر", "اللطف", "الصدق", "المساعدة"]
-                    .map(
-                      (value) => `
-                        <button
-                          class="choice-chip ${state.spiritualFocus === value ? "selected" : ""}"
-                          type="button"
-                          data-focus="${value}"
-                        >
-                          ${value}
-                        </button>
-                      `
-                    )
-                    .join("")}
-                </div>
-              </div>
-
-              ${spiritualFocus}
-            </article>
-          </div>
-
-          <div class="grid two" style="margin-top:18px">
-            <article class="card">
-              <h2>مهامي الرئيسية اليوم</h2>
-
-              <p class="muted small">
-                نختار حتى ثلاث مهام رئيسية فقط، حتى تكون الخطة واضحة وليست مرهقة.
-              </p>
-
-              <ul class="task-list">${taskItems}</ul>
-
-              <form class="add-task-form" id="addTaskForm">
-                <input
-                  id="taskTitle"
-                  type="text"
-                  maxlength="90"
-                  placeholder="اكتب مهمة قصيرة وواضحة"
-                  ${taskLimitReached ? "disabled" : ""}
-                  required
-                >
-
-                <select id="taskCategory" ${taskLimitReached ? "disabled" : ""}>
-                  ${addTaskOptions}
-                </select>
-
-                <button class="btn btn-primary" type="submit" ${taskLimitReached ? "disabled" : ""}>
-                  إضافة
-                </button>
-              </form>
-
-              <div class="muted small" style="margin-top:10px">
-                ${
-                  taskLimitReached
-                    ? "لديك ثلاث مهام رئيسية الآن. يمكنك حذف مهمة غير مكتملة قبل إضافة مهمة جديدة."
-                    : "مثال: حل 3 أسئلة كسور — 15 نقطة"
-                }
-              </div>
-            </article>
-
-            <article class="card">
-              <h2>متابعة منتصف اليوم</h2>
-
-              <p class="muted small">
-                لا مشكلة إذا لم تبدأ بعد. نبدأ بخمس دقائق فقط.
-              </p>
-
-              <form id="middayForm">
-                <div class="form-row">
-                  <label for="middayDone">ماذا أنجزت حتى الآن؟</label>
-                  <textarea id="middayDone">${state.midday ? escapeHTML(state.midday.done) : ""}</textarea>
-                </div>
-
-                <div class="form-row">
-                  <label for="middayEasy">ما الذي كان سهلاً؟</label>
-                  <input id="middayEasy" value="${state.midday ? escapeHTML(state.midday.easy) : ""}">
-                </div>
-
-                <div class="form-row">
-                  <label for="middayHard">ما الذي كان صعباً؟</label>
-                  <input id="middayHard" value="${state.midday ? escapeHTML(state.midday.hard) : ""}">
-                </div>
-
-                <div class="form-row">
-                  <label for="middayAdjustment">هل نخفف الخطة أو نغير ترتيبها؟</label>
-
-                  <select id="middayAdjustment">
-                    ${[
-                      "نكمل بهدوء",
-                      "نبدأ بخمس دقائق فقط",
-                      "نخفف الخطة ونختار أهم مهمة واحدة",
-                      "نغير ترتيب المهام"
-                    ]
-                      .map(
-                        (option) => `
-                          <option ${state.midday?.adjustment === option ? "selected" : ""}>
-                            ${option}
-                          </option>
-                        `
-                      )
-                      .join("")}
-                  </select>
-                </div>
-
-                <button class="btn btn-primary" type="submit">
-                  حفظ المتابعة
-                </button>
-              </form>
-
-              ${middayOutput}
-            </article>
-          </div>
-
-          <article class="card" style="margin-top:18px">
-            <h2>تقييم نهاية اليوم</h2>
-
-            <p class="muted small">
-              لا نبحث عن يوم مثالي. نلاحظ ما نجح، وما نتعلمه، وما أول خطوة صغيرة للغد.
-            </p>
-
-            <form id="endDayForm" class="grid two">
-              <div class="form-row">
-                <label for="reviewBest">ما أفضل شيء فعلته اليوم؟</label>
-                <input id="reviewBest" value="${state.review ? escapeHTML(state.review.best) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="reviewHard">ما الشيء الذي كان صعباً؟</label>
-                <input id="reviewHard" value="${state.review ? escapeHTML(state.review.hard) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="reviewLearned">ماذا تعلمت؟</label>
-                <input id="reviewLearned" value="${state.review ? escapeHTML(state.review.learned) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="reviewProud">ما الذي جعلك فخوراً بنفسك؟</label>
-                <input id="reviewProud" value="${state.review ? escapeHTML(state.review.proud) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="reviewTomorrow">ما أول خطوة صغيرة للغد؟</label>
-                <input id="reviewTomorrow" value="${state.review ? escapeHTML(state.review.tomorrow) : ""}">
-              </div>
-
-              <div style="display:flex;align-items:end">
-                <button class="btn btn-success" type="submit">
-                  حفظ تقييم اليوم
-                </button>
-              </div>
-            </form>
-
-            ${reviewOutput}
-          </article>
-        `;
-
-        bindTodayEvents();
+          <form class="form-grid" id="addTaskForm" style="margin-top:18px">
+            <label>ماذا ستفعل؟
+              <input id="newTaskTitle" required maxlength="90" placeholder="مثال: أحل 3 أسئلة رياضيات">
+            </label>
+            <label>نوع المهمة
+              <select id="newTaskType">${options}</select>
+            </label>
+            <div class="modal-foot">
+              <button class="btn btn-secondary" type="button" data-action="close-modal">إلغاء</button>
+              <button class="btn btn-primary" type="submit">أضف إلى الخطة</button>
+            </div>
+          </form>`);
       }
 
-      function renderCreative() {
-        const view = document.getElementById("creativeView");
-        const idea = state.lastCreativeIdea || CREATIVE_IDEAS[0];
-
-        view.innerHTML = `
-          <div class="grid two">
-            <article class="card">
-              <h2>فكرة آمنة لهذا الأسبوع</h2>
-
-              <div class="idea-box">
-                <div class="idea-title">${escapeHTML(idea.title)}</div>
-                <div>${escapeHTML(idea.text)}</div>
-              </div>
-
-              <div class="inline-actions" style="margin-top:14px">
-                <button class="btn btn-primary" id="newIdeaBtn" type="button">
-                  فكرة أخرى
-                </button>
-
-                <button class="btn btn-soft" id="scriptStarterBtn" type="button">
-                  اكتب بداية النص
-                </button>
-              </div>
-
-              <div id="scriptStarterOutput"></div>
-            </article>
-
-            <article class="card">
-              <h2>دورة عمل قناة YouTube</h2>
-
-              <ol class="muted" style="line-height:2;padding-right:20px;margin:0">
-                <li>اختيار فكرة واحدة.</li>
-                <li>كتابة نص قصير من 30 إلى 90 ثانية.</li>
-                <li>اختيار الشخصيات والأصوات.</li>
-                <li>تدريب بسيط.</li>
-                <li>تسجيل نسخة أولى.</li>
-                <li>تعديل بسيط.</li>
-                <li>اختيار عنوان واضح وآمن.</li>
-                <li>مراجعة مع أحد الوالدين قبل النشر.</li>
-              </ol>
-
-              <div class="note warning" style="margin-top:15px">
-                نستخدم شخصيات وقصصاً أصلية، ولا نستخدم صوراً أو موسيقى محمية بحقوق النشر دون إذن.
-              </div>
-            </article>
+      function openSettings() {
+        const status = ticktickState.connected
+          ? `متصل بقائمة ${escapeHTML(ticktickState.projectName)}`
+          : ticktickState.configured ? "غير متصل" : "غير مفعّل على الخادم";
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">إعدادات</span>
+            <h2>إدارة اليوم والربط</h2>
           </div>
-
-          <div class="grid two" style="margin-top:18px">
-            <article class="card">
-              <h2>تدريب الدبلجة</h2>
-
-              <p class="muted">
-                اختر صوتاً واحداً فقط اليوم، ثم جرّب الجملة نفسها بثلاث طرق: هادئ، متحمس، ومضحك.
-              </p>
-
-              <div class="note">
-                جملة التدريب: «مرحباً، أنا روبوت صغير وأحاول أن أفهم مشاعر الناس.»
-              </div>
-
-              <div class="inline-actions" style="margin-top:14px">
-                <button class="btn btn-success" id="creativePracticeBtn" type="button">
-                  أنهيت تدريباً إبداعياً +15
-                </button>
+          <div class="stack" style="margin-top:18px">
+            <article class="card" style="padding:15px">
+              <h3>TickTick</h3>
+              <p class="muted small">${status}</p>
+              <div class="action-row" style="margin-top:10px">
+                ${ticktickState.connected
+                  ? `<button class="btn btn-soft" type="button" data-action="sync-ticktick">مزامنة الآن</button>
+                     <button class="btn btn-danger" type="button" data-action="disconnect-ticktick">فصل الاتصال</button>`
+                  : `<button class="btn btn-primary" type="button" data-action="connect-ticktick" ${ticktickState.configured ? "" : "disabled"}>ربط TickTick</button>`}
               </div>
             </article>
-
-            <article class="card">
-              <h2>مهارة اجتماعية هذا الأسبوع</h2>
-
-              <div class="form-row">
-                <label for="socialSkillSelect">اختر مهارة واحدة فقط</label>
-
-                <select id="socialSkillSelect">
-                  ${Object.keys(SOCIAL_SCRIPTS)
-                    .map(
-                      (skill) => `
-                        <option value="${escapeHTML(skill)}" ${state.socialSkill === skill ? "selected" : ""}>
-                          ${escapeHTML(skill)}
-                        </option>
-                      `
-                    )
-                    .join("")}
-                </select>
-              </div>
-
-              <div class="social-script" id="socialScript">
-                ${escapeHTML(SOCIAL_SCRIPTS[state.socialSkill])}
-              </div>
+            <article class="card" style="padding:15px">
+              <h3>بداية يوم جديد</h3>
+              <p class="muted small">يحفظ التطبيق نقاط اليوم ثم يبدأ صفحة نظيفة وخطة جديدة.</p>
+              <button class="btn btn-secondary" type="button" data-action="reset-day">بداية يوم جديد</button>
             </article>
-          </div>
-        `;
-
-        document.getElementById("newIdeaBtn").addEventListener("click", () => {
-          const alternatives = CREATIVE_IDEAS.filter(
-            (item) => item.title !== state.lastCreativeIdea?.title
-          );
-
-          state.lastCreativeIdea =
-            alternatives[Math.floor(Math.random() * alternatives.length)];
-
-          saveState();
-          renderCreative();
-        });
-
-        document.getElementById("scriptStarterBtn").addEventListener("click", () => {
-          document.getElementById("scriptStarterOutput").innerHTML = `
-            <div class="review-output">
-              <strong>بداية نص قصيرة:</strong><br>
-              الراوي: في مدينة الأصوات، كان هناك ${escapeHTML(idea.title)}.<br>
-              الشخصية: «لدي مشكلة صغيرة، لكن سأحاول أن أتعلم منها.»<br>
-              الصديق: «أنا معك. لنبدأ خطوة خطوة.»
-            </div>
-          `;
-        });
-
-        document.getElementById("creativePracticeBtn").addEventListener("click", async () => {
-          if (state.tasks.some((task) => task.done && task.type === "creative")) {
-            showToast("أحسنت يا يَمان. سجلنا نشاطك الإبداعي اليوم.");
-            return;
-          }
-
-          if (state.tasks.length >= 3) {
-            showToast("لديك ثلاث مهام رئيسية. استخدم مهمة الإبداع الموجودة في خطة اليوم.");
-            return;
-          }
-
-          const task = {
-            id: newId(),
-            type: "creative",
-            title: "تدريب دبلجة بصوت شخصية لمدة 10 دقائق",
-            points: TASK_TEMPLATES.creative.points,
-            done: true
-          };
-
-          state.tasks.push(task);
-
-          syncPoints();
-          saveState();
-          renderAll();
-
-          if (ticktickState.connected) {
-            try {
-              await syncTask(task.id);
-            } catch {
-              showToast("تم حفظ الإنجاز في Hero، لكن لم يكتمل TickTick.");
-              return;
-            }
-          }
-
-          showToast("أحسنت يا يَمان. أنهيت تدريب الدبلجة وحصلت على 15 نقطة.");
-        });
-
-        document.getElementById("socialSkillSelect").addEventListener("change", (event) => {
-          state.socialSkill = event.target.value;
-
-          saveState();
-
-          document.getElementById("socialScript").textContent =
-            SOCIAL_SCRIPTS[state.socialSkill];
-        });
-      }
-
-      function renderWeekly() {
-        const view = document.getElementById("weeklyView");
-
-        const strengthButtons = STRENGTHS.map(
-          (strength) => `
-            <button
-              class="strength-toggle ${state.activeStrengths.includes(strength) ? "active" : ""}"
-              type="button"
-              data-strength="${escapeHTML(strength)}"
-            >
-              ${state.activeStrengths.includes(strength) ? "✓ " : ""}${escapeHTML(strength)}
-            </button>
-          `
-        ).join("");
-
-        const weeklyOutput = state.weeklyReview
-          ? `
-            <div class="review-output">
-              <strong>ملخص الأسبوع</strong><br>
-              النشاط الممتع: ${escapeHTML(state.weeklyReview.fun || "—")}<br>
-              الشيء الذي شعرت أنك جيد فيه: ${escapeHTML(state.weeklyReview.goodAt || "—")}<br>
-              ما أصبح أسهل: ${escapeHTML(state.weeklyReview.easy || "—")}<br>
-              مهارة الأسبوع القادم: ${escapeHTML(state.weeklyReview.next || "—")}<br><br>
-              <strong>رسالة تقدير:</strong><br>
-              يا يَمان، أنت لا تحتاج أن تكون مثالياً. أنت تتقدم خطوة خطوة.
-            </div>
-          `
-          : "";
-
-        view.innerHTML = `
-          <div class="grid two">
-            <article class="card">
-              <h2>خريطة نقاط قوة يَمان</h2>
-
-              <p class="muted small">
-                اختر نقاط القوة التي ظهرت هذا الأسبوع.
-              </p>
-
-              <div class="strength-list">
-                ${strengthButtons}
-              </div>
-
-              <div class="note spiritual" style="margin-top:16px">
-                نقاط القوة تساعدنا على اختيار أنشطة مناسبة، لا على المقارنة مع الآخرين.
-              </div>
-            </article>
-
-            <article class="card">
-              <h2>نقاط الأسبوع</h2>
-
-              <div class="score-number">${getWeeklyPoints()}</div>
-
-              <div class="muted">
-                كل نقطة هنا جاءت من جهد أو مسؤولية أو إبداع. لا توجد نقاط للصلاة لأنها مساحة روحية هادئة وليست مكافأة.
-              </div>
-
-              <div class="note warning" style="margin-top:15px">
-                اختر مجالين فقط للتحسين في الأسبوع القادم.
-              </div>
-            </article>
-          </div>
-
-          <article class="card" style="margin-top:18px">
-            <h2>التقييم الأسبوعي</h2>
-
-            <form id="weeklyForm" class="grid two">
-              <div class="form-row">
-                <label for="weeklyFun">ما النشاط الذي استمتعت به أكثر؟</label>
-                <input id="weeklyFun" value="${state.weeklyReview ? escapeHTML(state.weeklyReview.fun) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="weeklyGoodAt">ما الشيء الذي شعرت أنك جيد فيه؟</label>
-                <input id="weeklyGoodAt" value="${state.weeklyReview ? escapeHTML(state.weeklyReview.goodAt) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="weeklyEasy">ما المهمة التي أصبحت أسهل؟</label>
-                <input id="weeklyEasy" value="${state.weeklyReview ? escapeHTML(state.weeklyReview.easy) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="weeklyCompliment">ما الذي مدحك عليه شخص آخر؟</label>
-                <input id="weeklyCompliment" value="${state.weeklyReview ? escapeHTML(state.weeklyReview.compliment) : ""}">
-              </div>
-
-              <div class="form-row">
-                <label for="weeklyNext">ما المهارة التي تريد تطويرها الأسبوع القادم؟</label>
-                <input id="weeklyNext" value="${state.weeklyReview ? escapeHTML(state.weeklyReview.next) : ""}">
-              </div>
-
-              <div style="display:flex;align-items:end">
-                <button class="btn btn-success" type="submit">
-                  حفظ تقييم الأسبوع
-                </button>
-              </div>
-            </form>
-
-            ${weeklyOutput}
-          </article>
-        `;
-
-        document.querySelectorAll("[data-strength]").forEach((button) => {
-          button.addEventListener("click", () => {
-            const strength = button.dataset.strength;
-
-            state.activeStrengths = state.activeStrengths.includes(strength)
-              ? state.activeStrengths.filter((item) => item !== strength)
-              : [...state.activeStrengths, strength];
-
-            saveState();
-            renderWeekly();
-          });
-        });
-
-        document.getElementById("weeklyForm").addEventListener("submit", (event) => {
-          event.preventDefault();
-
-          state.weeklyReview = {
-            fun: document.getElementById("weeklyFun").value.trim(),
-            goodAt: document.getElementById("weeklyGoodAt").value.trim(),
-            easy: document.getElementById("weeklyEasy").value.trim(),
-            compliment: document.getElementById("weeklyCompliment").value.trim(),
-            next: document.getElementById("weeklyNext").value.trim()
-          };
-
-          saveState();
-          renderWeekly();
-
-          showToast("تم حفظ تقييم الأسبوع. أحسنت لأنك لاحظت تقدمك.");
-        });
-      }
-
-      function bindTodayEvents() {
-        document.getElementById("openMorningBtn")?.addEventListener(
-          "click",
-          openMorningWizard
-        );
-
-        document.getElementById("restartMorningBtn")?.addEventListener(
-          "click",
-          openMorningWizard
-        );
-
-        document.getElementById("bonusBtn")?.addEventListener("click", () => {
-          state.bonusClaimed = true;
-
-          syncPoints();
-          renderAll();
-
-          showToast("أحسنت يا يَمان. المحاولة رغم الصعوبة قوة حقيقية.");
-        });
-
-        document.querySelectorAll("[data-open-guide]").forEach((button) => {
-          button.addEventListener("click", () => {
-            const task = findTask(button.dataset.openGuide);
-
-            if (task) {
-              openTaskGuide(task);
-            }
-          });
-        });
-
-        document.querySelectorAll("[data-complete-task]").forEach((button) => {
-          button.addEventListener("click", () => {
-            markTaskDone(button.dataset.completeTask);
-          });
-        });
-
-        document.querySelectorAll("[data-remove-task]").forEach((button) => {
-          button.addEventListener("click", () => {
-            const task = findTask(button.dataset.removeTask);
-
-            if (!task || task.done) {
-              return;
-            }
-
-            state.tasks = state.tasks.filter(
-              (item) => String(item.id) !== String(task.id)
-            );
-
-            saveState();
-            renderAll();
-
-            showToast("تم حذف المهمة غير المكتملة.");
-          });
-        });
-
-        document.getElementById("addTaskForm").addEventListener("submit", async (event) => {
-          event.preventDefault();
-
-          if (state.tasks.length >= 3) {
-            showToast("نحتفظ بثلاث مهام رئيسية فقط اليوم.");
-            return;
-          }
-
-          const title = document.getElementById("taskTitle").value.trim();
-          const type = document.getElementById("taskCategory").value;
-
-          if (!title) {
-            showToast("اكتب المهمة بجملة قصيرة وواضحة.");
-            return;
-          }
-
-          const task = {
-            id: newId(),
-            title,
-            type,
-            points: TASK_TEMPLATES[type].points,
-            done: false
-          };
-
-          state.tasks.push(task);
-
-          saveState();
-          renderAll();
-
-          if (ticktickState.connected) {
-            try {
-              await syncTask(task.id);
-              showToast("تمت إضافة المهمة إلى Hero وTickTick.");
-            } catch {
-              showToast("تمت إضافة المهمة إلى Hero، لكن لم تُرسل إلى TickTick.");
-            }
-          } else {
-            showToast("تمت إضافة المهمة. خطوة صغيرة وواضحة.");
-          }
-        });
-
-        document.querySelectorAll("[data-prayer]").forEach((button) => {
-          button.addEventListener("click", () => {
-            state.prayerMessage = button.dataset.prayer === "ready"
-              ? "رائع. أوقف الشاشة قبل الصلاة بدقائق، وخذ نفسين هادئين."
-              : "نذهب للوضوء بهدوء، ثم نأخذ نفساً ونستعد للصلاة.";
-
-            saveState();
-            renderToday();
-          });
-        });
-
-        document.querySelectorAll("[data-focus]").forEach((button) => {
-          button.addEventListener("click", () => {
-            state.spiritualFocus = button.dataset.focus;
-
-            saveState();
-            renderToday();
-          });
-        });
-
-        document.getElementById("middayForm").addEventListener("submit", (event) => {
-          event.preventDefault();
-
-          state.midday = {
-            done: document.getElementById("middayDone").value.trim(),
-            easy: document.getElementById("middayEasy").value.trim(),
-            hard: document.getElementById("middayHard").value.trim(),
-            adjustment: document.getElementById("middayAdjustment").value
-          };
-
-          saveState();
-          renderToday();
-
-          showToast("تم حفظ المتابعة. نكمل بهدوء.");
-        });
-
-        document.getElementById("endDayForm").addEventListener("submit", (event) => {
-          event.preventDefault();
-
-          state.review = {
-            best: document.getElementById("reviewBest").value.trim(),
-            hard: document.getElementById("reviewHard").value.trim(),
-            learned: document.getElementById("reviewLearned").value.trim(),
-            proud: document.getElementById("reviewProud").value.trim(),
-            tomorrow: document.getElementById("reviewTomorrow").value.trim()
-          };
-
-          saveState();
-          renderToday();
-
-          showToast("تم حفظ تقييم اليوم. أحسنت لأنك لاحظت ما تعلمته.");
-        });
+          </div>`);
       }
 
       function openMorningWizard() {
         wizard = {
           step: 0,
           answers: {
-            sleep: state.profile.sleep || "",
             energy: state.profile.energy || "",
-            schedule: state.profile.schedule || [],
-            priority: state.profile.priority || "",
-            fun: state.profile.fun || ""
+            commitments: state.profile.commitments || [],
+            focus: state.profile.focus || ""
           }
         };
-
         renderWizard();
       }
 
       function renderWizard() {
-        const question = MORNING_QUESTIONS[wizard.step];
-        const isLast = wizard.step === MORNING_QUESTIONS.length - 1;
+        const questions = [
+          { key: "energy", title: "كيف هي طاقتك اليوم؟", copy: "هذا يساعدنا أن نجعل الخطة مناسبة ليومك.", type: "single", options: [["منخفضة", "نختار مهاماً أقصر"], ["متوسطة", "خطة متوازنة"], ["عالية", "يمكنك اختيار تحدٍّ لطيف"]] },
+          { key: "commitments", title: "هل يوجد موعد ثابت اليوم؟", copy: "يمكنك اختيار أكثر من شيء، أو تخطي الخطوة.", type: "multi", options: ["مدرسة", "رياضة", "علاج", "خروج عائلي", "لا يوجد موعد مهم"] },
+          { key: "focus", title: "ما المجال الذي تريد أن تبدأ به؟", copy: "ليس التزاماً كبيراً؛ فقط بداية اليوم.", type: "single", options: [["دراسة", "رياضيات أو علوم"], ["مسؤولية", "مهمة قصيرة في البيت"], ["إبداع", "دبلجة أو رسوم"], ["توازن", "حركة وهدوء"]] }
+        ];
+        const question = questions[wizard.step];
+        const last = wizard.step === questions.length - 1;
+        const selected = wizard.answers[question.key];
 
-        let inputHTML = "";
+        const options = question.type === "multi"
+          ? `<div class="choice-grid">${question.options.map(option => `<button class="choice-button" type="button" data-wizard-multi="${escapeHTML(option)}" aria-pressed="${(selected || []).includes(option)}">${(selected || []).includes(option) ? "✓ " : ""}${escapeHTML(option)}</button>`).join("")}</div>`
+          : `<div class="option-grid">${question.options.map(([title, sub]) => `<button class="option-button" type="button" data-wizard-single="${escapeHTML(title)}" aria-pressed="${selected === title}"><span>${escapeHTML(title)}<span class="sub">${escapeHTML(sub)}</span></span><span aria-hidden="true">${selected === title ? "✓" : ""}</span></button>`).join("")}</div>`;
 
-        if (question.type === "single") {
-          inputHTML = `
-            <div class="wizard-options">
-              ${question.options
-                .map(
-                  (option) => `
-                    <button
-                      class="wizard-option ${wizard.answers[question.key] === option ? "selected" : ""}"
-                      type="button"
-                      data-wizard-single="${escapeHTML(option)}"
-                    >
-                      ${escapeHTML(option)}
-                    </button>
-                  `
-                )
-                .join("")}
+        openModal(`
+          <div class="modal-head">
+            <span class="eyebrow">إعداد الخطة · ${wizard.step + 1} من 3</span>
+            <div class="steps-indicator" aria-hidden="true">
+              ${[0,1,2].map(i => `<span class="step-dot ${i < wizard.step ? "complete" : i === wizard.step ? "active" : ""}"></span>`).join("")}
             </div>
-          `;
-        }
-
-        if (question.type === "multiple") {
-          inputHTML = `
-            <div class="wizard-options">
-              ${question.options
-                .map(
-                  (option) => `
-                    <button
-                      class="wizard-option ${(wizard.answers.schedule || []).includes(option) ? "selected" : ""}"
-                      type="button"
-                      data-wizard-multi="${escapeHTML(option)}"
-                    >
-                      ${escapeHTML(option)}
-                    </button>
-                  `
-                )
-                .join("")}
-            </div>
-
-            <div class="muted small">
-              يمكنك اختيار أكثر من موعد.
-            </div>
-          `;
-        }
-
-        if (question.type === "text") {
-          inputHTML = `
-            <div style="margin-top:18px">
-              <textarea
-                id="wizardText"
-                placeholder="${escapeHTML(question.placeholder)}"
-              >${escapeHTML(wizard.answers.priority || "")}</textarea>
-
-              <div class="muted small" style="margin-top:8px">
-                يمكن أن تكتب كلمة واحدة فقط. لا نحتاج جواباً مثالياً.
-              </div>
-            </div>
-          `;
-        }
-
-        document.getElementById("modalRoot").innerHTML = `
-          <section class="modal" role="dialog" aria-modal="true">
-            <div class="modal-top">
-              <div>
-                <h2 style="margin:0 0 8px">صباح الخير يا يَمان</h2>
-
-                <p class="muted" style="margin:0">
-                  اليوم لا نحتاج أن نفعل كل شيء بشكل كامل. سنختار أشياء مهمة وشيئاً ممتعاً.
-                </p>
-              </div>
-
-              <span class="step-pill">
-                ${wizard.step + 1} من ${MORNING_QUESTIONS.length}
-              </span>
-            </div>
-
-            <h3 style="margin-top:24px">${question.title}</h3>
-
-            ${inputHTML}
-
-            <div class="wizard-footer">
-              <button
-                class="btn btn-outline"
-                id="wizardBackBtn"
-                type="button"
-                ${wizard.step === 0 ? "disabled" : ""}
-              >
-                رجوع
-              </button>
-
-              <button class="btn btn-primary" id="wizardNextBtn" type="button">
-                ${isLast ? "إنشاء خطة اليوم" : "التالي"}
-              </button>
-            </div>
-          </section>
-        `;
-
-        document.querySelectorAll("[data-wizard-single]").forEach((button) => {
-          button.addEventListener("click", () => {
-            wizard.answers[question.key] = button.dataset.wizardSingle;
-            renderWizard();
-          });
-        });
-
-        document.querySelectorAll("[data-wizard-multi]").forEach((button) => {
-          button.addEventListener("click", () => {
-            const value = button.dataset.wizardMulti;
-            let selected = [...(wizard.answers.schedule || [])];
-
-            if (value === "لا يوجد موعد مهم") {
-              selected = selected.includes(value) ? [] : [value];
-            } else {
-              selected = selected.filter(
-                (item) => item !== "لا يوجد موعد مهم"
-              );
-
-              selected = selected.includes(value)
-                ? selected.filter((item) => item !== value)
-                : [...selected, value];
-            }
-
-            wizard.answers.schedule = selected;
-            renderWizard();
-          });
-        });
-
-        document.getElementById("wizardBackBtn").addEventListener("click", () => {
-          if (question.type === "text") {
-            wizard.answers.priority =
-              document.getElementById("wizardText").value.trim();
-          }
-
-          if (wizard.step > 0) {
-            wizard.step -= 1;
-            renderWizard();
-          }
-        });
-
-        document.getElementById("wizardNextBtn").addEventListener("click", () => {
-          if (question.type === "text") {
-            wizard.answers.priority =
-              document.getElementById("wizardText").value.trim();
-          }
-
-          if (
-            question.type === "single" &&
-            !wizard.answers[question.key]
-          ) {
-            showToast("اختر جواباً بسيطاً، ثم نكمل.");
-            return;
-          }
-
-          if (
-            question.type === "multiple" &&
-            (!wizard.answers.schedule || wizard.answers.schedule.length === 0)
-          ) {
-            wizard.answers.schedule = ["لا يوجد موعد مهم"];
-          }
-
-          if (isLast) {
-            createDailyPlanFromWizard();
-            return;
-          }
-
-          wizard.step += 1;
-          renderWizard();
-        });
+            <h2>${question.title}</h2>
+            <p class="muted">${question.copy}</p>
+          </div>
+          <div style="margin-top:19px">${options}</div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" type="button" data-action="wizard-back" ${wizard.step === 0 ? "disabled" : ""}>رجوع</button>
+            <button class="btn btn-primary" type="button" data-action="wizard-next">${last ? "أنشئ الخطة" : "التالي"}</button>
+          </div>`);
       }
 
-      async function createDailyPlanFromWizard() {
-        const priority = wizard.answers.priority || "مراجعة درس مهم";
-        const creativeActivity =
-          wizard.answers.fun || "نشاط إبداعي قصير";
+      function createPlan() {
+        const energy = wizard.answers.energy || "متوسطة";
+        const focus = wizard.answers.focus || "دراسة";
+        const studyDuration = energy === "منخفضة" ? "15" : "20";
+        const first = {
+          "دراسة": { type: "study", title: `دراسة لمدة ${studyDuration} دقيقة: ابدأ بسؤال واحد` },
+          "مسؤولية": { type: "home", title: "مسؤولية منزلية قصيرة: ترتيب المكتب أو الملابس" },
+          "إبداع": { type: "creative", title: "تدريب دبلجة: جملة واحدة بثلاث نبرات" },
+          "توازن": { type: "movement", title: "حركة خفيفة أو مشي لمدة 15 دقيقة" }
+        }[focus];
 
-        state.profile = {
-          ready: true,
-          sleep: wizard.answers.sleep,
-          energy: wizard.answers.energy,
-          schedule: wizard.answers.schedule,
-          priority,
-          fun: creativeActivity
-        };
-
-        state.tasks = [
-          {
-            id: newId(),
-            type: "studySession",
-            title: `دراسة لمدة 20 دقيقة: ${priority}`,
-            points: TASK_TEMPLATES.studySession.points,
-            done: false
-          },
-          {
-            id: newId(),
-            type: "home",
-            title: "مهمة منزلية قصيرة: ترتيب المكتب أو الملابس",
-            points: TASK_TEMPLATES.home.points,
-            done: false
-          },
-          {
-            id: newId(),
-            type: "creative",
-            title: `نشاط إبداعي: ${creativeActivity}`,
-            points: TASK_TEMPLATES.creative.points,
-            done: false
-          }
+        const candidates = [
+          first,
+          { type: "home", title: "مسؤولية منزلية قصيرة: ترتيب المكتب أو الملابس" },
+          { type: "creative", title: "نشاط إبداعي: دبلجة أو رسم لمدة 15 دقيقة" },
+          { type: "study", title: `دراسة لمدة ${studyDuration} دقيقة: جزء صغير وواضح` },
+          { type: "movement", title: "حركة خفيفة أو مشي لمدة 15 دقيقة" }
         ];
 
-        state.bonusClaimed = false;
-        state.midday = null;
-        state.review = null;
+        const tasks = [];
+        for (const item of candidates) {
+          if (tasks.length === MAX_TASKS) break;
+          if (!tasks.some(task => task.type === item.type)) {
+            tasks.push({ id: newId(), ...item, points: TASK_TEMPLATES[item.type].points, done: false });
+          }
+        }
 
+        state.profile = { ready: true, energy, commitments: wizard.answers.commitments || [], focus };
+        state.tasks = tasks;
+        state.activeTaskId = null;
+        state.timer = { taskId: null, remaining: FOCUS_MINUTES * 60, running: false, startedAt: null };
+        state.review = null;
         saveState();
         closeModal();
+        activeScreen = "now";
         renderAll();
+        showToast("أحسنت يا يَمان. أمامك الآن مهمة واحدة فقط.");
+        if (ticktickState.connected) syncAllTasks();
+      }
 
-        if (ticktickState.connected) {
-          try {
-            await syncAllTasks();
-          } catch {
-            showToast("تم إنشاء الخطة، لكن مزامنة TickTick تحتاج محاولة أخرى.");
+      function startTask(taskId) {
+        const task = findTask(taskId);
+        if (!task || task.done) return;
+        state.activeTaskId = task.id;
+        state.timer = { taskId: task.id, remaining: FOCUS_MINUTES * 60, running: false, startedAt: null };
+        saveState();
+        closeModal();
+        activeScreen = "now";
+        renderAll();
+        showToast("ابدأ فقط بالخطوة الأولى. هذا يكفي الآن.");
+      }
+
+      function currentTimerRemaining() {
+        if (!state.timer.running || !state.timer.startedAt) return Math.max(0, Number(state.timer.remaining) || 0);
+        const elapsed = Math.floor((Date.now() - state.timer.startedAt) / 1000);
+        return Math.max(0, Number(state.timer.remaining) - elapsed);
+      }
+
+      function formatTime(seconds) {
+        const safe = Math.max(0, Number(seconds) || 0);
+        const min = Math.floor(safe / 60);
+        const sec = safe % 60;
+        return `${String(min).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+      }
+
+      function startVisualTimer() {
+        stopVisualTimer();
+        timerInterval = setInterval(() => {
+          const remaining = currentTimerRemaining();
+          const display = document.getElementById("timerValue");
+          if (display) display.textContent = formatTime(remaining);
+          if (remaining === 0 && state.timer.running) {
+            state.timer.remaining = 0;
+            state.timer.running = false;
+            state.timer.startedAt = null;
+            saveState();
+            stopVisualTimer();
+            renderNow();
+            showToast("انتهى الوقت. اختر: استراحة قصيرة أو إكمال المهمة.");
           }
+        }, 1000);
+      }
+
+      function stopVisualTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      function toggleTimer() {
+        const remaining = currentTimerRemaining();
+        if (remaining === 0) {
+          state.timer.remaining = FOCUS_MINUTES * 60;
+          state.timer.running = true;
+          state.timer.startedAt = Date.now();
+        } else if (state.timer.running) {
+          state.timer.remaining = remaining;
+          state.timer.running = false;
+          state.timer.startedAt = null;
         } else {
-          showToast("أحسنت يا يَمان. هذه خطة قصيرة وواضحة.");
+          state.timer.remaining = remaining;
+          state.timer.running = true;
+          state.timer.startedAt = Date.now();
         }
+        saveState();
+        renderNow();
+      }
+
+      async function completeTask(taskId) {
+        const task = findTask(taskId);
+        if (!task || task.done) return;
+        task.done = true;
+        if (state.activeTaskId === task.id) {
+          state.activeTaskId = null;
+          state.timer = { taskId: null, remaining: FOCUS_MINUTES * 60, running: false, startedAt: null };
+          stopVisualTimer();
+        }
+        saveDailyPoints();
+        renderAll();
+        if (ticktickState.connected) {
+          try { await syncTask(task.id); } catch {}
+        }
+        showToast(`أحسنت يا يَمان. أنهيت المهمة وحصلت على ${task.points} نقطة.`);
+      }
+
+      function deleteTask(taskId) {
+        const task = findTask(taskId);
+        if (!task || task.done) return;
+        state.tasks = state.tasks.filter(item => item.id !== task.id);
+        if (state.activeTaskId === task.id) {
+          state.activeTaskId = null;
+          state.timer = { taskId: null, remaining: FOCUS_MINUTES * 60, running: false, startedAt: null };
+          stopVisualTimer();
+        }
+        saveState();
+        renderAll();
+        showToast("تم حذف المهمة غير المكتملة.");
       }
 
       function resetDay() {
-        const confirmed = window.confirm(
-          "هل تريد بدء يوم جديد؟ سيتم حفظ نقاط هذا اليوم، ثم تبدأ خطة جديدة."
-        );
-
-        if (!confirmed) {
-          return;
-        }
-
-        const carry = {
-          pointsByDate: state.pointsByDate || {},
-          socialSkill: state.socialSkill,
-          activeStrengths: state.activeStrengths,
-          weeklyReview: state.weeklyReview,
-          lastCreativeIdea: state.lastCreativeIdea
-        };
-
-        state = {
-          ...defaultState(),
-          ...carry
-        };
-
+        const carry = { pointsByDate: state.pointsByDate || {}, activeStrengths: state.activeStrengths || [], creativeIdeaIndex: state.creativeIdeaIndex || 0, socialSkillIndex: state.socialSkillIndex || 0 };
+        state = { ...defaultState(), ...carry };
         saveState();
+        closeModal();
+        activeScreen = "now";
         renderAll();
         openMorningWizard();
       }
 
-      function renderAll() {
-        carryForwardIfNewDay();
-        renderHeader();
-        renderToday();
-        renderCreative();
-        renderWeekly();
-        renderTickTick();
+      function addCreativeTask() {
+        if (state.tasks.length >= MAX_TASKS) {
+          showToast("لديك ثلاث مهام رئيسية. لا نضيف أكثر اليوم.");
+          return;
+        }
+        const task = {
+          id: newId(),
+          type: "creative",
+          title: "تدريب دبلجة: جملة واحدة بثلاث نبرات",
+          points: TASK_TEMPLATES.creative.points,
+          done: false
+        };
+        state.tasks.push(task);
+        saveState();
+        renderAll();
+        showToast("أضفنا تدريب الدبلجة إلى الخطة.");
+        if (ticktickState.connected) syncTask(task.id);
+      }
+
+      async function apiRequest(url, options = {}) {
+        const response = await fetch(url, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+        });
+        const text = await response.text();
+        let body = null;
+        try { body = text ? JSON.parse(text) : null; } catch {}
+        if (!response.ok) {
+          const error = new Error(body?.error || "تعذر الاتصال بـ TickTick.");
+          error.status = response.status;
+          throw error;
+        }
+        return body;
+      }
+
+      async function refreshTickTickStatus() {
+        try {
+          const response = await fetch("/api/ticktick/status", { cache: "no-store" });
+          if (!response.ok) throw new Error();
+          ticktickState = await response.json();
+        } catch {
+          ticktickState = { configured: false, connected: false, projectName: "Hero – Yaman" };
+        }
+      }
+
+      function renderTickTickStatus() {
+        // Status is rendered in the settings sheet, where it belongs; it does not compete with the daily task.
+      }
+
+      async function sendTaskToTickTick(task) {
+        if (!ticktickState.connected || task.ticktickTaskId) return task;
+        const result = await apiRequest("/api/ticktick/task", {
+          method: "POST",
+          body: JSON.stringify({ title: task.title, category: task.type, points: task.points, completed: task.done })
+        });
+        task.ticktickTaskId = result.task.id;
+        task.ticktickProjectId = result.task.projectId;
+        task.ticktickCompleted = Boolean(result.task.completed);
+        saveState();
+        return task;
+      }
+
+      async function completeTaskInTickTick(task) {
+        if (!ticktickState.connected || !task.done || task.ticktickCompleted) return task;
+        const current = task.ticktickTaskId ? task : await sendTaskToTickTick(task);
+        if (current.ticktickCompleted) return current;
+        await apiRequest("/api/ticktick/task/complete", {
+          method: "POST",
+          body: JSON.stringify({ projectId: current.ticktickProjectId, taskId: current.ticktickTaskId })
+        });
+        current.ticktickCompleted = true;
+        saveState();
+        return current;
+      }
+
+      async function syncTask(taskId) {
+        let task = findTask(taskId);
+        if (!task) return;
+        if (!task.ticktickTaskId) task = await sendTaskToTickTick(task);
+        if (task.done && !task.ticktickCompleted) await completeTaskInTickTick(task);
+      }
+
+      async function syncAllTasks() {
+        if (!ticktickState.connected) {
+          showToast("اربط TickTick أولاً.");
+          return;
+        }
+        let synced = 0;
+        for (const task of [...state.tasks]) {
+          try { await syncTask(task.id); synced += 1; } catch {}
+        }
+        showToast(`تمت مزامنة ${synced} مهام مع TickTick.`);
+      }
+
+      function connectTickTick() {
+        if (!ticktickState.configured) {
+          showToast("يجب إعداد TickTick في Railway أولاً.");
+          return;
+        }
+        window.location.assign("/auth/ticktick");
+      }
+
+      async function disconnectTickTick() {
+        try {
+          await apiRequest("/api/ticktick/disconnect", { method: "POST" });
+          await refreshTickTickStatus();
+          openSettings();
+          showToast("تم فصل TickTick من هذا المتصفح.");
+        } catch {
+          showToast("تعذر فصل TickTick الآن.");
+        }
+      }
+
+      function toggleStrength(strength) {
+        state.activeStrengths = state.activeStrengths.includes(strength)
+          ? state.activeStrengths.filter(item => item !== strength)
+          : [...state.activeStrengths, strength];
+        saveState();
+        renderProgress();
+      }
+
+      function bindEvents() {
+        document.addEventListener("click", async event => {
+          const button = event.target.closest("[data-action], [data-screen]");
+          if (!button) return;
+
+          if (button.dataset.screen) {
+            setScreen(button.dataset.screen);
+            return;
+          }
+
+          const action = button.dataset.action;
+          const taskId = button.dataset.taskId;
+
+          if (action === "open-wizard") openMorningWizard();
+          if (action === "open-plan") setScreen("plan");
+          if (action === "open-guide") {
+            const task = findTask(taskId);
+            if (task) openGuide(task);
+          }
+          if (action === "close-modal") closeModal();
+          if (action === "start-task") startTask(taskId);
+          if (action === "toggle-timer") toggleTimer();
+          if (action === "complete-task") completeTask(taskId);
+          if (action === "delete-task") deleteTask(taskId);
+          if (action === "add-task") openAddTask();
+          if (action === "add-creative-task") addCreativeTask();
+          if (action === "next-idea") {
+            state.creativeIdeaIndex = (state.creativeIdeaIndex + 1) % CREATIVE_IDEAS.length;
+            saveState(); renderCreative();
+          }
+          if (action === "next-social") {
+            state.socialSkillIndex = (state.socialSkillIndex + 1) % SOCIAL_SCRIPTS.length;
+            saveState(); renderCreative();
+          }
+          if (action === "toggle-strength") toggleStrength(button.dataset.strength);
+          if (action === "reset-day") resetDay();
+          if (action === "connect-ticktick") connectTickTick();
+          if (action === "sync-ticktick") syncAllTasks();
+          if (action === "disconnect-ticktick") disconnectTickTick();
+
+          if (action === "wizard-back") {
+            wizard.step = Math.max(0, wizard.step - 1);
+            renderWizard();
+          }
+
+          if (action === "wizard-next") {
+            const isMulti = wizard.step === 1;
+            if (wizard.step === 0 && !wizard.answers.energy) {
+              showToast("اختر مستوى طاقتك، ثم نكمل.");
+              return;
+            }
+            if (wizard.step === 2 && !wizard.answers.focus) {
+              showToast("اختر مجالاً واحداً لتبدأ به.");
+              return;
+            }
+            if (isMulti && !wizard.answers.commitments.length) wizard.answers.commitments = ["لا يوجد موعد مهم"];
+            if (wizard.step === 2) createPlan();
+            else { wizard.step += 1; renderWizard(); }
+          }
+
+          if (button.dataset.wizardSingle) {
+            const key = wizard.step === 0 ? "energy" : "focus";
+            wizard.answers[key] = button.dataset.wizardSingle;
+            renderWizard();
+          }
+
+          if (button.dataset.wizardMulti) {
+            const value = button.dataset.wizardMulti;
+            let selected = [...(wizard.answers.commitments || [])];
+            if (value === "لا يوجد موعد مهم") {
+              selected = selected.includes(value) ? [] : [value];
+            } else {
+              selected = selected.filter(item => item !== "لا يوجد موعد مهم");
+              selected = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
+            }
+            wizard.answers.commitments = selected;
+            renderWizard();
+          }
+        });
+
+        document.addEventListener("submit", event => {
+          if (event.target.id === "addTaskForm") {
+            event.preventDefault();
+            const title = document.getElementById("newTaskTitle").value.trim();
+            const type = document.getElementById("newTaskType").value;
+            if (!title) {
+              showToast("اكتب المهمة بجملة قصيرة وواضحة.");
+              return;
+            }
+            if (state.tasks.length >= MAX_TASKS) {
+              showToast("لديك ثلاث مهام رئيسية اليوم.");
+              return;
+            }
+            const task = { id: newId(), title, type, points: TASK_TEMPLATES[type].points, done: false };
+            state.tasks.push(task);
+            saveState();
+            closeModal();
+            renderAll();
+            showToast("أُضيفت المهمة. اخترها من شاشة “الآن” عندما تصبح جاهزاً.");
+            if (ticktickState.connected) syncTask(task.id);
+          }
+
+          if (event.target.id === "reviewForm") {
+            event.preventDefault();
+            state.review = {
+              proud: document.getElementById("reviewProud").value.trim(),
+              tomorrow: document.getElementById("reviewTomorrow").value.trim()
+            };
+            saveState();
+            showToast("تم حفظ الملاحظة. يومك لا يحتاج أن يكون مثالياً حتى يكون جيداً.");
+          }
+        });
+
+        document.getElementById("settingsBtn").addEventListener("click", openSettings);
+        document.getElementById("modalRoot").addEventListener("click", event => {
+          if (event.target === event.currentTarget) closeModal();
+        });
       }
 
       function getTickTickNotice() {
         const url = new URL(window.location.href);
         const notice = url.searchParams.get("ticktick");
-
-        if (!notice) {
-          return null;
-        }
-
+        if (!notice) return null;
         url.searchParams.delete("ticktick");
-
-        window.history.replaceState(
-          {},
-          document.title,
-          url.pathname + url.search
-        );
-
+        window.history.replaceState({}, document.title, url.pathname + url.search);
         return notice;
       }
 
-      document.querySelectorAll(".tab").forEach((tab) => {
-        tab.addEventListener("click", () => {
-          document.querySelectorAll(".tab").forEach(
-            (item) => item.classList.remove("active")
-          );
-
-          document.querySelectorAll(".view").forEach(
-            (view) => view.classList.remove("active")
-          );
-
-          tab.classList.add("active");
-
-          document
-            .getElementById(tab.dataset.viewTarget)
-            .classList.add("active");
-        });
-      });
-
-      document
-        .getElementById("startDayBtn")
-        .addEventListener("click", openMorningWizard);
-
-      document
-        .getElementById("resetDayBtn")
-        .addEventListener("click", resetDay);
-
-      document
-        .getElementById("ticktickConnectBtn")
-        .addEventListener("click", () => {
-          if (!ticktickState.configured) {
-            showToast("צריך קודם להוסיף את פרטי TickTick ב-Railway Variables.");
-            return;
-          }
-
-          window.location.assign("/auth/ticktick");
-        });
-
-      document
-        .getElementById("ticktickSyncBtn")
-        .addEventListener("click", syncAllTasks);
-
-      document
-        .getElementById("ticktickDisconnectBtn")
-        .addEventListener("click", async () => {
-          try {
-            await apiRequest("/api/ticktick/disconnect", {
-              method: "POST"
-            });
-
-            await refreshTickTickStatus();
-
-            showToast("تم فصل TickTick من هذا المتصفح.");
-          } catch {
-            showToast("تعذر فصل TickTick الآن.");
-          }
-        });
-
+      bindEvents();
       renderAll();
 
       (async () => {
         const notice = getTickTickNotice();
-
         await refreshTickTickStatus();
-
-        if (notice === "connected") {
-          showToast(
-            "تم ربط TickTick بنجاح. يمكنك مزامنة مهام اليوم الآن."
-          );
-        }
-
-        if (notice === "denied") {
-          showToast("لم يتم منح Hero إذن الوصول إلى TickTick.");
-        }
-
-        if (notice === "state_error") {
-          showToast(
-            "انتهت جلسة الربط. اضغط ربط TickTick وحاول مرة أخرى."
-          );
-        }
+        if (notice === "connected") showToast("تم ربط TickTick بنجاح.");
+        if (notice === "denied") showToast("لم يتم منح Hero إذن الوصول إلى TickTick.");
+        if (notice === "state_error") showToast("انتهت جلسة الربط. حاول مرة أخرى.");
       })();
     })();
   </script>
-<style>
-  .modal {
-    position: relative;
-  }
-
-  .modal-close-x {
-    position: absolute;
-    top: 14px;
-    left: 14px;
-    z-index: 5;
-    width: 38px;
-    height: 38px;
-    border: 0;
-    border-radius: 50%;
-    color: #4343b8;
-    background: #f0efff;
-    font-size: 25px;
-    font-weight: bold;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .modal-close-x:hover {
-    background: #dfdcff;
-    transform: scale(1.05);
-  }
-</style>
-
-<script>
-  (() => {
-    const modalRoot = document.getElementById("modalRoot");
-
-    if (!modalRoot) {
-      return;
-    }
-
-    function closeAllModals() {
-      modalRoot.innerHTML = "";
-    }
-
-    function addCloseButton() {
-      const modal = modalRoot.querySelector(".modal");
-
-      if (!modal || modal.querySelector(".modal-close-x")) {
-        return;
-      }
-
-      const closeButton = document.createElement("button");
-
-      closeButton.type = "button";
-      closeButton.className = "modal-close-x";
-      closeButton.setAttribute("aria-label", "إغلاق");
-      closeButton.textContent = "×";
-
-      closeButton.addEventListener("click", closeAllModals);
-
-      modal.prepend(closeButton);
-    }
-
-    modalRoot.addEventListener("click", (event) => {
-      if (event.target === modalRoot) {
-        closeAllModals();
-      }
-    });
-
-    const observer = new MutationObserver(addCloseButton);
-
-    observer.observe(modalRoot, {
-      childList: true,
-      subtree: true
-    });
-
-    addCloseButton();
-  })();
-</script>
-
 </body>
 </html>
