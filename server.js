@@ -420,11 +420,7 @@ function isOpenTickTickTask(task) {
     return false;
   }
 
-  if (Number(task.status) === 2) {
-    return false;
-  }
-
-  return true;
+  return Number(task.status) !== 2;
 }
 
 function selectedProjectIdsFromQuery(value) {
@@ -486,9 +482,7 @@ function cleanIdeaText(value) {
 function createLocalIdeaSuggestions(idea) {
   const text = cleanIdeaText(idea);
   const lower = text.toLowerCase();
-
-  const has = (...words) =>
-    words.some((word) => lower.includes(word));
+  const has = (...words) => words.some((word) => lower.includes(word));
 
   let theme = "فكرة أصلية قصيرة";
   let character = "بطل صغير";
@@ -584,7 +578,7 @@ function normalizeIdeaSuggestions(value) {
     "other"
   ]);
 
-  const ideas = rawIdeas
+  return rawIdeas
     .slice(0, 3)
     .map((idea) => ({
       title: String(idea?.title || "فكرة جديدة")
@@ -616,8 +610,6 @@ function normalizeIdeaSuggestions(value) {
         idea.firstStep &&
         idea.taskTitle
     );
-
-  return ideas;
 }
 
 async function createOpenAIIdeaSuggestions(idea) {
@@ -802,10 +794,7 @@ const pool = process.env.DATABASE_URL
 let familyDatabaseReady = null;
 
 function isFamilyMember(value) {
-  return Object.prototype.hasOwnProperty.call(
-    FAMILY_MEMBERS,
-    value
-  );
+  return Object.prototype.hasOwnProperty.call(FAMILY_MEMBERS, value);
 }
 
 function familyDateKey(value) {
@@ -881,6 +870,16 @@ function parentPinConfigured() {
   );
 }
 
+function childPinVariableName(assignee) {
+  return `${String(assignee || "").toUpperCase()}_PIN`;
+}
+
+function childPinConfigured(assignee) {
+  const pin = process.env[childPinVariableName(assignee)];
+
+  return typeof pin === "string" && pin.length >= 4;
+}
+
 function secureEqualText(left, right) {
   const leftBuffer = Buffer.from(String(left || ""));
   const rightBuffer = Buffer.from(String(right || ""));
@@ -898,6 +897,18 @@ function createParentSession() {
   });
 }
 
+function createChildSession(assignee) {
+  return encryptJson({
+    role: "child",
+    assignee,
+    expiresAt: Date.now() + 1000 * 60 * 60 * 12
+  });
+}
+
+function childSessionCookieName(assignee) {
+  return `hero_${assignee}_session`;
+}
+
 function hasParentSession(req) {
   const session = decryptJson(
     readCookie(req, "hero_parent_session")
@@ -905,7 +916,19 @@ function hasParentSession(req) {
 
   return Boolean(
     session?.role === "parent" &&
-    Number(session?.expiresAt) > Date.now()
+      Number(session?.expiresAt) > Date.now()
+  );
+}
+
+function hasChildSession(req, assignee) {
+  const session = decryptJson(
+    readCookie(req, childSessionCookieName(assignee))
+  );
+
+  return Boolean(
+    session?.role === "child" &&
+      session?.assignee === assignee &&
+      Number(session?.expiresAt) > Date.now()
   );
 }
 
@@ -917,12 +940,33 @@ function requireParent(req) {
     );
   }
 }
+
+function requireChildOrParent(req, assignee) {
+  if (!hasParentSession(req) && !hasChildSession(req, assignee)) {
+    throw new PublicError(
+      401,
+      "أدخل رمز الدخول الخاص بهذه المنطقة أولاً."
+    );
+  }
+}
+
 function writeParentSession(res) {
   appendSetCookie(
     res,
     makeCookie(
       "hero_parent_session",
       createParentSession(),
+      60 * 60 * 12
+    )
+  );
+}
+
+function writeChildSession(res, assignee) {
+  appendSetCookie(
+    res,
+    makeCookie(
+      childSessionCookieName(assignee),
+      createChildSession(assignee),
       60 * 60 * 12
     )
   );
@@ -1004,378 +1048,346 @@ async function getFamilyEvents(assignee, date) {
 
   return rows.map(mapFamilyEvent);
 }
-
 app.get("/api/family/status", (req, res) => {
   res.json({
     databaseConfigured: Boolean(pool),
     parentPinConfigured: parentPinConfigured(),
     parentAuthenticated: hasParentSession(req),
+    yamanPinConfigured: childPinConfigured("yaman"),
+    judyPinConfigured: childPinConfigured("judy"),
+    yamanAuthenticated: hasChildSession(req, "yaman"),
+    judyAuthenticated: hasChildSession(req, "judy"),
     members: Object.values(FAMILY_MEMBERS)
   });
 });
 
-app.post(
-  "/api/family/parent/login",
-  asyncRoute(async (req, res) => {
-    if (!parentPinConfigured()) {
-      throw new PublicError(
-        503,
-        "أضف PARENT_PIN في Railway أولاً. اختر رمزاً من 4 أرقام أو أكثر."
-      );
-    }
+app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
+  if (!parentPinConfigured()) {
+    throw new PublicError(
+      503,
+      "أضف PARENT_PIN في Railway أولاً. اختر رمزاً من 4 أرقام أو أكثر."
+    );
+  }
 
-    const pin =
-      typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
 
-    if (!secureEqualText(pin, process.env.PARENT_PIN)) {
-      throw new PublicError(401, "رمز الوالدين غير صحيح.");
-    }
+  if (!secureEqualText(pin, process.env.PARENT_PIN)) {
+    throw new PublicError(401, "رمز الوالدين غير صحيح.");
+  }
 
-    writeParentSession(res);
-
-    res.json({ authenticated: true });
-  })
-);
+  writeParentSession(res);
+  res.json({ authenticated: true });
+}));
 
 app.post("/api/family/parent/logout", (req, res) => {
   clearCookie(res, "hero_parent_session");
   res.status(204).end();
 });
 
-app.get(
-  "/api/family/dashboard",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
+app.post("/api/family/child/:assignee/login", asyncRoute(async (req, res) => {
+  const assignee = String(req.params.assignee || "").toLowerCase();
 
-    const date = familyDateKey(req.query.date);
+  if (!isFamilyMember(assignee)) {
+    throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  }
 
-    const [{ rows: tasks }, { rows: events }] = await Promise.all([
-      pool.query(
-        `SELECT assignee,
-          COUNT(*) FILTER (WHERE done = FALSE) AS open_count,
-          COUNT(*) FILTER (WHERE done = TRUE) AS done_count,
-          COUNT(*) AS total_count
-         FROM hero_family_tasks
-         WHERE due_date = $1
-         GROUP BY assignee`,
-        [date]
-      ),
-      pool.query(
-        `SELECT * FROM hero_family_events
-         WHERE event_date >= $1
-         ORDER BY event_date ASC,
-           NULLIF(event_time, '') ASC NULLS LAST,
-           created_at ASC
-         LIMIT 20`,
-        [date]
-      )
-    ]);
-
-    const summary = {
-      yaman: { open: 0, done: 0, total: 0 },
-      judy: { open: 0, done: 0, total: 0 }
-    };
-
-    for (const row of tasks) {
-      if (summary[row.assignee]) {
-        summary[row.assignee] = {
-          open: Number(row.open_count || 0),
-          done: Number(row.done_count || 0),
-          total: Number(row.total_count || 0)
-        };
-      }
-    }
-
-    res.json({
-      date,
-      summary,
-      events: events.map(mapFamilyEvent)
-    });
-  })
-);
-
-app.get(
-  "/api/family/child/:assignee",
-  asyncRoute(async (req, res) => {
-    const assignee = String(req.params.assignee || "").toLowerCase();
-
-    if (!isFamilyMember(assignee)) {
-      throw new PublicError(400, "منطقة الطفل غير معروفة.");
-    }
-
-    const date = familyDateKey(req.query.date);
-
-    const [tasks, events] = await Promise.all([
-      getFamilyTasks(assignee, date),
-      getFamilyEvents(assignee, date)
-    ]);
-
-    res.json({
-      member: FAMILY_MEMBERS[assignee],
-      date,
-      tasks,
-      events,
-      parentAuthenticated: hasParentSession(req)
-    });
-  })
-);
-
-app.post(
-  "/api/family/tasks",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
-
-    const assignee = String(req.body?.assignee || "").toLowerCase();
-    const title = safeText(req.body?.title, 160);
-    const type = safeTaskType(req.body?.type);
-    const points = Math.min(
-      50,
-      Math.max(0, Number(req.body?.points) || 5)
+  if (!childPinConfigured(assignee)) {
+    throw new PublicError(
+      503,
+      `أضف ${childPinVariableName(assignee)} في Railway أولاً. اختر رمزاً من 4 أرقام أو أكثر.`
     );
-    const dueDate = familyDateKey(req.body?.date);
-    const note = safeText(req.body?.note, 400);
-    const source = safeText(req.body?.source, 30) || "parent";
+  }
 
-    if (!isFamilyMember(assignee) || !title) {
-      throw new PublicError(
-        400,
-        "اختر الطفل واكتب مهمة قصيرة وواضحة."
+  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+
+  if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) {
+    throw new PublicError(401, "رمز الدخول غير صحيح.");
+  }
+
+  writeChildSession(res, assignee);
+
+  res.json({
+    authenticated: true,
+    member: FAMILY_MEMBERS[assignee]
+  });
+}));
+
+app.post("/api/family/child/:assignee/logout", (req, res) => {
+  const assignee = String(req.params.assignee || "").toLowerCase();
+
+  if (!isFamilyMember(assignee)) {
+    return res.status(400).json({ error: "منطقة الطفل غير معروفة." });
+  }
+
+  clearCookie(res, childSessionCookieName(assignee));
+  res.status(204).end();
+});
+
+app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+
+  const date = familyDateKey(req.query.date);
+
+  const [{ rows: tasks }, { rows: events }] = await Promise.all([
+    pool.query(
+      `SELECT assignee,
+        COUNT(*) FILTER (WHERE done = FALSE) AS open_count,
+        COUNT(*) FILTER (WHERE done = TRUE) AS done_count,
+        COUNT(*) AS total_count
+       FROM hero_family_tasks
+       WHERE due_date = $1
+       GROUP BY assignee`,
+      [date]
+    ),
+    pool.query(
+      `SELECT * FROM hero_family_events
+       WHERE event_date >= $1
+       ORDER BY event_date ASC, NULLIF(event_time, '') ASC NULLS LAST, created_at ASC
+       LIMIT 20`,
+      [date]
+    )
+  ]);
+
+  const summary = {
+    yaman: { open: 0, done: 0, total: 0 },
+    judy: { open: 0, done: 0, total: 0 }
+  };
+
+  for (const row of tasks) {
+    if (summary[row.assignee]) {
+      summary[row.assignee] = {
+        open: Number(row.open_count || 0),
+        done: Number(row.done_count || 0),
+        total: Number(row.total_count || 0)
+      };
+    }
+  }
+
+  res.json({
+    date,
+    summary,
+    events: events.map(mapFamilyEvent)
+  });
+}));
+
+app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
+  const assignee = String(req.params.assignee || "").toLowerCase();
+
+  if (!isFamilyMember(assignee)) {
+    throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  }
+
+  requireChildOrParent(req, assignee);
+
+  const date = familyDateKey(req.query.date);
+
+  const [tasks, events] = await Promise.all([
+    getFamilyTasks(assignee, date),
+    getFamilyEvents(assignee, date)
+  ]);
+
+  res.json({
+    member: FAMILY_MEMBERS[assignee],
+    date,
+    tasks,
+    events,
+    parentAuthenticated: hasParentSession(req)
+  });
+}));
+
+app.post("/api/family/tasks", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+
+  const assignee = String(req.body?.assignee || "").toLowerCase();
+  const title = safeText(req.body?.title, 160);
+  const type = safeTaskType(req.body?.type);
+  const points = Math.min(50, Math.max(0, Number(req.body?.points) || 5));
+  const dueDate = familyDateKey(req.body?.date);
+  const note = safeText(req.body?.note, 400);
+  const source = safeText(req.body?.source, 30) || "parent";
+
+  if (!isFamilyMember(assignee) || !title) {
+    throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
+  }
+
+  const id = crypto.randomUUID();
+
+  const { rows } = await pool.query(
+    `INSERT INTO hero_family_tasks
+      (id, assignee, title, task_type, points, due_date, note, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     RETURNING *`,
+    [
+      id,
+      assignee,
+      title,
+      type,
+      Math.round(points),
+      dueDate,
+      note,
+      source,
+      safeText(req.body?.ticktickTaskId, 200) || null,
+      safeText(req.body?.ticktickProjectId, 200) || null,
+      safeText(req.body?.ticktickProjectName, 200) || null
+    ]
+  );
+
+  res.status(201).json({ task: mapFamilyTask(rows[0]) });
+}));
+
+app.patch("/api/family/tasks/:id/complete", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+
+  const assignee = String(req.body?.assignee || "").toLowerCase();
+
+  if (!isFamilyMember(assignee)) {
+    throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  }
+
+  requireChildOrParent(req, assignee);
+
+  const { rows } = await pool.query(
+    `UPDATE hero_family_tasks
+      SET done = TRUE, updated_at = NOW()
+      WHERE id = $1 AND assignee = $2
+      RETURNING *`,
+    [req.params.id, assignee]
+  );
+
+  if (!rows[0]) {
+    throw new PublicError(404, "لم نجد هذه المهمة.");
+  }
+
+  const task = mapFamilyTask(rows[0]);
+
+  if (
+    task.ticktickTaskId &&
+    task.ticktickProjectId &&
+    isTickTickConfigured() &&
+    getStoredTokens(req)?.accessToken
+  ) {
+    try {
+      await tickTickRequest(
+        req,
+        res,
+        `/project/${encodeURIComponent(task.ticktickProjectId)}/task/${encodeURIComponent(task.ticktickTaskId)}/complete`,
+        { method: "POST" }
+      );
+    } catch (error) {
+      console.warn(
+        "Family task completed locally but TickTick completion failed:",
+        error.message
       );
     }
+  }
 
-    const id = crypto.randomUUID();
+  res.json({ task });
+}));
 
-    const { rows } = await pool.query(
-      `INSERT INTO hero_family_tasks
-        (
-          id,
-          assignee,
-          title,
-          task_type,
-          points,
-          due_date,
-          note,
-          source,
-          ticktick_task_id,
-          ticktick_project_id,
-          ticktick_project_name
-        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING *`,
-      [
-        id,
-        assignee,
-        title,
-        type,
-        Math.round(points),
-        dueDate,
-        note,
-        source,
-        safeText(req.body?.ticktickTaskId, 200) || null,
-        safeText(req.body?.ticktickProjectId, 200) || null,
-        safeText(req.body?.ticktickProjectName, 200) || null
-      ]
-    );
+app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
 
-    res.status(201).json({
-      task: mapFamilyTask(rows[0])
-    });
-  })
-);
+  const title = safeText(req.body?.title, 160);
+  const type = safeTaskType(req.body?.type);
+  const points = Math.min(50, Math.max(0, Number(req.body?.points) || 5));
+  const date = familyDateKey(req.body?.date);
+  const note = safeText(req.body?.note, 400);
+  const assignee = String(req.body?.assignee || "").toLowerCase();
 
-app.patch(
-  "/api/family/tasks/:id/complete",
-  asyncRoute(async (req, res) => {
-    await ensureFamilyDatabase();
+  if (!title || !isFamilyMember(assignee)) {
+    throw new PublicError(400, "تحقق من الطفل واسم المهمة.");
+  }
 
-    const assignee = String(req.body?.assignee || "").toLowerCase();
-
-    if (!isFamilyMember(assignee)) {
-      throw new PublicError(400, "منطقة الطفل غير معروفة.");
-    }
-
-    const { rows } = await pool.query(
-      `UPDATE hero_family_tasks
-        SET done = TRUE, updated_at = NOW()
-        WHERE id = $1 AND assignee = $2
-        RETURNING *`,
-      [req.params.id, assignee]
-    );
-
-    if (!rows[0]) {
-      throw new PublicError(404, "لم نجد هذه المهمة.");
-    }
-
-    const task = mapFamilyTask(rows[0]);
-
-    if (
-      task.ticktickTaskId &&
-      task.ticktickProjectId &&
-      isTickTickConfigured() &&
-      getStoredTokens(req)?.accessToken
-    ) {
-      try {
-        await tickTickRequest(
-          req,
-          res,
-          `/project/${encodeURIComponent(
-            task.ticktickProjectId
-          )}/task/${encodeURIComponent(task.ticktickTaskId)}/complete`,
-          { method: "POST" }
-        );
-      } catch (error) {
-        console.warn(
-          "Family task completed locally but TickTick completion failed:",
-          error.message
-        );
-      }
-    }
-
-    res.json({ task });
-  })
-);
-
-app.patch(
-  "/api/family/tasks/:id",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
-
-    const title = safeText(req.body?.title, 160);
-    const type = safeTaskType(req.body?.type);
-    const points = Math.min(
-      50,
-      Math.max(0, Number(req.body?.points) || 5)
-    );
-    const date = familyDateKey(req.body?.date);
-    const note = safeText(req.body?.note, 400);
-    const assignee = String(req.body?.assignee || "").toLowerCase();
-
-    if (!title || !isFamilyMember(assignee)) {
-      throw new PublicError(400, "تحقق من الطفل واسم المهمة.");
-    }
-
-    const { rows } = await pool.query(
-      `UPDATE hero_family_tasks
-        SET
-          assignee = $2,
+  const { rows } = await pool.query(
+    `UPDATE hero_family_tasks
+      SET assignee = $2,
           title = $3,
           task_type = $4,
           points = $5,
           due_date = $6,
           note = $7,
           updated_at = NOW()
-        WHERE id = $1
-        RETURNING *`,
-      [
-        req.params.id,
-        assignee,
-        title,
-        type,
-        Math.round(points),
-        date,
-        note
-      ]
-    );
+      WHERE id = $1
+      RETURNING *`,
+    [
+      req.params.id,
+      assignee,
+      title,
+      type,
+      Math.round(points),
+      date,
+      note
+    ]
+  );
 
-    if (!rows[0]) {
-      throw new PublicError(404, "لم نجد هذه المهمة.");
-    }
+  if (!rows[0]) {
+    throw new PublicError(404, "لم نجد هذه المهمة.");
+  }
 
-    res.json({
-      task: mapFamilyTask(rows[0])
-    });
-  })
-);
+  res.json({ task: mapFamilyTask(rows[0]) });
+}));
 
-app.delete(
-  "/api/family/tasks/:id",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
+app.delete("/api/family/tasks/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
 
-    const result = await pool.query(
-      "DELETE FROM hero_family_tasks WHERE id = $1",
-      [req.params.id]
-    );
+  const result = await pool.query(
+    "DELETE FROM hero_family_tasks WHERE id = $1",
+    [req.params.id]
+  );
 
-    if (!result.rowCount) {
-      throw new PublicError(404, "لم نجد هذه المهمة.");
-    }
+  if (!result.rowCount) {
+    throw new PublicError(404, "لم نجد هذه المهمة.");
+  }
 
-    res.status(204).end();
-  })
-);
+  res.status(204).end();
+}));
 
-app.post(
-  "/api/family/events",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
+app.post("/api/family/events", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
 
-    const assignee = String(
-      req.body?.assignee || "family"
-    ).toLowerCase();
+  const assignee = String(req.body?.assignee || "family").toLowerCase();
+  const title = safeText(req.body?.title, 140);
+  const date = familyDateKey(req.body?.date);
+  const time = /^\d{2}:\d{2}$/.test(String(req.body?.time || ""))
+    ? String(req.body.time)
+    : "";
+  const note = safeText(req.body?.note, 350);
 
-    const title = safeText(req.body?.title, 140);
-    const date = familyDateKey(req.body?.date);
+  if (!["yaman", "judy", "family"].includes(assignee) || !title) {
+    throw new PublicError(400, "اكتب اسم الموعد وحدد لمن يظهر.");
+  }
 
-    const time = /^\d{2}:\d{2}$/.test(
-      String(req.body?.time || "")
-    )
-      ? String(req.body.time)
-      : "";
+  const { rows } = await pool.query(
+    `INSERT INTO hero_family_events
+      (id, assignee, title, event_date, event_time, note)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     RETURNING *`,
+    [crypto.randomUUID(), assignee, title, date, time, note]
+  );
 
-    const note = safeText(req.body?.note, 350);
+  res.status(201).json({ event: mapFamilyEvent(rows[0]) });
+}));
 
-    if (!["yaman", "judy", "family"].includes(assignee) || !title) {
-      throw new PublicError(
-        400,
-        "اكتب اسم الموعد وحدد لمن يظهر."
-      );
-    }
+app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
 
-    const { rows } = await pool.query(
-      `INSERT INTO hero_family_events
-        (id, assignee, title, event_date, event_time, note)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING *`,
-      [
-        crypto.randomUUID(),
-        assignee,
-        title,
-        date,
-        time,
-        note
-      ]
-    );
+  const result = await pool.query(
+    "DELETE FROM hero_family_events WHERE id = $1",
+    [req.params.id]
+  );
 
-    res.status(201).json({
-      event: mapFamilyEvent(rows[0])
-    });
-  })
-);
+  if (!result.rowCount) {
+    throw new PublicError(404, "لم نجد هذا الموعد.");
+  }
 
-app.delete(
-  "/api/family/events/:id",
-  asyncRoute(async (req, res) => {
-    requireParent(req);
-    await ensureFamilyDatabase();
-
-    const result = await pool.query(
-      "DELETE FROM hero_family_events WHERE id = $1",
-      [req.params.id]
-    );
-
-    if (!result.rowCount) {
-      throw new PublicError(404, "لم نجد هذا الموعد.");
-    }
-
-    res.status(204).end();
-  })
-);
+  res.status(204).end();
+}));
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -1390,11 +1402,10 @@ app.get("/api/ai/status", (req, res) => {
   res.json({
     configured: Boolean(process.env.OPENAI_API_KEY),
     mode: process.env.OPENAI_API_KEY ? "openai" : "local",
-    model: process.env.OPENAI_API_KEY
-      ? OPENAI_IDEA_MODEL
-      : null
+    model: process.env.OPENAI_API_KEY ? OPENAI_IDEA_MODEL : null
   });
 });
+
 app.get("/api/ticktick/status", (req, res) => {
   const configured = isTickTickConfigured();
   const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
@@ -1410,9 +1421,7 @@ app.get("/api/ticktick/status", (req, res) => {
 app.get("/api/ticktick/diagnostics", (req, res) => {
   const configured = isTickTickConfigured();
   const cookieHeader = req.headers.cookie || "";
-  const hasTokenCookie = /(?:^|;\s*)hero_ticktick_tokens=/.test(
-    cookieHeader
-  );
+  const hasTokenCookie = /(?:^|;\s*)hero_ticktick_tokens=/.test(cookieHeader);
 
   res.json({
     configured,
@@ -1423,163 +1432,145 @@ app.get("/api/ticktick/diagnostics", (req, res) => {
     appTimeZone: APP_TIME_ZONE
   });
 });
+// Returns active TickTick lists so the user can decide which lists Hero is allowed to import from.
+app.get("/api/ticktick/projects", asyncRoute(async (req, res) => {
+  requireConfigured();
 
-app.get(
-  "/api/ticktick/projects",
-  asyncRoute(async (req, res) => {
-    requireConfigured();
+  const projects = await tickTickRequest(req, res, "/project");
 
-    const projects = await tickTickRequest(req, res, "/project");
+  if (!Array.isArray(projects)) {
+    throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
+  }
 
-    if (!Array.isArray(projects)) {
-      throw new PublicError(
-        502,
-        "לא התקבלה רשימת פרויקטים תקינה מ-TickTick."
+  const activeProjects = projects
+    .filter((project) => project && project.id && project.closed !== true)
+    .map((project) => ({
+      id: String(project.id),
+      name: String(project.name || "TickTick"),
+      color: typeof project.color === "string" ? project.color : "",
+      kind: typeof project.kind === "string" ? project.kind : "TASK",
+      viewMode: typeof project.viewMode === "string" ? project.viewMode : "list"
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+
+  res.json({ projects: activeProjects });
+}));
+
+app.get("/api/ticktick/today-tasks", asyncRoute(async (req, res) => {
+  requireConfigured();
+
+  const today = dateKeyInTimeZone(new Date());
+  const requestedDate =
+    typeof req.query.date === "string" ? req.query.date : "";
+
+  const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    ? requestedDate
+    : today;
+
+  if (targetDate !== today) {
+    throw new PublicError(400, "אפשר לייבא רק את משימות היום הנוכחי.");
+  }
+
+  const projects = await tickTickRequest(req, res, "/project");
+
+  if (!Array.isArray(projects)) {
+    throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
+  }
+
+  const allActiveProjects = projects.filter(
+    (project) => project && project.id && project.closed !== true
+  );
+
+  const requestedProjectIds = selectedProjectIdsFromQuery(
+    req.query.projectIds
+  );
+
+  const requestedIdSet = new Set(requestedProjectIds);
+
+  const activeProjects = requestedProjectIds.length
+    ? allActiveProjects.filter((project) =>
+        requestedIdSet.has(String(project.id))
+      )
+    : allActiveProjects;
+
+  const collected = [];
+  let failedProjects = 0;
+
+  for (const project of activeProjects) {
+    try {
+      const data = await tickTickRequest(
+        req,
+        res,
+        `/project/${encodeURIComponent(project.id)}/data`
       );
-    }
 
-    const activeProjects = projects
-      .filter((project) => project && project.id && project.closed !== true)
-      .map((project) => ({
-        id: String(project.id),
-        name: String(project.name || "TickTick"),
-        color: typeof project.color === "string" ? project.color : "",
-        kind: typeof project.kind === "string" ? project.kind : "TASK",
-        viewMode:
-          typeof project.viewMode === "string"
-            ? project.viewMode
-            : "list"
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+      const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
 
-    res.json({ projects: activeProjects });
-  })
-);
-
-app.get(
-  "/api/ticktick/today-tasks",
-  asyncRoute(async (req, res) => {
-    requireConfigured();
-
-    const today = dateKeyInTimeZone(new Date());
-
-    const requestedDate =
-      typeof req.query.date === "string" ? req.query.date : "";
-
-    const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
-      ? requestedDate
-      : today;
-
-    if (targetDate !== today) {
-      throw new PublicError(
-        400,
-        "אפשר לייבא רק את משימות היום הנוכחי."
-      );
-    }
-
-    const projects = await tickTickRequest(req, res, "/project");
-
-    if (!Array.isArray(projects)) {
-      throw new PublicError(
-        502,
-        "לא התקבלה רשימת פרויקטים תקינה מ-TickTick."
-      );
-    }
-
-    const allActiveProjects = projects.filter(
-      (project) => project && project.id && project.closed !== true
-    );
-
-    const requestedProjectIds = selectedProjectIdsFromQuery(
-      req.query.projectIds
-    );
-
-    const requestedIdSet = new Set(requestedProjectIds);
-
-    const activeProjects = requestedProjectIds.length
-      ? allActiveProjects.filter((project) =>
-          requestedIdSet.has(String(project.id))
-        )
-      : allActiveProjects;
-
-    const collected = [];
-    let failedProjects = 0;
-
-    for (const project of activeProjects) {
-      try {
-        const data = await tickTickRequest(
-          req,
-          res,
-          `/project/${encodeURIComponent(project.id)}/data`
-        );
-
-        const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
-
-        for (const task of tasks) {
-          if (!isOpenTickTickTask(task) || taskDateKey(task) !== targetDate) {
-            continue;
-          }
-
-          collected.push({
-            id: String(task.id),
-            projectId: String(task.projectId || project.id),
-            projectName: String(project.name || "TickTick"),
-            title: String(task.title).trim().slice(0, 200),
-            content:
-              typeof task.content === "string"
-                ? task.content.slice(0, 500)
-                : "",
-            dueDate: task.dueDate || task.startDate || null,
-            priority: Number(task.priority) || 0
-          });
-        }
-      } catch (error) {
-        if (Number(error?.status) === 401) {
-          throw error;
+      for (const task of tasks) {
+        if (!isOpenTickTickTask(task) || taskDateKey(task) !== targetDate) {
+          continue;
         }
 
-        failedProjects += 1;
-
-        console.warn(
-          "Could not load TickTick project for daily import:",
-          project.id
-        );
+        collected.push({
+          id: String(task.id),
+          projectId: String(task.projectId || project.id),
+          projectName: String(project.name || "TickTick"),
+          title: String(task.title).trim().slice(0, 200),
+          content:
+            typeof task.content === "string"
+              ? task.content.slice(0, 500)
+              : "",
+          dueDate: task.dueDate || task.startDate || null,
+          priority: Number(task.priority) || 0
+        });
       }
+    } catch (error) {
+      if (Number(error?.status) === 401) {
+        throw error;
+      }
+
+      failedProjects += 1;
+      console.warn(
+        "Could not load TickTick project for daily import:",
+        project.id
+      );
     }
+  }
 
-    const unique = new Map();
+  const unique = new Map();
 
-    for (const task of collected) {
-      unique.set(`${task.projectId}:${task.id}`, task);
-    }
+  for (const task of collected) {
+    unique.set(`${task.projectId}:${task.id}`, task);
+  }
 
-    const tasks = [...unique.values()]
-      .sort((a, b) => {
-        const byDueDate = String(a.dueDate || "").localeCompare(
-          String(b.dueDate || "")
-        );
+  const tasks = [...unique.values()]
+    .sort((a, b) => {
+      const byDueDate = String(a.dueDate || "").localeCompare(
+        String(b.dueDate || "")
+      );
 
-        return (
-          byDueDate ||
-          Number(b.priority) - Number(a.priority) ||
-          a.title.localeCompare(b.title)
-        );
-      })
-      .slice(0, 100);
+      return (
+        byDueDate ||
+        Number(b.priority) - Number(a.priority) ||
+        a.title.localeCompare(b.title)
+      );
+    })
+    .slice(0, 100);
 
-    res.json({
-      date: targetDate,
-      timeZone: APP_TIME_ZONE,
-      projectScope: requestedProjectIds.length ? "selected" : "all",
-      projectsRequested:
-        requestedProjectIds.length || allActiveProjects.length,
-      projectsScanned: activeProjects.length,
-      failedProjects,
-      tasks
-    });
-  })
-);
+  res.json({
+    date: targetDate,
+    timeZone: APP_TIME_ZONE,
+    projectScope: requestedProjectIds.length ? "selected" : "all",
+    projectsRequested:
+      requestedProjectIds.length || allActiveProjects.length,
+    projectsScanned: activeProjects.length,
+    failedProjects,
+    tasks
+  });
+}));
 
+// OAuth state is signed instead of stored in a temporary cookie.
+// This avoids losing the state during TickTick redirect on iPhone/in-app browsers.
 app.get("/auth/ticktick", (req, res, next) => {
   try {
     requireConfigured();
@@ -1611,168 +1602,142 @@ app.get("/auth/ticktick", (req, res, next) => {
   }
 });
 
-app.get(
-  "/auth/ticktick/callback",
-  asyncRoute(async (req, res) => {
-    requireConfigured();
+app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
+  requireConfigured();
 
-    if (req.query.error) {
-      return res.redirect("/?ticktick=denied");
+  if (req.query.error) {
+    return res.redirect("/?ticktick=denied");
+  }
+
+  const code =
+    typeof req.query.code === "string" ? req.query.code : "";
+
+  const state =
+    typeof req.query.state === "string" ? req.query.state : "";
+
+  if (!code || !verifyOAuthState(state)) {
+    return res.redirect("/?ticktick=state_error");
+  }
+
+  const payload = await requestToken({
+    grant_type: "authorization_code",
+    client_id: process.env.TICKTICK_CLIENT_ID,
+    client_secret: process.env.TICKTICK_CLIENT_SECRET,
+    code,
+    redirect_uri: process.env.TICKTICK_REDIRECT_URI
+  });
+
+  writeStoredTokens(res, normalizeTokens(payload));
+
+  return res.redirect("/?ticktick=connected");
+}));
+
+app.post("/api/ticktick/task", asyncRoute(async (req, res) => {
+  requireConfigured();
+
+  const title =
+    typeof req.body?.title === "string"
+      ? req.body.title.trim().slice(0, 200)
+      : "";
+
+  const category =
+    typeof req.body?.category === "string"
+      ? req.body.category.trim().slice(0, 80)
+      : "other";
+
+  const points = Number(req.body?.points);
+  const completed = Boolean(req.body?.completed);
+
+  if (!title) {
+    throw new PublicError(400, "חסר שם משימה.");
+  }
+
+  const project = await ensureHeroProject(req, res);
+
+  const task = await tickTickRequest(req, res, "/task", {
+    method: "POST",
+    body: {
+      title,
+      projectId: project.id,
+      content: `Hero – Yaman\nالمجال: ${category}\nالنقاط: ${
+        Number.isFinite(points) ? points : 0
+      }`,
+      priority: 0
     }
+  });
 
-    const code =
-      typeof req.query.code === "string" ? req.query.code : "";
+  if (!task?.id) {
+    throw new PublicError(502, "TickTick לא החזיר מזהה משימה.");
+  }
 
-    const state =
-      typeof req.query.state === "string" ? req.query.state : "";
-
-    if (!code || !verifyOAuthState(state)) {
-      return res.redirect("/?ticktick=state_error");
-    }
-
-    const payload = await requestToken({
-      grant_type: "authorization_code",
-      client_id: process.env.TICKTICK_CLIENT_ID,
-      client_secret: process.env.TICKTICK_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.TICKTICK_REDIRECT_URI
-    });
-
-    writeStoredTokens(res, normalizeTokens(payload));
-
-    return res.redirect("/?ticktick=connected");
-  })
-);
-
-app.post(
-  "/api/ticktick/task",
-  asyncRoute(async (req, res) => {
-    requireConfigured();
-
-    const title =
-      typeof req.body?.title === "string"
-        ? req.body.title.trim().slice(0, 200)
-        : "";
-
-    const category =
-      typeof req.body?.category === "string"
-        ? req.body.category.trim().slice(0, 80)
-        : "other";
-
-    const points = Number(req.body?.points);
-    const completed = Boolean(req.body?.completed);
-
-    if (!title) {
-      throw new PublicError(400, "חסר שם משימה.");
-    }
-
-    const project = await ensureHeroProject(req, res);
-
-    const task = await tickTickRequest(req, res, "/task", {
-      method: "POST",
-      body: {
-        title,
-        projectId: project.id,
-        content: `Hero – Yaman
-المجال: ${category}
-النقاط: ${Number.isFinite(points) ? points : 0}`,
-        priority: 0
-      }
-    });
-
-    if (!task?.id) {
-      throw new PublicError(
-        502,
-        "TickTick לא החזיר מזהה משימה."
-      );
-    }
-
-    if (completed) {
-      await tickTickRequest(
-        req,
-        res,
-        `/project/${encodeURIComponent(
-          project.id
-        )}/task/${encodeURIComponent(task.id)}/complete`,
-        { method: "POST" }
-      );
-    }
-
-    res.status(201).json({
-      project: {
-        id: project.id,
-        name: project.name
-      },
-      task: {
-        id: task.id,
-        projectId: project.id,
-        completed
-      }
-    });
-  })
-);
-
-app.post(
-  "/api/ticktick/task/complete",
-  asyncRoute(async (req, res) => {
-    requireConfigured();
-
-    const projectId =
-      typeof req.body?.projectId === "string"
-        ? req.body.projectId.trim()
-        : "";
-
-    const taskId =
-      typeof req.body?.taskId === "string"
-        ? req.body.taskId.trim()
-        : "";
-
-    if (!projectId || !taskId) {
-      throw new PublicError(
-        400,
-        "חסרים מזהי המשימה ב-TickTick."
-      );
-    }
-
+  if (completed) {
     await tickTickRequest(
       req,
       res,
-      `/project/${encodeURIComponent(
-        projectId
-      )}/task/${encodeURIComponent(taskId)}/complete`,
+      `/project/${encodeURIComponent(project.id)}/task/${encodeURIComponent(task.id)}/complete`,
       { method: "POST" }
     );
+  }
 
-    res.status(204).end();
-  })
-);
-
-app.post(
-  "/api/ideas",
-  asyncRoute(async (req, res) => {
-    const idea = cleanIdeaText(req.body?.idea);
-
-    if (idea.length < 4) {
-      throw new PublicError(
-        400,
-        "اكتب فكرة قصيرة من عدة كلمات أولاً."
-      );
+  res.status(201).json({
+    project: {
+      id: project.id,
+      name: project.name
+    },
+    task: {
+      id: task.id,
+      projectId: project.id,
+      completed
     }
+  });
+}));
 
-    if (!process.env.OPENAI_API_KEY) {
-      return res.json(createLocalIdeaSuggestions(idea));
-    }
+app.post("/api/ticktick/task/complete", asyncRoute(async (req, res) => {
+  requireConfigured();
 
-    const result = await createOpenAIIdeaSuggestions(idea);
+  const projectId =
+    typeof req.body?.projectId === "string"
+      ? req.body.projectId.trim()
+      : "";
 
-    return res.json(result);
-  })
-);
+  const taskId =
+    typeof req.body?.taskId === "string"
+      ? req.body.taskId.trim()
+      : "";
+
+  if (!projectId || !taskId) {
+    throw new PublicError(400, "חסרים מזהי המשימה ב-TickTick.");
+  }
+
+  await tickTickRequest(
+    req,
+    res,
+    `/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(taskId)}/complete`,
+    { method: "POST" }
+  );
+
+  res.status(204).end();
+}));
+
+app.post("/api/ideas", asyncRoute(async (req, res) => {
+  const idea = cleanIdeaText(req.body?.idea);
+
+  if (idea.length < 4) {
+    throw new PublicError(400, "اكتب فكرة قصيرة من عدة كلمات أولاً.");
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.json(createLocalIdeaSuggestions(idea));
+  }
+
+  const result = await createOpenAIIdeaSuggestions(idea);
+
+  return res.json(result);
+}));
 
 app.post("/api/ticktick/disconnect", (req, res) => {
   clearCookie(res, "hero_ticktick_tokens");
   clearCookie(res, "hero_ticktick_state");
-
   res.status(204).end();
 });
 
