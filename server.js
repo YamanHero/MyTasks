@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const express = require("express");
 const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,6 +11,8 @@ const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
 const HERO_PROJECT_NAME = "Hero – Yaman";
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || "Asia/Jerusalem";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
@@ -24,9 +27,9 @@ class PublicError extends Error {
 function isTickTickConfigured() {
   return Boolean(
     process.env.TICKTICK_CLIENT_ID &&
-      process.env.TICKTICK_CLIENT_SECRET &&
-      process.env.TICKTICK_REDIRECT_URI &&
-      process.env.SESSION_SECRET
+    process.env.TICKTICK_CLIENT_SECRET &&
+    process.env.TICKTICK_REDIRECT_URI &&
+    process.env.SESSION_SECRET
   );
 }
 
@@ -105,7 +108,12 @@ function encryptionKey() {
 
 function encryptJson(value) {
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
+
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    encryptionKey(),
+    iv
+  );
 
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(value), "utf8"),
@@ -146,11 +154,6 @@ function decryptJson(value) {
   }
 }
 
-/*
-  OAuth state חתום, ללא תלות בעוגייה זמנית.
-  זה מונע את שגיאת state_error כאשר Safari או חלון חיצוני
-  אינם מחזירים את עוגיית ה-state לאחר אישור TickTick.
-*/
 function createOAuthState() {
   const issuedAt = Date.now().toString();
   const nonce = crypto.randomBytes(24).toString("base64url");
@@ -255,7 +258,12 @@ async function requestToken(params) {
 
   const body = await readResponseBody(response);
 
-  if (!response.ok || !body || typeof body !== "object" || !body.access_token) {
+  if (
+    !response.ok ||
+    !body ||
+    typeof body !== "object" ||
+    !body.access_token
+  ) {
     const reason =
       body && typeof body === "object"
         ? body.error || body.message || "unknown_error"
@@ -329,7 +337,10 @@ async function tickTickRequest(req, res, endpoint, options = {}) {
     return fetch(`${TICKTICK_API_BASE}${endpoint}`, {
       method: options.method || "GET",
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      body:
+        options.body === undefined
+          ? undefined
+          : JSON.stringify(options.body)
     });
   }
 
@@ -430,7 +441,6 @@ function selectedProjectIdsFromQuery(value) {
     )
   ];
 }
-
 async function ensureHeroProject(req, res) {
   const projects = await tickTickRequest(req, res, "/project");
 
@@ -467,6 +477,290 @@ async function ensureHeroProject(req, res) {
   return project;
 }
 
+function cleanIdeaText(value) {
+  return typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").slice(0, 600)
+    : "";
+}
+
+function createLocalIdeaSuggestions(idea) {
+  const text = cleanIdeaText(idea);
+  const lower = text.toLowerCase();
+
+  const has = (...words) =>
+    words.some((word) => lower.includes(word));
+
+  let theme = "فكرة أصلية قصيرة";
+  let character = "بطل صغير";
+
+  if (has("روبوت", "robot")) {
+    theme = "روبوت يتعلم شيئاً جديداً";
+    character = "روبوت فضولي";
+  } else if (has("فضاء", "كوكب", "space", "planet")) {
+    theme = "مغامرة صغيرة في الفضاء";
+    character = "مستكشف فضاء صغير";
+  } else if (has("كرة", "رياضة", "football", "sport")) {
+    theme = "تحدٍّ رياضي لطيف";
+    character = "لاعب يحب التدريب";
+  } else if (has("صوت", "دبلج", "تمثيل", "voice", "dub")) {
+    theme = "مغامرة بأصوات مختلفة";
+    character = "مؤدي أصوات شاب";
+  } else if (has("قط", "حيوان", "cat", "animal")) {
+    theme = "حيوان ذكي يساعد صديقاً";
+    character = "حيوان لطيف ومتحدث";
+  }
+
+  const safeInput = text || "فكرة جديدة";
+
+  return {
+    source: "local",
+    ideas: [
+      {
+        title: `${theme}: المهمة الأولى`,
+        summary: `${character} يبدأ من فكرتك: «${safeInput}». تظهر مشكلة صغيرة، ويجد حلاً هادئاً مع صديق.`,
+        firstStep: "اختر شخصية واحدة واكتب أو سجّل جملة واحدة بصوتها.",
+        taskTitle:
+          "تطوير فكرة إبداعية: كتابة جملة واحدة أو تسجيل صوت قصير",
+        category: "creative"
+      },
+      {
+        title: `${theme}: تبديل الأدوار`,
+        summary:
+          `${character} يجرّب دورين مختلفين: بطل هادئ وصديق مضحك. في النهاية يتعاونان بدلاً من التنافس.`,
+        firstStep:
+          "اختر اسمين للشخصيتين وحدد ما الذي يريده كل واحد منهما.",
+        taskTitle: "ابتكار شخصيتين وفكرة حوار قصيرة",
+        category: "creative"
+      },
+      {
+        title: `${theme}: نهاية سعيدة`,
+        summary:
+          `${character} يواجه موقفاً محيّراً، ثم يتوقف قليلاً ويسأل سؤالاً جيداً قبل أن يتصرف.`,
+        firstStep:
+          "اكتب نهاية من سطر واحد تبدأ بكلمة: في النهاية...",
+        taskTitle: "كتابة نهاية قصيرة لفكرة جديدة",
+        category: "creative"
+      }
+    ]
+  };
+}
+
+function extractOpenAIText(payload) {
+  if (
+    typeof payload?.output_text === "string" &&
+    payload.output_text.trim()
+  ) {
+    return payload.output_text.trim();
+  }
+
+  const parts = [];
+
+  for (const item of Array.isArray(payload?.output) ? payload.output : []) {
+    for (const content of Array.isArray(item?.content)
+      ? item.content
+      : []) {
+      if (
+        content?.type === "output_text" &&
+        typeof content.text === "string"
+      ) {
+        parts.push(content.text);
+      }
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
+function normalizeIdeaSuggestions(value) {
+  const rawIdeas = Array.isArray(value?.ideas) ? value.ideas : [];
+
+  const allowedCategories = new Set([
+    "study",
+    "home",
+    "creative",
+    "movement",
+    "social",
+    "routine",
+    "other"
+  ]);
+
+  const ideas = rawIdeas
+    .slice(0, 3)
+    .map((idea) => ({
+      title: String(idea?.title || "فكرة جديدة")
+        .trim()
+        .slice(0, 100),
+      summary: String(
+        idea?.summary || "فكرة قصيرة يمكن تطويرها بهدوء."
+      )
+        .trim()
+        .slice(0, 360),
+      firstStep: String(
+        idea?.firstStep || "ابدأ بجملة واحدة فقط."
+      )
+        .trim()
+        .slice(0, 180),
+      taskTitle: String(
+        idea?.taskTitle || "تطوير فكرة قصيرة لمدة 10 دقائق"
+      )
+        .trim()
+        .slice(0, 180),
+      category: allowedCategories.has(idea?.category)
+        ? idea.category
+        : "creative"
+    }))
+    .filter(
+      (idea) =>
+        idea.title &&
+        idea.summary &&
+        idea.firstStep &&
+        idea.taskTitle
+    );
+
+  return ideas;
+}
+
+async function createOpenAIIdeaSuggestions(idea) {
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      ideas: {
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            title: { type: "string" },
+            summary: { type: "string" },
+            firstStep: { type: "string" },
+            taskTitle: { type: "string" },
+            category: {
+              type: "string",
+              enum: [
+                "study",
+                "home",
+                "creative",
+                "movement",
+                "social",
+                "routine",
+                "other"
+              ]
+            }
+          },
+          required: [
+            "title",
+            "summary",
+            "firstStep",
+            "taskTitle",
+            "category"
+          ]
+        }
+      }
+    },
+    required: ["ideas"]
+  };
+
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_IDEA_MODEL,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are Hero, a supportive Arabic idea coach for a 15-year-old. Return exactly three safe, original, age-appropriate ideas in Arabic. Keep language simple and concrete. Every idea must have one small first step that takes 5–15 minutes. Avoid scary, sexual, violent, illegal, risky, medical, political, or copyrighted-character ideas. Do not encourage public posting. Do not mention diagnoses."
+            }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `فكرة يَمان الأولية: ${idea}`
+            }
+          ]
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "yaman_idea_suggestions",
+          strict: true,
+          schema
+        }
+      },
+      max_output_tokens: 900
+    })
+  });
+
+  const body = await readResponseBody(response);
+
+  if (!response.ok) {
+    const reason =
+      body && typeof body === "object"
+        ? body.error?.message ||
+          body.error?.code ||
+          "OpenAI request failed"
+        : "OpenAI request failed";
+
+    console.error(
+      "OpenAI idea request failed:",
+      response.status,
+      reason
+    );
+
+    throw new PublicError(
+      502,
+      "تعذر الوصول إلى اقتراحات AI الآن. جرّب مرة أخرى."
+    );
+  }
+
+  const outputText = extractOpenAIText(body);
+
+  if (!outputText) {
+    throw new PublicError(
+      502,
+      "لم تصل اقتراحات AI بشكل صحيح. جرّب مرة أخرى."
+    );
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(outputText);
+  } catch {
+    throw new PublicError(
+      502,
+      "وصل رد AI غير صالح. جرّب مرة أخرى."
+    );
+  }
+
+  const ideas = normalizeIdeaSuggestions(parsed);
+
+  if (ideas.length !== 3) {
+    throw new PublicError(
+      502,
+      "لم تصل 3 اقتراحات واضحة. جرّب مرة أخرى."
+    );
+  }
+
+  return {
+    source: "openai",
+    ideas
+  };
+}
+
 function requireConfigured() {
   if (!isTickTickConfigured()) {
     throw new PublicError(
@@ -482,14 +776,625 @@ function asyncRoute(handler) {
   };
 }
 
+const FAMILY_MEMBERS = {
+  yaman: {
+    id: "yaman",
+    name: "يَمان",
+    label: "منطقة يَمان"
+  },
+  judy: {
+    id: "judy",
+    name: "جودي",
+    label: "منطقة جودي"
+  }
+};
+
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl:
+        process.env.NODE_ENV === "production"
+          ? { rejectUnauthorized: false }
+          : false
+    })
+  : null;
+
+let familyDatabaseReady = null;
+
+function isFamilyMember(value) {
+  return Object.prototype.hasOwnProperty.call(
+    FAMILY_MEMBERS,
+    value
+  );
+}
+
+function familyDateKey(value) {
+  const raw = String(value || "").slice(0, 10);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? raw
+    : dateKeyInTimeZone(new Date());
+}
+
+function requireFamilyDatabase() {
+  if (!pool) {
+    throw new PublicError(
+      503,
+      "قاعدة بيانات العائلة غير مفعّلة. أضف DATABASE_URL من PostgreSQL في Railway."
+    );
+  }
+}
+
+async function ensureFamilyDatabase() {
+  requireFamilyDatabase();
+
+  if (!familyDatabaseReady) {
+    familyDatabaseReady = (async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS hero_family_tasks (
+          id UUID PRIMARY KEY,
+          assignee TEXT NOT NULL CHECK (assignee IN ('yaman', 'judy')),
+          title TEXT NOT NULL,
+          task_type TEXT NOT NULL DEFAULT 'other',
+          points INTEGER NOT NULL DEFAULT 5,
+          due_date DATE NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          done BOOLEAN NOT NULL DEFAULT FALSE,
+          source TEXT NOT NULL DEFAULT 'parent',
+          ticktick_task_id TEXT,
+          ticktick_project_id TEXT,
+          ticktick_project_name TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS hero_family_tasks_assignee_date_idx
+          ON hero_family_tasks (assignee, due_date, done);
+
+        CREATE TABLE IF NOT EXISTS hero_family_events (
+          id UUID PRIMARY KEY,
+          assignee TEXT NOT NULL CHECK (assignee IN ('yaman', 'judy', 'family')),
+          title TEXT NOT NULL,
+          event_date DATE NOT NULL,
+          event_time TEXT NOT NULL DEFAULT '',
+          note TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS hero_family_events_date_idx
+          ON hero_family_events (event_date, assignee);
+      `);
+    })().catch((error) => {
+      familyDatabaseReady = null;
+      throw error;
+    });
+  }
+
+  await familyDatabaseReady;
+}
+
+function parentPinConfigured() {
+  return (
+    typeof process.env.PARENT_PIN === "string" &&
+    process.env.PARENT_PIN.length >= 4
+  );
+}
+
+function secureEqualText(left, right) {
+  const leftBuffer = Buffer.from(String(left || ""));
+  const rightBuffer = Buffer.from(String(right || ""));
+
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    crypto.timingSafeEqual(leftBuffer, rightBuffer)
+  );
+}
+
+function createParentSession() {
+  return encryptJson({
+    role: "parent",
+    expiresAt: Date.now() + 1000 * 60 * 60 * 12
+  });
+}
+
+function hasParentSession(req) {
+  const session = decryptJson(
+    readCookie(req, "hero_parent_session")
+  );
+
+  return Boolean(
+    session?.role === "parent" &&
+    Number(session?.expiresAt) > Date.now()
+  );
+}
+
+function requireParent(req) {
+  if (!hasParentSession(req)) {
+    throw new PublicError(
+      401,
+      "يلزم رمز الوالدين لإدارة مهام العائلة."
+    );
+  }
+}
+function writeParentSession(res) {
+  appendSetCookie(
+    res,
+    makeCookie(
+      "hero_parent_session",
+      createParentSession(),
+      60 * 60 * 12
+    )
+  );
+}
+
+function mapFamilyTask(row) {
+  return {
+    id: row.id,
+    assignee: row.assignee,
+    title: row.title,
+    type: row.task_type,
+    points: Number(row.points || 0),
+    date: String(row.due_date).slice(0, 10),
+    note: row.note || "",
+    done: Boolean(row.done),
+    source: row.source || "parent",
+    ticktickTaskId: row.ticktick_task_id || null,
+    ticktickProjectId: row.ticktick_project_id || null,
+    ticktickProjectName: row.ticktick_project_name || ""
+  };
+}
+
+function mapFamilyEvent(row) {
+  return {
+    id: row.id,
+    assignee: row.assignee,
+    title: row.title,
+    date: String(row.event_date).slice(0, 10),
+    time: row.event_time || "",
+    note: row.note || ""
+  };
+}
+
+function safeText(value, maxLength) {
+  return typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").slice(0, maxLength)
+    : "";
+}
+
+function safeTaskType(value) {
+  return [
+    "study",
+    "home",
+    "creative",
+    "movement",
+    "social",
+    "routine",
+    "other"
+  ].includes(value)
+    ? value
+    : "other";
+}
+
+async function getFamilyTasks(assignee, date) {
+  await ensureFamilyDatabase();
+
+  const { rows } = await pool.query(
+    `SELECT * FROM hero_family_tasks
+      WHERE assignee = $1 AND due_date = $2
+      ORDER BY done ASC, created_at ASC`,
+    [assignee, date]
+  );
+
+  return rows.map(mapFamilyTask);
+}
+
+async function getFamilyEvents(assignee, date) {
+  await ensureFamilyDatabase();
+
+  const assignees =
+    assignee === "family" ? ["family"] : [assignee, "family"];
+
+  const { rows } = await pool.query(
+    `SELECT * FROM hero_family_events
+      WHERE assignee = ANY($1::text[]) AND event_date = $2
+      ORDER BY NULLIF(event_time, '') ASC NULLS LAST, created_at ASC`,
+    [assignees, date]
+  );
+
+  return rows.map(mapFamilyEvent);
+}
+
+app.get("/api/family/status", (req, res) => {
+  res.json({
+    databaseConfigured: Boolean(pool),
+    parentPinConfigured: parentPinConfigured(),
+    parentAuthenticated: hasParentSession(req),
+    members: Object.values(FAMILY_MEMBERS)
+  });
+});
+
+app.post(
+  "/api/family/parent/login",
+  asyncRoute(async (req, res) => {
+    if (!parentPinConfigured()) {
+      throw new PublicError(
+        503,
+        "أضف PARENT_PIN في Railway أولاً. اختر رمزاً من 4 أرقام أو أكثر."
+      );
+    }
+
+    const pin =
+      typeof req.body?.pin === "string" ? req.body.pin : "";
+
+    if (!secureEqualText(pin, process.env.PARENT_PIN)) {
+      throw new PublicError(401, "رمز الوالدين غير صحيح.");
+    }
+
+    writeParentSession(res);
+
+    res.json({ authenticated: true });
+  })
+);
+
+app.post("/api/family/parent/logout", (req, res) => {
+  clearCookie(res, "hero_parent_session");
+  res.status(204).end();
+});
+
+app.get(
+  "/api/family/dashboard",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const date = familyDateKey(req.query.date);
+
+    const [{ rows: tasks }, { rows: events }] = await Promise.all([
+      pool.query(
+        `SELECT assignee,
+          COUNT(*) FILTER (WHERE done = FALSE) AS open_count,
+          COUNT(*) FILTER (WHERE done = TRUE) AS done_count,
+          COUNT(*) AS total_count
+         FROM hero_family_tasks
+         WHERE due_date = $1
+         GROUP BY assignee`,
+        [date]
+      ),
+      pool.query(
+        `SELECT * FROM hero_family_events
+         WHERE event_date >= $1
+         ORDER BY event_date ASC,
+           NULLIF(event_time, '') ASC NULLS LAST,
+           created_at ASC
+         LIMIT 20`,
+        [date]
+      )
+    ]);
+
+    const summary = {
+      yaman: { open: 0, done: 0, total: 0 },
+      judy: { open: 0, done: 0, total: 0 }
+    };
+
+    for (const row of tasks) {
+      if (summary[row.assignee]) {
+        summary[row.assignee] = {
+          open: Number(row.open_count || 0),
+          done: Number(row.done_count || 0),
+          total: Number(row.total_count || 0)
+        };
+      }
+    }
+
+    res.json({
+      date,
+      summary,
+      events: events.map(mapFamilyEvent)
+    });
+  })
+);
+
+app.get(
+  "/api/family/child/:assignee",
+  asyncRoute(async (req, res) => {
+    const assignee = String(req.params.assignee || "").toLowerCase();
+
+    if (!isFamilyMember(assignee)) {
+      throw new PublicError(400, "منطقة الطفل غير معروفة.");
+    }
+
+    const date = familyDateKey(req.query.date);
+
+    const [tasks, events] = await Promise.all([
+      getFamilyTasks(assignee, date),
+      getFamilyEvents(assignee, date)
+    ]);
+
+    res.json({
+      member: FAMILY_MEMBERS[assignee],
+      date,
+      tasks,
+      events,
+      parentAuthenticated: hasParentSession(req)
+    });
+  })
+);
+
+app.post(
+  "/api/family/tasks",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const assignee = String(req.body?.assignee || "").toLowerCase();
+    const title = safeText(req.body?.title, 160);
+    const type = safeTaskType(req.body?.type);
+    const points = Math.min(
+      50,
+      Math.max(0, Number(req.body?.points) || 5)
+    );
+    const dueDate = familyDateKey(req.body?.date);
+    const note = safeText(req.body?.note, 400);
+    const source = safeText(req.body?.source, 30) || "parent";
+
+    if (!isFamilyMember(assignee) || !title) {
+      throw new PublicError(
+        400,
+        "اختر الطفل واكتب مهمة قصيرة وواضحة."
+      );
+    }
+
+    const id = crypto.randomUUID();
+
+    const { rows } = await pool.query(
+      `INSERT INTO hero_family_tasks
+        (
+          id,
+          assignee,
+          title,
+          task_type,
+          points,
+          due_date,
+          note,
+          source,
+          ticktick_task_id,
+          ticktick_project_id,
+          ticktick_project_name
+        )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [
+        id,
+        assignee,
+        title,
+        type,
+        Math.round(points),
+        dueDate,
+        note,
+        source,
+        safeText(req.body?.ticktickTaskId, 200) || null,
+        safeText(req.body?.ticktickProjectId, 200) || null,
+        safeText(req.body?.ticktickProjectName, 200) || null
+      ]
+    );
+
+    res.status(201).json({
+      task: mapFamilyTask(rows[0])
+    });
+  })
+);
+
+app.patch(
+  "/api/family/tasks/:id/complete",
+  asyncRoute(async (req, res) => {
+    await ensureFamilyDatabase();
+
+    const assignee = String(req.body?.assignee || "").toLowerCase();
+
+    if (!isFamilyMember(assignee)) {
+      throw new PublicError(400, "منطقة الطفل غير معروفة.");
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE hero_family_tasks
+        SET done = TRUE, updated_at = NOW()
+        WHERE id = $1 AND assignee = $2
+        RETURNING *`,
+      [req.params.id, assignee]
+    );
+
+    if (!rows[0]) {
+      throw new PublicError(404, "لم نجد هذه المهمة.");
+    }
+
+    const task = mapFamilyTask(rows[0]);
+
+    if (
+      task.ticktickTaskId &&
+      task.ticktickProjectId &&
+      isTickTickConfigured() &&
+      getStoredTokens(req)?.accessToken
+    ) {
+      try {
+        await tickTickRequest(
+          req,
+          res,
+          `/project/${encodeURIComponent(
+            task.ticktickProjectId
+          )}/task/${encodeURIComponent(task.ticktickTaskId)}/complete`,
+          { method: "POST" }
+        );
+      } catch (error) {
+        console.warn(
+          "Family task completed locally but TickTick completion failed:",
+          error.message
+        );
+      }
+    }
+
+    res.json({ task });
+  })
+);
+
+app.patch(
+  "/api/family/tasks/:id",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const title = safeText(req.body?.title, 160);
+    const type = safeTaskType(req.body?.type);
+    const points = Math.min(
+      50,
+      Math.max(0, Number(req.body?.points) || 5)
+    );
+    const date = familyDateKey(req.body?.date);
+    const note = safeText(req.body?.note, 400);
+    const assignee = String(req.body?.assignee || "").toLowerCase();
+
+    if (!title || !isFamilyMember(assignee)) {
+      throw new PublicError(400, "تحقق من الطفل واسم المهمة.");
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE hero_family_tasks
+        SET
+          assignee = $2,
+          title = $3,
+          task_type = $4,
+          points = $5,
+          due_date = $6,
+          note = $7,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [
+        req.params.id,
+        assignee,
+        title,
+        type,
+        Math.round(points),
+        date,
+        note
+      ]
+    );
+
+    if (!rows[0]) {
+      throw new PublicError(404, "لم نجد هذه المهمة.");
+    }
+
+    res.json({
+      task: mapFamilyTask(rows[0])
+    });
+  })
+);
+
+app.delete(
+  "/api/family/tasks/:id",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const result = await pool.query(
+      "DELETE FROM hero_family_tasks WHERE id = $1",
+      [req.params.id]
+    );
+
+    if (!result.rowCount) {
+      throw new PublicError(404, "لم نجد هذه المهمة.");
+    }
+
+    res.status(204).end();
+  })
+);
+
+app.post(
+  "/api/family/events",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const assignee = String(
+      req.body?.assignee || "family"
+    ).toLowerCase();
+
+    const title = safeText(req.body?.title, 140);
+    const date = familyDateKey(req.body?.date);
+
+    const time = /^\d{2}:\d{2}$/.test(
+      String(req.body?.time || "")
+    )
+      ? String(req.body.time)
+      : "";
+
+    const note = safeText(req.body?.note, 350);
+
+    if (!["yaman", "judy", "family"].includes(assignee) || !title) {
+      throw new PublicError(
+        400,
+        "اكتب اسم الموعد وحدد لمن يظهر."
+      );
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO hero_family_events
+        (id, assignee, title, event_date, event_time, note)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [
+        crypto.randomUUID(),
+        assignee,
+        title,
+        date,
+        time,
+        note
+      ]
+    );
+
+    res.status(201).json({
+      event: mapFamilyEvent(rows[0])
+    });
+  })
+);
+
+app.delete(
+  "/api/family/events/:id",
+  asyncRoute(async (req, res) => {
+    requireParent(req);
+    await ensureFamilyDatabase();
+
+    const result = await pool.query(
+      "DELETE FROM hero_family_events WHERE id = $1",
+      [req.params.id]
+    );
+
+    if (!result.rowCount) {
+      throw new PublicError(404, "لم نجد هذا الموعد.");
+    }
+
+    res.status(204).end();
+  })
+);
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     app: "Yaman Hero",
-    ticktickConfigured: isTickTickConfigured()
+    ticktickConfigured: isTickTickConfigured(),
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY)
   });
 });
 
+app.get("/api/ai/status", (req, res) => {
+  res.json({
+    configured: Boolean(process.env.OPENAI_API_KEY),
+    mode: process.env.OPENAI_API_KEY ? "openai" : "local",
+    model: process.env.OPENAI_API_KEY
+      ? OPENAI_IDEA_MODEL
+      : null
+  });
+});
 app.get("/api/ticktick/status", (req, res) => {
   const configured = isTickTickConfigured();
   const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
@@ -505,7 +1410,9 @@ app.get("/api/ticktick/status", (req, res) => {
 app.get("/api/ticktick/diagnostics", (req, res) => {
   const configured = isTickTickConfigured();
   const cookieHeader = req.headers.cookie || "";
-  const hasTokenCookie = /(?:^|;\s*)hero_ticktick_tokens=/.test(cookieHeader);
+  const hasTokenCookie = /(?:^|;\s*)hero_ticktick_tokens=/.test(
+    cookieHeader
+  );
 
   res.json({
     configured,
@@ -837,6 +1744,28 @@ app.post(
     );
 
     res.status(204).end();
+  })
+);
+
+app.post(
+  "/api/ideas",
+  asyncRoute(async (req, res) => {
+    const idea = cleanIdeaText(req.body?.idea);
+
+    if (idea.length < 4) {
+      throw new PublicError(
+        400,
+        "اكتب فكرة قصيرة من عدة كلمات أولاً."
+      );
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.json(createLocalIdeaSuggestions(idea));
+    }
+
+    const result = await createOpenAIIdeaSuggestions(idea);
+
+    return res.json(result);
   })
 );
 
