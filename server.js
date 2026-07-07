@@ -16,6 +16,7 @@ const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: false, limit: "20kb" }));
 
 class PublicError extends Error {
   constructor(status, message) {
@@ -34,10 +35,7 @@ function isTickTickConfigured() {
 }
 
 function cookieIsSecure() {
-  return (
-    process.env.NODE_ENV === "production" ||
-    Boolean(process.env.RAILWAY_PUBLIC_DOMAIN)
-  );
+  return process.env.NODE_ENV === "production" || Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
 }
 
 function appendSetCookie(res, cookie) {
@@ -94,10 +92,7 @@ function readCookie(req, name) {
 
 function encryptionKey() {
   if (!process.env.SESSION_SECRET) {
-    throw new PublicError(
-      503,
-      "יש להגדיר SESSION_SECRET ב-Railway לפני חיבור TickTick."
-    );
+    throw new PublicError(503, "יש להגדיר SESSION_SECRET ב-Railway לפני חיבור TickTick.");
   }
 
   return crypto
@@ -108,18 +103,11 @@ function encryptionKey() {
 
 function encryptJson(value) {
   const iv = crypto.randomBytes(12);
-
-  const cipher = crypto.createCipheriv(
-    "aes-256-gcm",
-    encryptionKey(),
-    iv
-  );
-
+  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(value), "utf8"),
     cipher.final()
   ]);
-
   const tag = cipher.getAuthTag();
 
   return [iv, tag, encrypted]
@@ -158,7 +146,6 @@ function createOAuthState() {
   const issuedAt = Date.now().toString();
   const nonce = crypto.randomBytes(24).toString("base64url");
   const payload = `${issuedAt}.${nonce}`;
-
   const signature = crypto
     .createHmac("sha256", encryptionKey())
     .update(`ticktick-oauth:${payload}`)
@@ -178,16 +165,11 @@ function verifyOAuthState(value) {
     const issuedAt = Number(issuedAtValue);
     const maxAge = 10 * 60 * 1000;
 
-    if (
-      !Number.isFinite(issuedAt) ||
-      issuedAt > Date.now() + 60_000 ||
-      Date.now() - issuedAt > maxAge
-    ) {
+    if (!Number.isFinite(issuedAt) || issuedAt > Date.now() + 60_000 || Date.now() - issuedAt > maxAge) {
       return false;
     }
 
     const payload = `${issuedAtValue}.${nonce}`;
-
     const expected = crypto
       .createHmac("sha256", encryptionKey())
       .update(`ticktick-oauth:${payload}`)
@@ -258,12 +240,7 @@ async function requestToken(params) {
 
   const body = await readResponseBody(response);
 
-  if (
-    !response.ok ||
-    !body ||
-    typeof body !== "object" ||
-    !body.access_token
-  ) {
+  if (!response.ok || !body || typeof body !== "object" || !body.access_token) {
     const reason =
       body && typeof body === "object"
         ? body.error || body.message || "unknown_error"
@@ -298,7 +275,6 @@ async function refreshTokens(req, res, tokens) {
   });
 
   const refreshed = normalizeTokens(payload, tokens);
-
   writeStoredTokens(res, refreshed);
 
   return refreshed;
@@ -337,10 +313,7 @@ async function tickTickRequest(req, res, endpoint, options = {}) {
     return fetch(`${TICKTICK_API_BASE}${endpoint}`, {
       method: options.method || "GET",
       headers,
-      body:
-        options.body === undefined
-          ? undefined
-          : JSON.stringify(options.body)
+      body: options.body === undefined ? undefined : JSON.stringify(options.body)
     });
   }
 
@@ -404,6 +377,7 @@ function taskDateKey(task) {
 
   const value = String(rawDate);
 
+  // TickTick may return an all-day date without a time component.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
   }
@@ -420,7 +394,12 @@ function isOpenTickTickTask(task) {
     return false;
   }
 
-  return Number(task.status) !== 2;
+  // TickTick task status 2 indicates a completed item in project data.
+  if (Number(task.status) === 2) {
+    return false;
+  }
+
+  return true;
 }
 
 function selectedProjectIdsFromQuery(value) {
@@ -428,23 +407,18 @@ function selectedProjectIdsFromQuery(value) {
     return [];
   }
 
-  return [
-    ...new Set(
-      value
-        .split(",")
-        .map((id) => id.trim())
-        .filter((id) => id && id.length <= 200)
-    )
-  ];
+  return [...new Set(
+    value
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && id.length <= 200)
+  )];
 }
 async function ensureHeroProject(req, res) {
   const projects = await tickTickRequest(req, res, "/project");
 
   if (!Array.isArray(projects)) {
-    throw new PublicError(
-      502,
-      "לא התקבלה רשימת פרויקטים תקינה מ-TickTick."
-    );
+    throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
   }
 
   let project = projects.find(
@@ -464,10 +438,7 @@ async function ensureHeroProject(req, res) {
   }
 
   if (!project?.id) {
-    throw new PublicError(
-      502,
-      "לא ניתן ליצור את רשימת Hero – Yaman ב-TickTick."
-    );
+    throw new PublicError(502, "לא ניתן ליצור את רשימת Hero – Yaman ב-TickTick.");
   }
 
   return project;
@@ -513,8 +484,7 @@ function createLocalIdeaSuggestions(idea) {
         title: `${theme}: المهمة الأولى`,
         summary: `${character} يبدأ من فكرتك: «${safeInput}». تظهر مشكلة صغيرة، ويجد حلاً هادئاً مع صديق.`,
         firstStep: "اختر شخصية واحدة واكتب أو سجّل جملة واحدة بصوتها.",
-        taskTitle:
-          "تطوير فكرة إبداعية: كتابة جملة واحدة أو تسجيل صوت قصير",
+        taskTitle: "تطوير فكرة إبداعية: كتابة جملة واحدة أو تسجيل صوت قصير",
         category: "creative"
       },
       {
@@ -767,18 +737,9 @@ function asyncRoute(handler) {
     Promise.resolve(handler(req, res, next)).catch(next);
   };
 }
-
 const FAMILY_MEMBERS = {
-  yaman: {
-    id: "yaman",
-    name: "يَمان",
-    label: "منطقة يَمان"
-  },
-  judy: {
-    id: "judy",
-    name: "جودي",
-    label: "منطقة جودي"
-  }
+  yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان" },
+  judy: { id: "judy", name: "جودي", label: "منطقة جودي" }
 };
 
 const pool = process.env.DATABASE_URL
@@ -916,7 +877,7 @@ function hasParentSession(req) {
 
   return Boolean(
     session?.role === "parent" &&
-      Number(session?.expiresAt) > Date.now()
+    Number(session?.expiresAt) > Date.now()
   );
 }
 
@@ -927,8 +888,8 @@ function hasChildSession(req, assignee) {
 
   return Boolean(
     session?.role === "child" &&
-      session?.assignee === assignee &&
-      Number(session?.expiresAt) > Date.now()
+    session?.assignee === assignee &&
+    Number(session?.expiresAt) > Date.now()
   );
 }
 
@@ -1048,6 +1009,7 @@ async function getFamilyEvents(assignee, date) {
 
   return rows.map(mapFamilyEvent);
 }
+
 app.get("/api/family/status", (req, res) => {
   res.json({
     databaseConfigured: Boolean(pool),
@@ -1061,6 +1023,25 @@ app.get("/api/family/status", (req, res) => {
   });
 });
 
+// כניסת הורה רגילה באמצעות form.
+// הנתיב הזה אינו תלוי ב-JavaScript של הדפדפן.
+app.post("/auth/parent/login", asyncRoute(async (req, res) => {
+  if (!parentPinConfigured()) {
+    return res.redirect(303, "/?parentLogin=not_configured");
+  }
+
+  const pin =
+    typeof req.body?.pin === "string" ? req.body.pin : "";
+
+  if (!secureEqualText(pin, process.env.PARENT_PIN)) {
+    return res.redirect(303, "/?parentLogin=invalid");
+  }
+
+  writeParentSession(res);
+
+  return res.redirect(303, "/?parent=opened");
+}));
+
 app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
   if (!parentPinConfigured()) {
     throw new PublicError(
@@ -1069,13 +1050,15 @@ app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
     );
   }
 
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin =
+    typeof req.body?.pin === "string" ? req.body.pin : "";
 
   if (!secureEqualText(pin, process.env.PARENT_PIN)) {
     throw new PublicError(401, "رمز الوالدين غير صحيح.");
   }
 
   writeParentSession(res);
+
   res.json({ authenticated: true });
 }));
 
@@ -1098,7 +1081,8 @@ app.post("/api/family/child/:assignee/login", asyncRoute(async (req, res) => {
     );
   }
 
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin =
+    typeof req.body?.pin === "string" ? req.body.pin : "";
 
   if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) {
     throw new PublicError(401, "رمز الدخول غير صحيح.");
@@ -1116,17 +1100,18 @@ app.post("/api/family/child/:assignee/logout", (req, res) => {
   const assignee = String(req.params.assignee || "").toLowerCase();
 
   if (!isFamilyMember(assignee)) {
-    return res.status(400).json({ error: "منطقة الطفل غير معروفة." });
+    return res.status(400).json({
+      error: "منطقة الطفل غير معروفة."
+    });
   }
 
   clearCookie(res, childSessionCookieName(assignee));
+
   res.status(204).end();
 });
-
 app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
-
   const date = familyDateKey(req.query.date);
 
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -1388,36 +1373,6 @@ app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {
 
   res.status(204).end();
 }));
-
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    app: "Yaman Hero",
-    ticktickConfigured: isTickTickConfigured(),
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY)
-  });
-});
-
-app.get("/api/ai/status", (req, res) => {
-  res.json({
-    configured: Boolean(process.env.OPENAI_API_KEY),
-    mode: process.env.OPENAI_API_KEY ? "openai" : "local",
-    model: process.env.OPENAI_API_KEY ? OPENAI_IDEA_MODEL : null
-  });
-});
-
-app.get("/api/ticktick/status", (req, res) => {
-  const configured = isTickTickConfigured();
-  const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
-
-  res.json({
-    configured,
-    connected,
-    projectName: HERO_PROJECT_NAME,
-    timeZone: APP_TIME_ZONE
-  });
-});
-
 app.get("/api/ticktick/diagnostics", (req, res) => {
   const configured = isTickTickConfigured();
   const cookieHeader = req.headers.cookie || "";
@@ -1432,7 +1387,7 @@ app.get("/api/ticktick/diagnostics", (req, res) => {
     appTimeZone: APP_TIME_ZONE
   });
 });
-// Returns active TickTick lists so the user can decide which lists Hero is allowed to import from.
+
 app.get("/api/ticktick/projects", asyncRoute(async (req, res) => {
   requireConfigured();
 
@@ -1569,8 +1524,6 @@ app.get("/api/ticktick/today-tasks", asyncRoute(async (req, res) => {
   });
 }));
 
-// OAuth state is signed instead of stored in a temporary cookie.
-// This avoids losing the state during TickTick redirect on iPhone/in-app browsers.
 app.get("/auth/ticktick", (req, res, next) => {
   try {
     requireConfigured();
