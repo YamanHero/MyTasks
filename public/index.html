@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#5b5bd6" id="themeColor" />
   <title>Hero Family — يَمان وجودي</title>
-  <!-- v20: after successful parent login, perform a hard redirect so the browser reloads the authenticated parent dashboard. -->
+  <!-- v21: native parent login form posts directly to the server, then the server sets the session cookie and redirects. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
@@ -123,6 +123,8 @@ function childView(member){
   const d=child[member];if(!d)return `<article class="card soft"><span class="eyebrow">جاري التحميل</span><h2>نجهز خطة اليوم…</h2></article>`;const open=d.tasks.filter(t=>!t.done),done=d.tasks.filter(t=>t.done),next=open[0],points=done.reduce((s,t)=>s+Number(t.points||0),0),pct=d.tasks.length?Math.round(done.length/d.tasks.length*100):0;const primary=next?`<article class="next"><span class="eyebrow">المهمة التالية</span><span class="pill ${member==="judy"?"judy":""}">${esc(typeLabel(next))}</span><h2 class="task-title">${esc(next.title)}</h2><p class="muted">${next.note?esc(next.note):"ابدأ بخمس دقائق فقط، ثم قرر إن كنت ستكمل."}</p><div class="btn-row"><button class="btn btn-success" type="button" data-action="complete" data-id="${next.id}" data-member="${member}">أنجزتها</button></div></article>`:`<article class="next"><span class="eyebrow">اليوم هادئ</span><h2 class="task-title">أحسنت. أنهيت مهامك لليوم.</h2><p class="muted">الراحة جزء مهم من الخطة. يمكنك الآن اختيار نشاط تحبه أو قضاء وقت مع العائلة.</p></article>`;const ideas=member==="yaman"?`<article class="card soft"><span class="eyebrow">فكرتي مع Hero</span><h3>اكتب فكرة صغيرة للدبلجة أو الرسوم</h3><p class="muted small">سنحوّلها إلى ثلاث أفكار آمنة مع خطوة أولى واضحة.</p><form class="form" id="ideaForm" style="margin-top:12px"><textarea id="ideaText" maxlength="600" placeholder="مثال: روبوت صغير يحاول أن يقلد أصوات الحيوانات"></textarea><button class="btn btn-primary" type="submit">اقترح لي أفكاراً</button></form><div id="ideasOut"></div></article>`:`<article class="card warning"><span class="eyebrow">شيء جميل اليوم</span><h3>اختاري نشاطاً تحبينه بعد المهام</h3><p class="muted">رسم، قصة قصيرة، لعبة هادئة أو مساعدة في شيء بسيط بالبيت.</p></article>`;return `<div class="stack"><div class="btn-row"><button class="btn btn-secondary" type="button" data-action="child-logout" data-member="${member}">قفل منطقة ${esc(PEOPLE[member].name)}</button></div><div class="child-layout"><div class="stack">${primary}<article class="card list"><div class="list-head"><div><span class="eyebrow">خطة اليوم</span><h3>مهام ${PEOPLE[member].name}</h3></div><span class="pill">${done.length}/${d.tasks.length||0} مكتمل</span></div><ul>${tasksRows(d.tasks,member)}</ul></article>${ideas}</div><div class="stack"><article class="card success"><span class="eyebrow">تقدمي اليوم</span><div class="grid3"><div class="metric"><strong>${points}</strong><span>نقاط اليوم</span></div><div class="metric"><strong>${pct}%</strong><span>تقدم اليوم</span></div><div class="metric"><strong>${open.length}</strong><span>مهام متبقية</span></div></div></article><article class="card list"><div class="list-head"><div><span class="eyebrow">مواعيدي</span><h3>ماذا لدي اليوم؟</h3></div></div><ul>${eventRows(d.events)}</ul></article><article class="card soft"><span class="eyebrow">تذكير هادئ</span><h3>التركيز على شيء واحد يكفي.</h3><p class="muted">لا نحتاج أن ننجز كل شيء دفعة واحدة. نبدأ، نرتاح، ثم نعود.</p></article></div></div></div>`}
 function tickTickStatusCard(){if(!tick.configured)return `<article class="notice">TickTick غير مهيأ بعد في Railway.</article>`;return tick.connected?`<article class="ai-status ready"><span class="eyebrow">TickTick</span><h3>متصل وجاهز للاستيراد</h3><p class="muted small">يمكنك بعد فتح منطقة الوالدين اختيار القوائم واستيراد مهام اليوم.</p></article>`:`<article class="ai-status"><span class="eyebrow">TickTick</span><h3>غير متصل في هذا المتصفح</h3><p class="muted small">اربط الحساب مرة واحدة من هذا الجهاز لإظهار قوائم ومهام TickTick.</p><div class="btn-row"><button class="btn btn-soft" type="button" data-action="connect-ticktick">ربط TickTick</button></div></article>`}
 function parentLogin(){
+  const loginResult=new URLSearchParams(window.location.search).get("parentLogin");
+  const loginError=loginResult==="invalid"?"رمز الوالدين غير صحيح.":loginResult==="not_configured"?"رمز الوالدين غير مهيأ في Railway.":"";
   if(!family.databaseConfigured)return `<article class="card warning"><span class="eyebrow">خطوة مطلوبة</span><h2>قاعدة بيانات العائلة غير مفعّلة بعد.</h2><p class="muted">في Railway أضف متغير <strong>DATABASE_URL</strong> من خدمة PostgreSQL إلى خدمة التطبيق، ثم أعد النشر.</p></article>`;
   if(!family.parentPinConfigured)return `<article class="card warning"><span class="eyebrow">خطوة مطلوبة</span><h2>أضف رمز الوالدين أولاً.</h2><p class="muted">في Railway Variables أضف <strong>PARENT_PIN</strong> واختر رمزاً من 4 أرقام أو أكثر. الرمز لا يكتب داخل الكود.</p></article>`;
 
@@ -130,12 +132,12 @@ function parentLogin(){
     <span class="eyebrow">منطقة الوالدين</span>
     <h2>إدارة مهام يَمان وجودي</h2>
     <p class="muted">اكتب الرمز من لوحة المفاتيح ثم اضغط فتح منطقة الوالدين أو زر الإدخال.</p>
-    <form class="form" id="loginForm" style="margin-top:16px">
+    <form class="form" id="parentNativeLoginForm" action="/auth/parent/login" method="post" style="margin-top:16px">
       <label for="pin">رمز الوالدين</label>
-      <input id="pin" class="pin-field" name="pin" type="tel" inputmode="numeric" pattern="[0-9٠-٩۰-۹]*" maxlength="24" autocomplete="one-time-code" enterkeyhint="done" spellcheck="false" autofocus aria-describedby="pinHelp pinError" placeholder="اكتب الرمز هنا">
-      <p class="pin-help" id="pinHelp">اكتب 4 أرقام على الأقل.</p>
+      <input id="pin" class="pin-field" name="pin" type="tel" inputmode="numeric" pattern="[0-9٠-٩۰-۹]*" maxlength="24" minlength="4" required autocomplete="one-time-code" enterkeyhint="done" spellcheck="false" autofocus aria-describedby="pinHelp pinError" placeholder="اكتب الرمز هنا">
+      <p class="pin-help" id="pinHelp">اكتب الرمز بالمקלדת ثم اضغط فتح منطقة الوالدين.</p>
       <div class="btn-row"><button class="btn btn-primary" id="parentLoginSubmit" type="submit">فتح منطقة الوالدين</button></div>
-      <p class="pin-error" id="pinError" aria-live="polite"></p>
+      <p class="pin-error" id="pinError" aria-live="polite">${loginError}</p>
     </form>
   </article></div>`;
 }
@@ -171,7 +173,7 @@ function normalizePin(value){
 }
 function submitPinFromKeyboard(input){
   const form=input?.id==="pin"
-    ?document.getElementById("loginForm")
+    ?document.getElementById("parentNativeLoginForm")
     :document.getElementById("childLoginForm");
   if(form) form.requestSubmit();
 }
