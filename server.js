@@ -37,7 +37,6 @@ if (!OPENAI_API_KEY) {
 
 /**
  * PIN codes
- * שנה כאן את הקודים אם תרצה.
  */
 const FAMILY_PINS = {
   yaman: process.env.YAMAN_PIN || "1111",
@@ -47,13 +46,12 @@ const FAMILY_PINS = {
 
 /**
  * Health check
- * זה חייב לעבוד גם בלי DB ובלי OpenAI.
  */
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
     app: "Hero Family",
-    version: "24.0.2",
+    version: "24.0.3",
     databaseConfigured: Boolean(DATABASE_URL),
     openaiConfigured: Boolean(OPENAI_API_KEY),
     time: new Date().toISOString()
