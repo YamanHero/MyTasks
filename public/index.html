@@ -6,278 +6,7 @@
 
   <title>Hero Family</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-      background:
-        radial-gradient(circle at top right, #e0f2fe 0, transparent 28%),
-        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-      color: #0f172a;
-      min-height: 100vh;
-    }
-
-    button,
-    input {
-      font-family: inherit;
-    }
-
-    .app-shell {
-      width: 100%;
-      min-height: 100vh;
-      padding: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 980px;
-    }
-
-    .hero-header {
-      padding: 24px 0 16px;
-      text-align: center;
-    }
-
-    .hero-title {
-      margin: 0;
-      font-size: clamp(32px, 6vw, 56px);
-      font-weight: 900;
-      letter-spacing: -1px;
-    }
-
-    .hero-subtitle {
-      margin: 8px 0 0;
-      color: #475569;
-      font-size: 17px;
-    }
-
-    .card {
-      background: rgba(255, 255, 255, 0.92);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
-      border-radius: 28px;
-      padding: 22px;
-      margin: 16px 0;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .login-card {
-      max-width: 460px;
-      margin: 24px auto;
-      text-align: center;
-    }
-
-    .pin-input {
-      width: 100%;
-      padding: 16px;
-      border-radius: 18px;
-      border: 1px solid #cbd5e1;
-      font-size: 24px;
-      text-align: center;
-      letter-spacing: 8px;
-      margin: 16px 0;
-      background: #ffffff;
-    }
-
-    .primary-btn,
-    .secondary-btn,
-    .danger-btn {
-      border: none;
-      border-radius: 16px;
-      padding: 14px 18px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-    }
-
-    .primary-btn {
-      background: #2563eb;
-      color: white;
-      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
-    }
-
-    .secondary-btn {
-      background: #f1f5f9;
-      color: #0f172a;
-    }
-
-    .danger-btn {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .primary-btn:hover,
-    .secondary-btn:hover,
-    .danger-btn:hover {
-      transform: translateY(-1px);
-    }
-
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-
-    .profile-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-weight: 800;
-    }
-
-    .math-card {
-      direction: rtl;
-      text-align: right;
-    }
-
-    .math-card h2 {
-      margin-top: 0;
-      font-size: 28px;
-    }
-
-    .math-status {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 18px;
-      padding: 14px;
-      margin: 14px 0;
-      font-size: 15px;
-      line-height: 1.8;
-    }
-
-    .chat-box {
-      min-height: 280px;
-      max-height: 420px;
-      overflow-y: auto;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 22px;
-      padding: 14px;
-      margin: 14px 0;
-      scroll-behavior: smooth;
-    }
-
-    .chat-msg {
-      padding: 12px 14px;
-      border-radius: 18px;
-      margin-bottom: 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      max-width: 78%;
-      font-size: 16px;
-    }
-
-    .user-msg {
-      background: #dbeafe;
-      color: #1e3a8a;
-      margin-right: auto;
-      text-align: right;
-    }
-
-    .teacher-msg {
-      background: #f1f5f9;
-      color: #0f172a;
-      margin-left: auto;
-      text-align: right;
-    }
-
-    .chat-input-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .chat-input-row input {
-      flex: 1;
-      min-width: 0;
-      padding: 15px;
-      border-radius: 16px;
-      border: 1px solid #cbd5e1;
-      font-size: 16px;
-      background: #ffffff;
-    }
-
-    .lesson-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
-    .error-text {
-      color: #b91c1c;
-      font-weight: 700;
-      margin-top: 10px;
-      min-height: 22px;
-    }
-
-    .parent-report {
-      line-height: 1.8;
-      background: #f8fafc;
-      border-radius: 18px;
-      padding: 14px;
-      border: 1px solid #e2e8f0;
-    }
-
-    .small-note {
-      margin-top: 10px;
-      font-size: 13px;
-      color: #64748b;
-      line-height: 1.6;
-    }
-
-    @media (max-width: 720px) {
-      .app-shell {
-        padding: 12px;
-      }
-
-      .card {
-        border-radius: 22px;
-        padding: 16px;
-      }
-
-      .chat-input-row {
-        flex-direction: column;
-      }
-
-      .chat-input-row input,
-      .chat-input-row button {
-        width: 100%;
-      }
-
-      .chat-msg {
-        max-width: 92%;
-      }
-
-      .top-bar {
-        align-items: stretch;
-      }
-
-      .top-bar button,
-      .profile-badge {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
@@ -513,9 +242,6 @@
 
     logoutBtn.addEventListener("click", logout);
 
-    /**
-     * Math status
-     */
     async function loadMathStatus() {
       const box = document.getElementById("mathStatus");
       if (!box) return;
@@ -544,9 +270,6 @@
       }
     }
 
-    /**
-     * Chat helpers
-     */
     function addMathMessage(role, text) {
       const chat = document.getElementById("mathChatBox");
       if (!chat) return;
@@ -638,9 +361,6 @@
       if (chat) chat.innerHTML = "";
     });
 
-    /**
-     * Parent report
-     */
     async function loadParentMathReport() {
       const box = document.getElementById("parentMathReport");
       if (!box) return;
@@ -673,9 +393,6 @@
       loadParentMathReport();
     });
 
-    /**
-     * Basic HTML escape
-     */
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
