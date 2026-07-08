@@ -306,7 +306,7 @@ async function createTickTickTaskIfPossible(req, res, task) {
       body: {
         projectId: project.id,
         title: task.title,
-        content: `Hero Family\nالطفل: ${task.assignee}\nالنوع: ${task.type}\nالنقاط: ${task.points}\n${task.note || ""}`,
+        content: `Hero Family\nالطفل: ${task.assignee}\nالنوع: ${task.type}\nالنقاط: ${task.points}\nالوقت المقترح: ${task.suggestedTime || "بدون"}\nالمؤقت: ${task.timerMinutes ? `${task.timerMinutes} دقيقة` : "بدون"}\n${task.note || ""}`,
         priority: 0
       }
     });
@@ -366,6 +366,8 @@ async function ensureFamilyDatabase() {
           points INTEGER NOT NULL DEFAULT 5,
           due_date DATE NOT NULL,
           note TEXT NOT NULL DEFAULT '',
+          suggested_time TEXT NOT NULL DEFAULT '',
+          timer_minutes INTEGER NOT NULL DEFAULT 0,
           done BOOLEAN NOT NULL DEFAULT FALSE,
           source TEXT NOT NULL DEFAULT 'parent',
           ticktick_task_id TEXT,
@@ -377,6 +379,8 @@ async function ensureFamilyDatabase() {
         );
 
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS ticktick_completed BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS suggested_time TEXT NOT NULL DEFAULT '';
+        ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS timer_minutes INTEGER NOT NULL DEFAULT 0;
 
         CREATE INDEX IF NOT EXISTS hero_family_tasks_assignee_date_idx
           ON hero_family_tasks (assignee, due_date, done);
@@ -462,6 +466,8 @@ function mapFamilyTask(row) {
     points: Number(row.points || 0),
     date: String(row.due_date).slice(0, 10),
     note: row.note || "",
+    suggestedTime: row.suggested_time || "",
+    timerMinutes: Number(row.timer_minutes || 0),
     done: Boolean(row.done),
     source: row.source || "parent",
     ticktickTaskId: row.ticktick_task_id || null,
@@ -481,6 +487,17 @@ function safeText(value, maxLength) {
 
 function safeTaskType(value) {
   return ["study", "home", "creative", "movement", "social", "routine", "other"].includes(value) ? value : "other";
+}
+
+function safeTime(value) {
+  const raw = safeText(value, 8);
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(raw) ? raw : "";
+}
+
+function safeTimerMinutes(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(180, Math.max(0, Math.round(number)));
 }
 
 async function getFamilyTasks(assignee, date) {
@@ -527,44 +544,87 @@ function normalizePlanTask(task) {
     title: safeText(task?.title, 160) || "مهمة صغيرة وواضحة",
     type,
     points: Math.round(points),
-    note: safeText(task?.note, 320) || "ابدأ بخمس دقائق فقط."
+    note: safeText(task?.note, 320) || "ابدأ بخمس دقائق فقط.",
+    suggestedTime: safeTime(task?.suggestedTime),
+    timerMinutes: safeTimerMinutes(task?.timerMinutes)
   };
 }
 
-function localDailyCoachPlan() {
+function parsePlanTaskCount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 3;
+  return Math.min(10, Math.max(1, Math.round(number)));
+}
+
+function planInstructionsText(value) {
+  return safeText(value, 900);
+}
+
+function localDailyCoachPlan(taskCount = 3, instructions = "") {
+  const count = parsePlanTaskCount(taskCount);
+  const customNote = instructions
+    ? `تم أخذ توجيه الوالدين بالحسبان: ${instructions}`
+    : "ابدأ بخطوة صغيرة فقط.";
+
+  const yamanTasks = [
+    { title: "رياضيات: حل 3 أسئلة قصيرة", type: "study", points: 15, note: "ابدأ بالسؤال الأسهل وضع علامة على السؤال الصعب.", suggestedTime: "16:30", timerMinutes: 20 },
+    { title: "تسجيل صوت قصير لشخصية من خيالك", type: "creative", points: 15, note: "جملة واحدة تكفي. لا نحتاج نتيجة كاملة.", suggestedTime: "17:10", timerMinutes: 15 },
+    { title: "ترتيب شيء واحد في الغرفة", type: "home", points: 10, note: "اختر زاوية صغيرة فقط.", suggestedTime: "17:35", timerMinutes: 10 },
+    { title: "حركة خفيفة", type: "movement", points: 10, note: "مشي قصير أو تمدد بسيط يكفي.", suggestedTime: "18:00", timerMinutes: 10 },
+    { title: "تدريب اجتماعي: جملة طلب مساعدة", type: "social", points: 10, note: "تدرّب على جملة واحدة: هل يمكنك مساعدتي؟", suggestedTime: "18:15", timerMinutes: 5 },
+    { title: "تجهيز شيء واحد للغد", type: "routine", points: 5, note: "ضع شيئاً واحداً في مكانه الصحيح.", suggestedTime: "19:00", timerMinutes: 8 },
+    { title: "قراءة فقرة قصيرة بصوت هادئ", type: "study", points: 10, note: "اقرأ فقرة واحدة فقط ثم توقف.", suggestedTime: "19:15", timerMinutes: 10 },
+    { title: "رسم لقطة من فكرة فيديو", type: "creative", points: 10, note: "ارسم بشكل سريع بدون محاولة الكمال.", suggestedTime: "19:30", timerMinutes: 12 },
+    { title: "مراجعة قائمة الغد مع أحد الوالدين", type: "routine", points: 5, note: "اختر مهمة واحدة مهمة للغد.", suggestedTime: "19:50", timerMinutes: 0 },
+    { title: "إغلاق اليوم بكلمة نجاح واحدة", type: "social", points: 5, note: "قل ما الشيء الصغير الذي نجح اليوم.", suggestedTime: "20:05", timerMinutes: 0 }
+  ];
+
+  const judyTasks = [
+    { title: "قراءة أو مراجعة قصيرة", type: "study", points: 10, note: "اختاري فقرة واحدة فقط.", suggestedTime: "16:20", timerMinutes: 15 },
+    { title: "مساعدة بسيطة في البيت", type: "home", points: 10, note: "مهمة واحدة صغيرة وواضحة.", suggestedTime: "16:45", timerMinutes: 10 },
+    { title: "رسم أو نشاط إبداعي قصير", type: "creative", points: 10, note: "اختاري لونين وابدئي.", suggestedTime: "17:05", timerMinutes: 15 },
+    { title: "حركة لطيفة أو لعبة نشيطة", type: "movement", points: 10, note: "خمس إلى عشر دقائق كافية.", suggestedTime: "17:30", timerMinutes: 10 },
+    { title: "كلمة لطيفة لشخص من العائلة", type: "social", points: 10, note: "قولي شيئاً جميلاً وبسيطاً.", suggestedTime: "18:00", timerMinutes: 0 },
+    { title: "ترتيب حقيبة أو زاوية صغيرة", type: "routine", points: 5, note: "اختاري شيئاً واحداً فقط.", suggestedTime: "18:20", timerMinutes: 8 },
+    { title: "تدريب كتابة جملتين", type: "study", points: 10, note: "جملتان قصيرتان تكفيان.", suggestedTime: "18:40", timerMinutes: 12 },
+    { title: "اختيار ملابس أو أدوات الغد", type: "routine", points: 5, note: "ضعي شيئاً واحداً في مكان واضح.", suggestedTime: "19:05", timerMinutes: 8 },
+    { title: "نشاط هادئ قبل النوم", type: "routine", points: 5, note: "اختاري شيئاً هادئاً ومريحاً.", suggestedTime: "19:30", timerMinutes: 10 },
+    { title: "إخبار العائلة بشيء جميل من اليوم", type: "social", points: 5, note: "كلمة واحدة جميلة تكفي.", suggestedTime: "19:50", timerMinutes: 0 }
+  ];
+
   return {
-    familyMessage: "اليوم نختار خطوات قليلة وواضحة. الجهد هو الذي يُحسب، وليس الكمال.",
+    familyMessage: instructions
+      ? `اليوم نبني خطة حسب توجيه الوالدين. ${customNote}`
+      : "اليوم نختار خطوات واضحة مع أوقات ومؤقتات عند الحاجة. الجهد هو الذي يُحسب، وليس الكمال.",
     children: {
       yaman: {
-        encouragement: "يا يَمان، ابدأ بمهمة واحدة فقط. كل خطوة صغيرة تقرّبك من نسخة أقوى منك.",
-        tasks: [
-          { title: "رياضيات: حل 3 أسئلة قصيرة", type: "study", points: 15, note: "ابدأ بالسؤال الأسهل وضع علامة على السؤال الصعب." },
-          { title: "تسجيل صوت قصير لشخصية من خيالك", type: "creative", points: 15, note: "جملة واحدة تكفي. لا نحتاج نتيجة كاملة." },
-          { title: "ترتيب شيء واحد في الغرفة", type: "home", points: 10, note: "اختر زاوية صغيرة فقط." }
-        ]
+        encouragement: "يا يَمان، ابدأ بمهمة واحدة فقط. المؤقت يساعدك أن تعرف أين تبدأ وأين تتوقف.",
+        tasks: yamanTasks.slice(0, count)
       },
       judy: {
-        encouragement: "يا جودي، اليوم نعمل بلطف وهدوء. مهمة صغيرة جميلة تكفي للبداية.",
-        tasks: [
-          { title: "قراءة أو مراجعة قصيرة لمدة 10 دقائق", type: "study", points: 10, note: "اختاري فقرة واحدة فقط." },
-          { title: "مساعدة بسيطة في البيت", type: "home", points: 10, note: "مهمة واحدة صغيرة وواضحة." },
-          { title: "رسم أو نشاط إبداعي قصير", type: "creative", points: 10, note: "اختاري لونين وابدئي." }
-        ]
+        encouragement: "يا جودي، اليوم نعمل بلطف وهدوء. الوقت المقترح يساعدنا فقط، وليس ضغطاً.",
+        tasks: judyTasks.slice(0, count)
       }
     }
   };
 }
 
-function normalizeDailyCoachPlan(value) {
-  const fallback = localDailyCoachPlan();
+function normalizeDailyCoachPlan(value, taskCount = 3, instructions = "") {
+  const count = parsePlanTaskCount(taskCount);
+  const fallback = localDailyCoachPlan(count, instructions);
   const plan = value && typeof value === "object" ? value : fallback;
   const children = plan.children && typeof plan.children === "object" ? plan.children : {};
   const normalizeChild = (member) => {
     const child = children[member] && typeof children[member] === "object" ? children[member] : fallback.children[member];
-    const tasks = Array.isArray(child.tasks) ? child.tasks.slice(0, 4).map(normalizePlanTask) : fallback.children[member].tasks.map(normalizePlanTask);
+    const rawTasks = Array.isArray(child.tasks) ? child.tasks.map(normalizePlanTask) : [];
+    const fallbackTasks = fallback.children[member].tasks.map(normalizePlanTask);
+    const tasks = rawTasks.slice(0, count);
+    for (let i = tasks.length; i < count; i += 1) {
+      tasks.push(fallbackTasks[i % fallbackTasks.length]);
+    }
     return {
       encouragement: safeText(child.encouragement, 260) || fallback.children[member].encouragement,
-      tasks: tasks.length ? tasks : fallback.children[member].tasks.map(normalizePlanTask)
+      tasks
     };
   };
   return {
@@ -576,7 +636,9 @@ function normalizeDailyCoachPlan(value) {
   };
 }
 
-async function createOpenAIDailyCoachPlan(date) {
+async function createOpenAIDailyCoachPlan(date, taskCount = 3, instructions = "") {
+  const count = parsePlanTaskCount(taskCount);
+  const parentInstructions = planInstructionsText(instructions);
   const schema = {
     type: "object",
     additionalProperties: false,
@@ -593,8 +655,8 @@ async function createOpenAIDailyCoachPlan(date) {
               encouragement: { type: "string" },
               tasks: {
                 type: "array",
-                minItems: 3,
-                maxItems: 4,
+                minItems: count,
+                maxItems: count,
                 items: {
                   type: "object",
                   additionalProperties: false,
@@ -602,9 +664,11 @@ async function createOpenAIDailyCoachPlan(date) {
                     title: { type: "string" },
                     type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "other"] },
                     points: { type: "integer" },
-                    note: { type: "string" }
+                    note: { type: "string" },
+                    suggestedTime: { type: "string" },
+                    timerMinutes: { type: "integer" }
                   },
-                  required: ["title", "type", "points", "note"]
+                  required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"]
                 }
               }
             },
@@ -617,8 +681,8 @@ async function createOpenAIDailyCoachPlan(date) {
               encouragement: { type: "string" },
               tasks: {
                 type: "array",
-                minItems: 3,
-                maxItems: 4,
+                minItems: count,
+                maxItems: count,
                 items: {
                   type: "object",
                   additionalProperties: false,
@@ -626,9 +690,11 @@ async function createOpenAIDailyCoachPlan(date) {
                     title: { type: "string" },
                     type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "other"] },
                     points: { type: "integer" },
-                    note: { type: "string" }
+                    note: { type: "string" },
+                    suggestedTime: { type: "string" },
+                    timerMinutes: { type: "integer" }
                   },
-                  required: ["title", "type", "points", "note"]
+                  required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"]
                 }
               }
             },
@@ -641,7 +707,7 @@ async function createOpenAIDailyCoachPlan(date) {
     required: ["familyMessage", "children"]
   };
 
-  const prompt = `أنت Hero، مدرّب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة يومية بتاريخ ${date}. المطلوب: 3 مهام صغيرة واضحة لكل طفل، نقاط إيجابية فقط، وتشجيع رحيم وعملي. يَمان يحب الدبلجة والرسوم والرياضيات ويحتاج خطوات قصيرة. جودي تحتاج مهام واضحة ولطيفة. لا تستخدم ضغطاً أو مقارنة. لا تربط الصلاة بالنقاط. اجعل المهام قابلة للتنفيذ اليوم.`;
+  const prompt = `أنت Hero، مدرّب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة يومية بتاريخ ${date}. المطلوب بالضبط: ${count} مهام صغيرة واضحة لكل طفل، لا أكثر ولا أقل. نقاط إيجابية فقط، وتشجيع رحيم وعملي. يَمان يحب الدبلجة والرسوم والرياضيات ويحتاج خطوات قصيرة. جودي تحتاج مهام واضحة ولطيفة. لا تستخدم ضغطاً أو مقارنة. لا تربط الصلاة بالنقاط. اجعل المهام قابلة للتنفيذ اليوم. أضف لكل مهمة وقتاً مقترحاً بصيغة HH:MM أو اتركه فارغاً إذا لا يلزم، وأضف timerMinutes بين 0 و60؛ استخدم مؤقتاً للرياضيات، القراءة، الحركة، الإبداع، والتركيز، واجعل 0 للمهام الاجتماعية القصيرة أو المواعيد التي لا تحتاج عداداً. توجيهات الوالدين لما يجب أن تشمل الخطة: ${parentInstructions || "لا توجد توجيهات إضافية"}. يجب احترام هذه التوجيهات ما دامت آمنة ومناسبة للأطفال.`;
   const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -649,13 +715,13 @@ async function createOpenAIDailyCoachPlan(date) {
       model: OPENAI_IDEA_MODEL,
       input: prompt,
       text: { format: { type: "json_schema", name: "hero_daily_coach_plan", strict: true, schema } },
-      max_output_tokens: 1600
+      max_output_tokens: Math.min(3000, 900 + count * 450)
     })
   }, OPENAI_TIMEOUT_MS);
   const body = await readResponseBody(response);
   if (!response.ok) throw new Error(body?.error?.message || "OpenAI daily plan failed");
   const output = extractOpenAIOutputText(body);
-  return normalizeDailyCoachPlan(JSON.parse(output));
+  return normalizeDailyCoachPlan(JSON.parse(output), count, parentInstructions);
 }
 
 async function insertCoachPlanTasks(req, res, plan, date) {
@@ -667,12 +733,12 @@ async function insertCoachPlanTasks(req, res, plan, date) {
         [member, date, task.title]
       );
       if (exists.rows[0]) continue;
-      const baseTask = { assignee: member, title: task.title, type: task.type, points: task.points, note: task.note };
+      const baseTask = { assignee: member, title: task.title, type: task.type, points: task.points, note: task.note, suggestedTime: task.suggestedTime, timerMinutes: task.timerMinutes };
       const tick = await createTickTickTaskIfPossible(req, res, { ...baseTask, source: "chatgpt" });
       const { rows } = await pool.query(
-        `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-        [crypto.randomUUID(), member, task.title, task.type, task.points, date, task.note, "chatgpt", tick?.ticktickTaskId || null, tick?.ticktickProjectId || null, tick?.ticktickProjectName || null]
+        `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        [crypto.randomUUID(), member, task.title, task.type, task.points, date, task.note, task.suggestedTime, task.timerMinutes, "chatgpt", tick?.ticktickTaskId || null, tick?.ticktickProjectId || null, tick?.ticktickProjectName || null]
       );
       inserted.push(mapFamilyTask(rows[0]));
     }
@@ -800,6 +866,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   const points = Math.min(50, Math.max(0, Number(req.body?.points) || 5));
   const dueDate = familyDateKey(req.body?.date);
   const note = safeText(req.body?.note, 500);
+  const suggestedTime = safeTime(req.body?.suggestedTime);
+  const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
   const source = safeText(req.body?.source, 30) || "parent";
   if (!isFamilyMember(assignee) || !title) throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
 
@@ -810,6 +878,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
     type,
     points: Math.round(points),
     note,
+    suggestedTime,
+    timerMinutes,
     ticktickTaskId: safeText(req.body?.ticktickTaskId, 200) || null,
     ticktickProjectId: safeText(req.body?.ticktickProjectId, 200) || null,
     ticktickProjectName: safeText(req.body?.ticktickProjectName, 200) || null
@@ -818,8 +888,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   let tick = initialTask.ticktickTaskId ? null : await createTickTickTaskIfPossible(req, res, initialTask);
 
   const { rows } = await pool.query(
-    `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     [
       id,
       assignee,
@@ -828,6 +898,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
       Math.round(points),
       dueDate,
       note,
+      suggestedTime,
+      timerMinutes,
       source,
       initialTask.ticktickTaskId || tick?.ticktickTaskId || null,
       initialTask.ticktickProjectId || tick?.ticktickProjectId || null,
@@ -887,21 +959,23 @@ app.post("/api/ai/daily-plan", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
   const date = familyDateKey(req.body?.date);
+  const taskCount = parsePlanTaskCount(req.body?.taskCount);
+  const instructions = planInstructionsText(req.body?.instructions);
   let source = "local";
-  let plan = localDailyCoachPlan();
+  let plan = localDailyCoachPlan(taskCount, instructions);
   let warning = "";
   if (process.env.OPENAI_API_KEY) {
     try {
-      plan = await createOpenAIDailyCoachPlan(date);
+      plan = await createOpenAIDailyCoachPlan(date, taskCount, instructions);
       source = "openai";
     } catch (error) {
-      warning = "تعذر إنشاء خطة OpenAI الآن؛ استخدمنا خطة محلية آمنة.";
+      warning = "تعذر إنشاء خطة OpenAI الآن؛ استخدمنا خطة محلية آمنة حسب عدد المهام والتوجيهات التي اخترتها.";
       console.warn("OpenAI daily plan failed; using local fallback:", error.message);
     }
   }
-  plan = normalizeDailyCoachPlan(plan);
+  plan = normalizeDailyCoachPlan(plan, taskCount, instructions);
   const inserted = await insertCoachPlanTasks(req, res, plan, date);
-  res.json({ date, source, warning, plan, inserted });
+  res.json({ date, source, warning, taskCount, instructions, plan, inserted });
 }));
 
 app.get("/api/ai/end-day/:assignee", asyncRoute(async (req, res) => {
