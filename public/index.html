@@ -7,6 +7,7 @@
   <title>Hero Family</title>
 
   <link rel="stylesheet" href="/styles.css" />
+  <script src="/app.js" defer></script>
 </head>
 
 <body>
@@ -15,7 +16,9 @@
 
       <header class="hero-header">
         <h1 class="hero-title">Hero Family</h1>
-        <p class="hero-subtitle">مساحة عائلية للتعلّم، التشجيع، والإنجاز اليومي</p>
+        <p class="hero-subtitle">
+          مساحة عائلية للتعلّم، التشجيع، والإنجاز اليومي
+        </p>
       </header>
 
       <!-- Login screen -->
@@ -84,6 +87,7 @@
                 autocomplete="off"
                 placeholder="اكتب إجابتك هنا يا يمان..."
               />
+
               <button id="sendMathBtn" class="primary-btn" type="button">
                 إرسال
               </button>
@@ -122,6 +126,7 @@
 
           <section class="card">
             <h2>דוח מתמטיקה — ימאן</h2>
+
             <div class="parent-report" id="parentMathReport">
               טוען דוח...
             </div>
@@ -134,277 +139,8 @@
           </section>
         </section>
       </section>
+
     </main>
   </div>
-
-  <script>
-    const state = {
-      profile: null,
-      displayName: null
-    };
-
-    const loginScreen = document.getElementById("loginScreen");
-    const appScreen = document.getElementById("appScreen");
-
-    const yamanScreen = document.getElementById("yamanScreen");
-    const judScreen = document.getElementById("judScreen");
-    const parentScreen = document.getElementById("parentScreen");
-
-    const pinInput = document.getElementById("pinInput");
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const loginError = document.getElementById("loginError");
-    const profileBadge = document.getElementById("profileBadge");
-
-    function hideAllScreens() {
-      yamanScreen.classList.add("hidden");
-      judScreen.classList.add("hidden");
-      parentScreen.classList.add("hidden");
-    }
-
-    function showApp(profile, displayName) {
-      state.profile = profile;
-      state.displayName = displayName;
-
-      loginScreen.classList.add("hidden");
-      appScreen.classList.remove("hidden");
-
-      profileBadge.textContent = `מחובר: ${displayName}`;
-
-      hideAllScreens();
-
-      if (profile === "yaman") {
-        yamanScreen.classList.remove("hidden");
-        loadMathStatus();
-      }
-
-      if (profile === "jud") {
-        judScreen.classList.remove("hidden");
-      }
-
-      if (profile === "parent") {
-        parentScreen.classList.remove("hidden");
-        loadParentMathReport();
-      }
-    }
-
-    function logout() {
-      state.profile = null;
-      state.displayName = null;
-
-      appScreen.classList.add("hidden");
-      loginScreen.classList.remove("hidden");
-      hideAllScreens();
-
-      pinInput.value = "";
-      loginError.textContent = "";
-      pinInput.focus();
-    }
-
-    async function login() {
-      const pin = pinInput.value.trim();
-      loginError.textContent = "";
-
-      if (!pin) {
-        loginError.textContent = "נא להקליד קוד.";
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/family/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ pin })
-        });
-
-        const data = await res.json();
-
-        if (!data.ok) {
-          loginError.textContent = "הקוד לא תקין.";
-          return;
-        }
-
-        showApp(data.profile, data.displayName);
-      } catch (err) {
-        loginError.textContent = "שגיאת חיבור לשרת.";
-      }
-    }
-
-    loginBtn.addEventListener("click", login);
-
-    pinInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        login();
-      }
-    });
-
-    logoutBtn.addEventListener("click", logout);
-
-    async function loadMathStatus() {
-      const box = document.getElementById("mathStatus");
-      if (!box) return;
-
-      try {
-        const res = await fetch("/api/yaman/math/status");
-        const data = await res.json();
-
-        if (!data.ok || !data.progress) {
-          box.textContent = "لم يتم تحميل التقدم بعد.";
-          return;
-        }
-
-        const p = data.progress;
-
-        box.innerHTML = `
-          <div>الموضوع الحالي: <strong>${escapeHtml(p.current_topic || "أساسيات الحساب")}</strong></div>
-          <div>المستوى الحالي: <strong>${p.current_level || 1}</strong></div>
-          <div>نجاحات سهلة: <strong>${p.easy_success || 0}</strong></div>
-          <div>نجاحات متوسطة: <strong>${p.medium_success || 0}</strong></div>
-          <div>نجاحات صعبة: <strong>${p.hard_success || 0}</strong></div>
-          <div>نقاط الجهد: <strong>${p.effort_points || 0}</strong></div>
-        `;
-      } catch (err) {
-        box.textContent = "حدث خطأ في تحميل التقدم.";
-      }
-    }
-
-    function addMathMessage(role, text) {
-      const chat = document.getElementById("mathChatBox");
-      if (!chat) return;
-
-      const div = document.createElement("div");
-      div.className = role === "user" ? "chat-msg user-msg" : "chat-msg teacher-msg";
-      div.textContent = text;
-
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    function removeLastMathMessage() {
-      const chat = document.getElementById("mathChatBox");
-      if (chat && chat.lastChild) {
-        chat.removeChild(chat.lastChild);
-      }
-    }
-
-    async function sendMathMessage(message) {
-      if (!message) return;
-
-      const input = document.getElementById("mathMessageInput");
-
-      addMathMessage("user", message);
-
-      if (input) {
-        input.value = "";
-        input.focus();
-      }
-
-      addMathMessage("assistant", "يفكر المعلّم...");
-
-      try {
-        const res = await fetch("/api/yaman/math/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await res.json();
-
-        removeLastMathMessage();
-
-        if (!data.ok) {
-          if (data.error === "OPENAI_API_KEY is not configured") {
-            addMathMessage(
-              "assistant",
-              "لم يتم تفعيل مفتاح الذكاء الاصطناعي بعد. اطلب من بابا أن يضيف OPENAI_API_KEY في Railway."
-            );
-            return;
-          }
-
-          addMathMessage("assistant", "حدث خطأ بسيط. حاول مرة أخرى.");
-          return;
-        }
-
-        addMathMessage("assistant", data.answer);
-        loadMathStatus();
-      } catch (err) {
-        removeLastMathMessage();
-        addMathMessage("assistant", "الاتصال غير مستقر. حاول مرة أخرى.");
-      }
-    }
-
-    const startMathLessonBtn = document.getElementById("startMathLessonBtn");
-    const sendMathBtn = document.getElementById("sendMathBtn");
-    const mathMessageInput = document.getElementById("mathMessageInput");
-    const clearMathChatBtn = document.getElementById("clearMathChatBtn");
-
-    startMathLessonBtn.addEventListener("click", () => {
-      sendMathMessage("ابدأ درس اليوم يا معلّم الرياضيات.");
-    });
-
-    sendMathBtn.addEventListener("click", () => {
-      sendMathMessage(mathMessageInput.value.trim());
-    });
-
-    mathMessageInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        sendMathMessage(mathMessageInput.value.trim());
-      }
-    });
-
-    clearMathChatBtn.addEventListener("click", () => {
-      const chat = document.getElementById("mathChatBox");
-      if (chat) chat.innerHTML = "";
-    });
-
-    async function loadParentMathReport() {
-      const box = document.getElementById("parentMathReport");
-      if (!box) return;
-
-      try {
-        const res = await fetch("/api/parent/yaman/math/report");
-        const data = await res.json();
-
-        if (!data.ok || !data.report) {
-          box.textContent = "אין עדיין דוח.";
-          return;
-        }
-
-        const r = data.report;
-
-        box.innerHTML = `
-          <div>נושא נוכחי: <strong>${escapeHtml(r.current_topic || "أساسيات الحساب")}</strong></div>
-          <div>רמה נוכחית: <strong>${r.current_level || 1}</strong></div>
-          <div>נקודות מאמץ: <strong>${r.effort_points || 0}</strong></div>
-          <div>סיכום אחרון: <strong>${escapeHtml(r.last_summary || "אין עדיין סיכום שמור.")}</strong></div>
-        `;
-      } catch (err) {
-        box.textContent = "שגיאה בטעינת הדוח.";
-      }
-    }
-
-    const refreshParentReportBtn = document.getElementById("refreshParentReportBtn");
-
-    refreshParentReportBtn.addEventListener("click", () => {
-      loadParentMathReport();
-    });
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    window.addEventListener("load", () => {
-      pinInput.focus();
-    });
-  </script>
 </body>
 </html>
