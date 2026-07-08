@@ -12,7 +12,9 @@ const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
 const HERO_PROJECT_NAME = process.env.HERO_TICKTICK_PROJECT_NAME || "Hero – Family";
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || "Asia/Jerusalem";
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.OPENAI_TIMEOUT_MS) || 12000));
+const EXTERNAL_FETCH_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.EXTERNAL_FETCH_TIMEOUT_MS) || 10000));
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "200kb" }));
@@ -27,6 +29,23 @@ class PublicError extends Error {
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function isTickTickConfigured() {
@@ -175,7 +194,7 @@ async function readResponseBody(response) {
 }
 
 async function requestToken(params) {
-  const response = await fetch(TICKTICK_TOKEN_URL, {
+  const response = await fetchWithTimeout(TICKTICK_TOKEN_URL, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString()
@@ -216,7 +235,7 @@ async function tickTickRequest(req, res, endpoint, options = {}) {
   async function send(accessToken) {
     const headers = { Accept: "application/json", Authorization: `Bearer ${accessToken}` };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
-    return fetch(`${TICKTICK_API_BASE}${endpoint}`, {
+    return fetchWithTimeout(`${TICKTICK_API_BASE}${endpoint}`, {
       method: options.method || "GET",
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body)
@@ -623,7 +642,7 @@ async function createOpenAIDailyCoachPlan(date) {
   };
 
   const prompt = `أنت Hero، مدرّب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة يومية بتاريخ ${date}. المطلوب: 3 مهام صغيرة واضحة لكل طفل، نقاط إيجابية فقط، وتشجيع رحيم وعملي. يَمان يحب الدبلجة والرسوم والرياضيات ويحتاج خطوات قصيرة. جودي تحتاج مهام واضحة ولطيفة. لا تستخدم ضغطاً أو مقارنة. لا تربط الصلاة بالنقاط. اجعل المهام قابلة للتنفيذ اليوم.`;
-  const response = await fetch(OPENAI_RESPONSES_URL, {
+  const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({
@@ -632,7 +651,7 @@ async function createOpenAIDailyCoachPlan(date) {
       text: { format: { type: "json_schema", name: "hero_daily_coach_plan", strict: true, schema } },
       max_output_tokens: 1600
     })
-  });
+  }, OPENAI_TIMEOUT_MS);
   const body = await readResponseBody(response);
   if (!response.ok) throw new Error(body?.error?.message || "OpenAI daily plan failed");
   const output = extractOpenAIOutputText(body);
@@ -681,7 +700,14 @@ function localEndDayMessage(member, tasks) {
 }
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", app: "Hero Family", ticktickConfigured: isTickTickConfigured(), openaiConfigured: Boolean(process.env.OPENAI_API_KEY) });
+  res.json({
+    status: "ok",
+    app: "Hero Family",
+    ticktickConfigured: isTickTickConfigured(),
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    openaiModel: OPENAI_IDEA_MODEL,
+    openaiTimeoutMs: OPENAI_TIMEOUT_MS
+  });
 });
 
 app.get("/api/family/status", (req, res) => {
@@ -888,11 +914,11 @@ app.get("/api/ai/end-day/:assignee", asyncRoute(async (req, res) => {
   if (!process.env.OPENAI_API_KEY) return res.json({ date, source: "local", summary });
   try {
     const prompt = `اكتب تشجيع نهاية يوم عربي قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}. البيانات: أنجز ${summary.done} من ${summary.total}، النقاط ${summary.points}. لا تقارن بين الأطفال، لا تضغط، أعطِ خطوة صغيرة للغد.`;
-    const response = await fetch(OPENAI_RESPONSES_URL, {
+    const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: prompt, max_output_tokens: 350 })
-    });
+    }, OPENAI_TIMEOUT_MS);
     const body = await readResponseBody(response);
     const text = response.ok ? extractOpenAIOutputText(body) : "";
     return res.json({ date, source: text ? "openai" : "local", summary: { ...summary, encouragement: text || summary.encouragement } });
@@ -991,11 +1017,11 @@ app.post("/api/ideas", asyncRoute(async (req, res) => {
   if (!process.env.OPENAI_API_KEY) {
     return res.json({ source: "local", ideas: [{ title: "فكرة قصيرة", summary: `نحوّل فكرتك إلى مشهد صغير: ${idea}`, firstStep: "اكتب جملة واحدة أو سجّل صوتاً قصيراً.", taskTitle: "تطوير فكرة إبداعية لمدة 10 دقائق", category: "creative" }] });
   }
-  const response = await fetch(OPENAI_RESPONSES_URL, {
+  const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: `اقترح 3 أفكار آمنة وبسيطة باللغة العربية لطفل عمره 15 سنة بناءً على: ${idea}`, max_output_tokens: 700 })
-  });
+  }, OPENAI_TIMEOUT_MS);
   const body = await readResponseBody(response);
   if (!response.ok) throw new PublicError(502, "تعذر الوصول إلى اقتراحات AI الآن.");
   res.json({ source: "openai", text: body?.output_text || body });
