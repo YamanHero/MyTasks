@@ -143,30 +143,6 @@
       font-weight: 800;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .feature-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 22px;
-      padding: 18px;
-    }
-
-    .feature-card h3 {
-      margin: 0 0 8px;
-      font-size: 20px;
-    }
-
-    .muted {
-      color: #64748b;
-      margin: 0;
-      line-height: 1.6;
-    }
-
     .math-card {
       direction: rtl;
       text-align: right;
@@ -261,6 +237,13 @@
       border: 1px solid #e2e8f0;
     }
 
+    .small-note {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
     @media (max-width: 720px) {
       .app-shell {
         padding: 12px;
@@ -269,10 +252,6 @@
       .card {
         border-radius: 22px;
         padding: 16px;
-      }
-
-      .grid {
-        grid-template-columns: 1fr;
       }
 
       .chat-input-row {
@@ -329,6 +308,10 @@
         </button>
 
         <div id="loginError" class="error-text"></div>
+
+        <div class="small-note">
+          קודים זמניים: ימאן 1111 · ג׳וד 2222 · הורה 9999
+        </div>
       </section>
 
       <!-- Main app -->
@@ -611,6 +594,14 @@
         removeLastMathMessage();
 
         if (!data.ok) {
+          if (data.error === "OPENAI_API_KEY is not configured") {
+            addMathMessage(
+              "assistant",
+              "لم يتم تفعيل مفتاح الذكاء الاصطناعي بعد. اطلب من بابا أن يضيف OPENAI_API_KEY في Railway."
+            );
+            return;
+          }
+
           addMathMessage("assistant", "حدث خطأ بسيط. حاول مرة أخرى.");
           return;
         }
