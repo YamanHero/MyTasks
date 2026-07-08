@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "24.0.2",
+  "version": "24.0.3",
   "description": "Hero Family app with Yaman Arabic math tutor",
   "main": "server.js",
   "scripts": {
