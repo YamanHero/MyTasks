@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "23.0.0",
+  "version": "26.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -12,5 +12,6 @@
   "dependencies": {
     "express": "^4.21.2",
     "pg": "^8.13.1"
-  }
+  },
+  "description": "Hero Family v26 with up to 10 tasks, suggested times and task timers"
 }
