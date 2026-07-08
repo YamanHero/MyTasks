@@ -10,7 +10,8 @@ const DATABASE_URL = process.env.DATABASE_URL || null;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.5";
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 let pool = null;
@@ -22,30 +23,40 @@ if (DATABASE_URL) {
       rejectUnauthorized: false
     }
   });
+} else {
+  console.warn("DATABASE_URL is not configured. App will run without database persistence.");
 }
 
 const openai = OPENAI_API_KEY
   ? new OpenAI({ apiKey: OPENAI_API_KEY })
   : null;
 
+if (!OPENAI_API_KEY) {
+  console.warn("OPENAI_API_KEY is not configured. Math tutor chat will not work until configured.");
+}
+
 /**
  * PIN codes
  * שנה כאן את הקודים אם תרצה.
  */
 const FAMILY_PINS = {
-  yaman: "1111",
-  jud: "2222",
-  parent: "9999"
+  yaman: process.env.YAMAN_PIN || "1111",
+  jud: process.env.JUD_PIN || "2222",
+  parent: process.env.PARENT_PIN || "9999"
 };
 
 /**
  * Health check
+ * זה חייב לעבוד גם בלי DB ובלי OpenAI.
  */
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
     app: "Hero Family",
-    version: "24.0.0"
+    version: "24.0.2",
+    databaseConfigured: Boolean(DATABASE_URL),
+    openaiConfigured: Boolean(OPENAI_API_KEY),
+    time: new Date().toISOString()
   });
 });
 
@@ -97,7 +108,6 @@ app.post("/api/family/login", (req, res) => {
  */
 async function ensureDatabase() {
   if (!pool) {
-    console.warn("DATABASE_URL is not configured. Database features are disabled.");
     return;
   }
 
@@ -141,6 +151,8 @@ async function ensureDatabase() {
       VALUES ('Yaman', 1, 'أساسيات الحساب', 0)
     `);
   }
+
+  console.log("Database initialized successfully.");
 }
 
 ensureDatabase().catch((err) => {
@@ -224,7 +236,7 @@ app.get("/api/yaman/math/status", async (req, res) => {
           medium_success: 0,
           hard_success: 0,
           effort_points: 0,
-          last_summary: null
+          last_summary: "قاعدة البيانات غير مفعّلة بعد."
         }
       });
     }
@@ -444,7 +456,7 @@ app.get("/api/parent/yaman/math/report", async (req, res) => {
           current_topic: "أساسيات الحساب",
           current_level: 1,
           effort_points: 0,
-          last_summary: "لا يوجد ملخص محفوظ بعد."
+          last_summary: "Database is not configured yet."
         }
       });
     }
@@ -476,6 +488,6 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Hero Family server is running on port ${PORT}`);
 });
