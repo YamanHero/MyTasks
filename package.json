@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "31.0.0",
+  "version": "32.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v31 mobile PIN typing hard fix without keypad"
+  "description": "Hero Family v32: soft pastel icons, inline SVG art, Arabic RTL mobile-first UI, robust PIN input, ChatGPT daily coach, TickTick 2-way tasks, timeline and task guide"
 }
