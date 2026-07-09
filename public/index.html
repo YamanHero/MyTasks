@@ -359,7 +359,7 @@
 
     <section id="root" class="stack"></section>
 
-    <footer class="footer">نظام هيرو يعرض اليوم بوضوح: الوقت، المهمة، المؤقت، الحالة، والخطوات للتنفيذ.</footer>
+    <footer class="footer">نظام هيرو يعرض اليوم بوضوح: الوقت، المهمة، المؤقت، الحالة، والخطوات للتنفيذ. v32</footer>
   </main>
 
   <div class="modal-root" id="modalRoot"></div>
@@ -453,7 +453,7 @@
 
       function parentLogin() {
         const err = qs.get("parentLogin") === "invalid" ? "رمز الآباء غير صحيح." : qs.get("parentLogin") === "not_configured" ? "PARENT_PIN غير مهيأ في Railway." : "";
-        return `<div class="stack">${tickCard()}<article class="card login glow"><span class="eyebrow">منطقة الآباء</span><h2>إدارة مهام يمان وجودي</h2><p class="muted">اكتب الرمز مباشرة في المربع. التصميم متوافق مع الهاتف المحمول.</p><form class="form" action="/auth/parent/login" method="post" autocomplete="off"><label>رمز الآباء<input class="pin-input" id="parentPinInput" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="اكتب الرمز"></label><button class="btn btn-primary" type="submit">فتح منطقة الآباء</button><p class="login-error">${err}</p></form></article></div>`;
+        return `<div class="stack">${tickCard()}<article class="card login glow"><span class="eyebrow">منطقة الآباء</span><h2>إدارة مهام يمان وجودي</h2><p class="muted">اكتب الرمز مباشرة في المربع. التصميم متوافق مع الهاتف المحمول.</p><form class="form" action="/auth/parent/login" method="post" autocomplete="off" data-login-kind="parent"><label>رمز الآباء<input class="pin-input" id="parentPinInput" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="اكتب الرمز"></label><button class="btn btn-primary" type="submit">فتح منطقة الآباء</button><p class="login-error">${err}</p></form></article></div>`;
       }
 
       function childLogin(member) {
@@ -461,7 +461,7 @@
         const err = qs.get("childLogin") === "invalid" ? "رمز الدخول غير صحيح." : qs.get("childLogin") === "not_configured" ? `${key} غير مهيأ في Railway.` : "";
         const inputId = `childPin-${member}`;
         if (!family[`${member}PinConfigured`]) return `<article class="card"><span class="eyebrow">${PEOPLE[member].name}</span><h2>رمز الدخول غير مهيأ</h2><p class="muted">أضف ${key} في Railway أولاً.</p></article>`;
-        return `<article class="card login glow"><span class="eyebrow">${PEOPLE[member].name}</span><h2>أدخل رمز الدخول</h2><p class="muted">اكتب الرمز في المربع باستخدام لوحة المفاتيح.</p><form class="form" action="/auth/child/${member}/login" method="post" autocomplete="off"><label>رمز ${PEOPLE[member].name}<input class="pin-input" id="${inputId}" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="اكتب الرمز"></label><button class="btn btn-primary" type="submit">فتح منطقتي</button><p class="login-error">${err}</p></form></article>`;
+        return `<article class="card login glow"><span class="eyebrow">${PEOPLE[member].name}</span><h2>أدخل رمز الدخول</h2><p class="muted">اكتب الرمز في المربع باستخدام لوحة المفاتيح.</p><form class="form" action="/auth/child/${member}/login" method="post" autocomplete="off" data-login-kind="child" data-member="${member}"><label>رمز ${PEOPLE[member].name}<input class="pin-input" id="${inputId}" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="اكتب الرمز"></label><button class="btn btn-primary" type="submit">فتح منطقتي</button><p class="login-error">${err}</p></form></article>`;
       }
 
       function score(tasks = []) {
@@ -874,7 +874,63 @@
         if (action === "logout-child") { await api(`/api/family/child/${button.dataset.member}/logout`, { method: "POST" }); await refresh(); return; }
       });
 
+      async function submitLoginForm(form) {
+        const kind = form.dataset.loginKind;
+        const member = form.dataset.member || "";
+        const input = form.querySelector('input[name="pin"]');
+        const errorEl = form.querySelector(".login-error");
+        const button = form.querySelector('button[type="submit"]');
+        const pin = String(input?.value || "").replace(/[^0-9]/g, "").trim();
+
+        if (!pin) {
+          if (errorEl) errorEl.textContent = "اكتب الرمز أولاً.";
+          input?.focus();
+          return;
+        }
+
+        if (button) {
+          button.disabled = true;
+          button.textContent = "جارٍ الفتح...";
+        }
+        if (errorEl) errorEl.textContent = "";
+
+        try {
+          if (kind === "parent") {
+            await api("/api/family/parent/login", {
+              method: "POST",
+              body: JSON.stringify({ pin })
+            });
+            area = "parent";
+          } else {
+            await api(`/api/family/child/${member}/login`, {
+              method: "POST",
+              body: JSON.stringify({ pin })
+            });
+            area = member;
+          }
+
+          localStorage.setItem("hero-area", area);
+          try { history.replaceState(null, "", `?area=${area}&login=opened`); } catch {}
+          await refresh();
+        } catch (error) {
+          if (errorEl) {
+            errorEl.textContent = error.message || "لم يتم فتح المنطقة. تحقق من الرمز.";
+          }
+          if (button) {
+            button.disabled = false;
+            button.textContent = kind === "parent" ? "فتح منطقة الآباء" : "فتح منطقتي";
+          }
+          input?.focus();
+        }
+      }
+
       document.addEventListener("submit", async (event) => {
+        if (event.target.matches('[data-login-kind]')) {
+          event.preventDefault();
+          await submitLoginForm(event.target);
+          return;
+        }
+
         if (event.target.id === "planForm") {
           event.preventDefault();
           const rawCount = Number(document.getElementById("planTaskCount").value);
