@@ -9,12 +9,13 @@ const PORT = process.env.PORT || 3000;
 const TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize";
 const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
-const HERO_PROJECT_NAME = process.env.HERO_TICKTICK_PROJECT_NAME || "Hero – عائلة";
+const HERO_PROJECT_NAME = process.env.HERO_TICKTICK_PROJECT_NAME || "Hero – Family";
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || "Asia/Jerusalem";
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.OPENAI_TIMEOUT_MS) || 12000));
 const EXTERNAL_FETCH_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.EXTERNAL_FETCH_TIMEOUT_MS) || 10000));
+const APP_VERSION = "31.0.0";
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "200kb" }));
@@ -39,7 +40,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TI
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`انتهت مهلة الاتصال بعد ${timeoutMs}ms`);
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
     }
 
     throw error;
@@ -100,7 +101,7 @@ function readCookie(req, name) {
 
 function requireSessionSecret() {
   if (!process.env.SESSION_SECRET) {
-    throw new PublicError(503, "يجب تحديد SESSION_SECRET في Railway.");
+    throw new PublicError(503, "יש להגדיר SESSION_SECRET ב-Railway.");
   }
 }
 
@@ -203,13 +204,13 @@ async function requestToken(params) {
   if (!response.ok || !body || typeof body !== "object" || !body.access_token) {
     const reason = body && typeof body === "object" ? body.error || body.message || "unknown_error" : "unknown_error";
     console.error("TickTick token request failed:", response.status, reason, { redirectUri: process.env.TICKTICK_REDIRECT_URI || "" });
-    throw new PublicError(502, "TickTick لم يوافق على الاتصال. تحقق من Client ID, Client Secret و Redirect URI.");
+    throw new PublicError(502, "TickTick לא אישר את החיבור. בדוק את Client ID, Client Secret ו-Redirect URI.");
   }
   return body;
 }
 
 async function refreshTokens(req, res, tokens) {
-  if (!tokens?.refreshToken) throw new PublicError(401, "انتهت صلاحية اتصال TickTick. انقر على 'اتصال بـ TickTick' مرة أخرى.");
+  if (!tokens?.refreshToken) throw new PublicError(401, "חיבור TickTick הסתיים. יש ללחוץ שוב על רبط TickTick.");
   const payload = await requestToken({
     grant_type: "refresh_token",
     client_id: process.env.TICKTICK_CLIENT_ID,
@@ -223,7 +224,7 @@ async function refreshTokens(req, res, tokens) {
 
 async function getValidTokens(req, res) {
   let tokens = getStoredTokens(req);
-  if (!tokens?.accessToken) throw new PublicError(401, "TickTick غير متصل بعد.");
+  if (!tokens?.accessToken) throw new PublicError(401, "TickTick אינו מחובר עדיין.");
   if (tokens.expiresAt && Number(tokens.expiresAt) <= Date.now() + 60000) {
     tokens = await refreshTokens(req, res, tokens);
   }
@@ -249,8 +250,8 @@ async function tickTickRequest(req, res, endpoint, options = {}) {
   const body = await readResponseBody(response);
   if (!response.ok) {
     console.error("TickTick API request failed:", response.status, endpoint, body);
-    if (response.status === 401) throw new PublicError(401, "انتهت صلاحية اتصال TickTick. انقر على 'اتصال بـ TickTick' مرة أخرى.");
-    throw new PublicError(502, "لم يتمكن TickTick من تنفيذ العملية. حاول مرة أخرى لاحقًا.");
+    if (response.status === 401) throw new PublicError(401, "חיבור TickTick הסתיים. יש ללחוץ שוב על רبط TickTick.");
+    throw new PublicError(502, "TickTick לא הצליח לבצע את הפעולה. נסה שוב בעוד רגע.");
   }
   return body;
 }
@@ -285,7 +286,7 @@ function selectedProjectIdsFromQuery(value) {
 
 async function ensureHeroProject(req, res) {
   const projects = await tickTickRequest(req, res, "/project");
-  if (!Array.isArray(projects)) throw new PublicError(502, "لم يتم استلام قائمة مشاريع صالحة من TickTick.");
+  if (!Array.isArray(projects)) throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
   let project = projects.find((item) => item.name === HERO_PROJECT_NAME && item.closed !== true);
   if (!project) {
     project = await tickTickRequest(req, res, "/project", {
@@ -293,7 +294,7 @@ async function ensureHeroProject(req, res) {
       body: { name: HERO_PROJECT_NAME, color: "#5B5BD6", viewMode: "list", kind: "TASK" }
     });
   }
-  if (!project?.id) throw new PublicError(502, "لا يمكن إنشاء قائمة Hero في TickTick.");
+  if (!project?.id) throw new PublicError(502, "לא ניתן ליצור את רשימת Hero ב-TickTick.");
   return project;
 }
 
@@ -306,7 +307,7 @@ async function createTickTickTaskIfPossible(req, res, task) {
       body: {
         projectId: project.id,
         title: task.title,
-        content: `عائلة Hero\nالطفل: ${task.assignee}\nالنوع: ${task.type}\nالنقاط: ${task.points}\nالوقت المقدر: ${task.suggestedTime || "بدون"}\nالمؤقت: ${task.timerMinutes ? `${task.timerMinutes} دقائق` : "بدون"}\n${task.note || ""}`,
+        content: `Hero Family\nالطفل: ${task.assignee}\nالنوع: ${task.type}\nالنقاط: ${task.points}\nالوقت المقترح: ${task.suggestedTime || "بدون"}\nالمؤقت: ${task.timerMinutes ? `${task.timerMinutes} دقيقة` : "بدون"}\n${task.note || ""}`,
         priority: 0
       }
     });
@@ -330,7 +331,7 @@ async function completeTickTickTaskIfPossible(req, res, task) {
 }
 
 const FAMILY_MEMBERS = {
-  yaman: { id: "yaman", name: "يمان", label: "منطقة يمان" },
+  yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان" },
   judy: { id: "judy", name: "جودي", label: "منطقة جودي" }
 };
 
@@ -350,7 +351,7 @@ function familyDateKey(value) {
 }
 
 function requireFamilyDatabase() {
-  if (!pool) throw new PublicError(503, "قاعدة بيانات العائلة غير معرفة. أضف DATABASE_URL في Railway.");
+  if (!pool) throw new PublicError(503, "قاعدة بيانات العائلة غير مفعّلة. أضف DATABASE_URL من PostgreSQL في Railway.");
 }
 
 async function ensureFamilyDatabase() {
@@ -442,11 +443,11 @@ function hasChildSession(req, assignee) {
 }
 
 function requireParent(req) {
-  if (!hasParentSession(req)) throw new PublicError(401, "مطلوب رمز الآباء لإدارة مهام العائلة.");
+  if (!hasParentSession(req)) throw new PublicError(401, "يلزم رمز الوالدين لإدارة مهام العائلة.");
 }
 
 function requireChildOrParent(req, assignee) {
-  if (!hasParentSession(req) && !hasChildSession(req, assignee)) throw new PublicError(401, "الرجاء إدخال رمز الدخول لهذه المنطقة أولاً.");
+  if (!hasParentSession(req) && !hasChildSession(req, assignee)) throw new PublicError(401, "أدخل رمز الدخول الخاص بهذه المنطقة أولاً.");
 }
 
 function writeParentSession(res) {
@@ -521,9 +522,10 @@ async function getFamilyEvents(assignee, date) {
 
 function requireConfigured() {
   if (!isTickTickConfigured()) {
-    throw new PublicError(503, "يجب إضافة TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET, TICKTICK_REDIRECT_URI و SESSION_SECRET في Railway.");
+    throw new PublicError(503, "יש להוסיף את TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET, TICKTICK_REDIRECT_URI ו-SESSION_SECRET ב-Railway.");
   }
 }
+
 
 function extractOpenAIOutputText(payload) {
   if (typeof payload?.output_text === "string" && payload.output_text.trim()) return payload.output_text.trim();
@@ -543,7 +545,7 @@ function normalizePlanTask(task) {
     title: safeText(task?.title, 160) || "مهمة صغيرة وواضحة",
     type,
     points: Math.round(points),
-    note: safeText(task?.note, 320) || "ابدأ بـ 5 دقائق فقط.",
+    note: safeText(task?.note, 320) || "ابدأ بخمس دقائق فقط.",
     suggestedTime: safeTime(task?.suggestedTime),
     timerMinutes: safeTimerMinutes(task?.timerMinutes)
   };
@@ -562,46 +564,46 @@ function planInstructionsText(value) {
 function localDailyCoachPlan(taskCount = 3, instructions = "") {
   const count = parsePlanTaskCount(taskCount);
   const customNote = instructions
-    ? `تم أخذ توجيهات الآباء بعين الاعتبار: ${instructions}`
-    : "ابدأ بخطوة واحدة صغيرة فقط.";
+    ? `تم أخذ توجيه الوالدين بالحسبان: ${instructions}`
+    : "ابدأ بخطوة صغيرة فقط.";
 
   const yamanTasks = [
-    { title: "الرياضيات: حل 3 أسئلة قصيرة", type: "study", points: 15, note: "ابدأ بالسؤال الأسهل وحدد الصعب.", suggestedTime: "16:30", timerMinutes: 20 },
-    { title: "تسجيل صوتي قصير لشخصية من خيالك", type: "creative", points: 15, note: "جملة واحدة تكفي. لا حاجة لنتيجة مثالية.", suggestedTime: "17:10", timerMinutes: 15 },
-    { title: "ترتيب شيء واحد في الغرفة", type: "home", points: 10, note: "اختر زاوية صغيرة واحدة فقط.", suggestedTime: "17:35", timerMinutes: 10 },
-    { title: "حركة خفيفة", type: "movement", points: 10, note: "مشي قصير أو تمارين تمدد بسيطة تكفي.", suggestedTime: "18:00", timerMinutes: 10 },
-    { title: "تدريب اجتماعي: جملة لطلب المساعدة", type: "social", points: 10, note: "تدرب على جملة واحدة: هل يمكنك مساعدتي؟", suggestedTime: "18:15", timerMinutes: 5 },
-    { title: "تحضير شيء واحد للغد", type: "routine", points: 5, note: "ضع شيئاً واحداً في مكانه.", suggestedTime: "19:00", timerMinutes: 8 },
+    { title: "رياضيات: حل 3 أسئلة قصيرة", type: "study", points: 15, note: "ابدأ بالسؤال الأسهل وضع علامة على السؤال الصعب.", suggestedTime: "16:30", timerMinutes: 20 },
+    { title: "تسجيل صوت قصير لشخصية من خيالك", type: "creative", points: 15, note: "جملة واحدة تكفي. لا نحتاج نتيجة كاملة.", suggestedTime: "17:10", timerMinutes: 15 },
+    { title: "ترتيب شيء واحد في الغرفة", type: "home", points: 10, note: "اختر زاوية صغيرة فقط.", suggestedTime: "17:35", timerMinutes: 10 },
+    { title: "حركة خفيفة", type: "movement", points: 10, note: "مشي قصير أو تمدد بسيط يكفي.", suggestedTime: "18:00", timerMinutes: 10 },
+    { title: "تدريب اجتماعي: جملة طلب مساعدة", type: "social", points: 10, note: "تدرّب على جملة واحدة: هل يمكنك مساعدتي؟", suggestedTime: "18:15", timerMinutes: 5 },
+    { title: "تجهيز شيء واحد للغد", type: "routine", points: 5, note: "ضع شيئاً واحداً في مكانه الصحيح.", suggestedTime: "19:00", timerMinutes: 8 },
     { title: "قراءة فقرة قصيرة بصوت هادئ", type: "study", points: 10, note: "اقرأ فقرة واحدة فقط ثم توقف.", suggestedTime: "19:15", timerMinutes: 10 },
-    { title: "رسم مشهد لفكرة فيديو", type: "creative", points: 10, note: "ارسم بسرعة دون محاولة أن تكون مثاليًا.", suggestedTime: "19:30", timerMinutes: 12 },
+    { title: "رسم لقطة من فكرة فيديو", type: "creative", points: 10, note: "ارسم بشكل سريع بدون محاولة الكمال.", suggestedTime: "19:30", timerMinutes: 12 },
     { title: "مراجعة قائمة الغد مع أحد الوالدين", type: "routine", points: 5, note: "اختر مهمة واحدة مهمة للغد.", suggestedTime: "19:50", timerMinutes: 0 },
-    { title: "إنهاء اليوم بكلمة نجاح واحدة", type: "social", points: 5, note: "قل ما هو الشيء الصغير الذي نجح اليوم.", suggestedTime: "20:05", timerMinutes: 0 }
+    { title: "إغلاق اليوم بكلمة نجاح واحدة", type: "social", points: 5, note: "قل ما الشيء الصغير الذي نجح اليوم.", suggestedTime: "20:05", timerMinutes: 0 }
   ];
 
   const judyTasks = [
     { title: "قراءة أو مراجعة قصيرة", type: "study", points: 10, note: "اختاري فقرة واحدة فقط.", suggestedTime: "16:20", timerMinutes: 15 },
-    { title: "مساعدة صغيرة في المنزل", type: "home", points: 10, note: "مهمة صغيرة واحدة وواضحة.", suggestedTime: "16:45", timerMinutes: 10 },
+    { title: "مساعدة بسيطة في البيت", type: "home", points: 10, note: "مهمة واحدة صغيرة وواضحة.", suggestedTime: "16:45", timerMinutes: 10 },
     { title: "رسم أو نشاط إبداعي قصير", type: "creative", points: 10, note: "اختاري لونين وابدئي.", suggestedTime: "17:05", timerMinutes: 15 },
-    { title: "حركة مريحة أو لعب نشط", type: "movement", points: 10, note: "خمس إلى عشر دقائق تكفي.", suggestedTime: "17:30", timerMinutes: 10 },
-    { title: "كلمة طيبة لشخص في العائلة", type: "social", points: 10, note: "قولي شيئاً لطيفاً وبسيطاً.", suggestedTime: "18:00", timerMinutes: 0 },
+    { title: "حركة لطيفة أو لعبة نشيطة", type: "movement", points: 10, note: "خمس إلى عشر دقائق كافية.", suggestedTime: "17:30", timerMinutes: 10 },
+    { title: "كلمة لطيفة لشخص من العائلة", type: "social", points: 10, note: "قولي شيئاً جميلاً وبسيطاً.", suggestedTime: "18:00", timerMinutes: 0 },
     { title: "ترتيب حقيبة أو زاوية صغيرة", type: "routine", points: 5, note: "اختاري شيئاً واحداً فقط.", suggestedTime: "18:20", timerMinutes: 8 },
-    { title: "التدرب على كتابة جملتين", type: "study", points: 10, note: "جملتان قصيرتان تكفيان.", suggestedTime: "18:40", timerMinutes: 12 },
-    { title: "اختيار الملابس أو المعدات للغد", type: "routine", points: 5, note: "ضعي شيئاً واحداً في مكان بارز.", suggestedTime: "19:05", timerMinutes: 8 },
+    { title: "تدريب كتابة جملتين", type: "study", points: 10, note: "جملتان قصيرتان تكفيان.", suggestedTime: "18:40", timerMinutes: 12 },
+    { title: "اختيار ملابس أو أدوات الغد", type: "routine", points: 5, note: "ضعي شيئاً واحداً في مكان واضح.", suggestedTime: "19:05", timerMinutes: 8 },
     { title: "نشاط هادئ قبل النوم", type: "routine", points: 5, note: "اختاري شيئاً هادئاً ومريحاً.", suggestedTime: "19:30", timerMinutes: 10 },
-    { title: "إخبار العائلة بشيء جيد من اليوم", type: "social", points: 5, note: "كلمة واحدة جيدة تكفي.", suggestedTime: "19:50", timerMinutes: 0 }
+    { title: "إخبار العائلة بشيء جميل من اليوم", type: "social", points: 5, note: "كلمة واحدة جميلة تكفي.", suggestedTime: "19:50", timerMinutes: 0 }
   ];
 
   return {
     familyMessage: instructions
-      ? `اليوم قمنا ببناء خطة بناءً على توجيهات الآباء. ${customNote}`
-      : "اليوم نختار خطوات واضحة مع أوقات ومؤقتات عند الحاجة. الجهد هو ما يهم، وليس الكمال.",
+      ? `اليوم نبني خطة حسب توجيه الوالدين. ${customNote}`
+      : "اليوم نختار خطوات واضحة مع أوقات ومؤقتات عند الحاجة. الجهد هو الذي يُحسب، وليس الكمال.",
     children: {
       yaman: {
-        encouragement: "يمان، ابدأ بمهمة واحدة فقط. سيساعدك المؤقت على معرفة متى تبدأ ومتى تتوقف.",
+        encouragement: "يا يَمان، ابدأ بمهمة واحدة فقط. المؤقت يساعدك أن تعرف أين تبدأ وأين تتوقف.",
         tasks: yamanTasks.slice(0, count)
       },
       judy: {
-        encouragement: "جودي، اليوم سنعمل بهدوء وسلام. الأوقات المقترحة هي للمساعدة فقط، وليست كمصدر للضغط.",
+        encouragement: "يا جودي، اليوم نعمل بلطف وهدوء. الوقت المقترح يساعدنا فقط، وليس ضغطاً.",
         tasks: judyTasks.slice(0, count)
       }
     }
@@ -706,7 +708,7 @@ async function createOpenAIDailyCoachPlan(date, taskCount = 3, instructions = ""
     required: ["familyMessage", "children"]
   };
 
-  const prompt = `أنت هيرو، مدرب يومي دافئ وداعم باللغة العربية لعائلة لديها طفلان: يمان وجودي. أنشئ خطة يومية لتاريخ ${date}. مطلوب بالضبط: ${count} مهام صغيرة وواضحة لكل طفل. استخدم لغة إيجابية، داعمة وعملية فقط. يمان يحب الدبلجة، الرسم والرياضيات ويحتاج لخطوات قصيرة. جودي تحتاج لمهام لطيفة وواضحة. لا تستخدم الضغط أو المقارنات. لا تربط الصلاة بالنقاط. اجعل المهام قابلة للتنفيذ اليوم. أضف لكل مهمة وقتًا مقدرًا بصيغة HH:MM أو اتركه فارغًا إذا لم يكن مطلوبًا، وأضف timerMinutes بين 0 و 60. استخدم المؤقت للرياضيات، القراءة، الحركة والإبداع. ضع 0 للمهام الاجتماعية القصيرة. توجيهات الآباء: ${parentInstructions || "لا توجد توجيهات إضافية"}. يجب عليك احترام توجيهات الآباء طالما أنها آمنة ومناسبة للأطفال. أرجع الإجابة بتنسيق JSON المطلوب وباللغة العربية فقط.`;
+  const prompt = `أنت Hero، مدرّب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة يومية بتاريخ ${date}. المطلوب بالضبط: ${count} مهام صغيرة واضحة لكل طفل، لا أكثر ولا أقل. نقاط إيجابية فقط، وتشجيع رحيم وعملي. يَمان يحب الدبلجة والرسوم والرياضيات ويحتاج خطوات قصيرة. جودي تحتاج مهام واضحة ولطيفة. لا تستخدم ضغطاً أو مقارنة. لا تربط الصلاة بالنقاط. اجعل المهام قابلة للتنفيذ اليوم. أضف لكل مهمة وقتاً مقترحاً بصيغة HH:MM أو اتركه فارغاً إذا لا يلزم، وأضف timerMinutes بين 0 و60؛ استخدم مؤقتاً للرياضيات، القراءة، الحركة، الإبداع، والتركيز، واجعل 0 للمهام الاجتماعية القصيرة أو المواعيد التي لا تحتاج عداداً. توجيهات الوالدين لما يجب أن تشمل الخطة: ${parentInstructions || "لا توجد توجيهات إضافية"}. يجب احترام هذه التوجيهات ما دامت آمنة ومناسبة للأطفال.`;
   const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -746,28 +748,28 @@ async function insertCoachPlanTasks(req, res, plan, date) {
 }
 
 function localEndDayMessage(member, tasks) {
-  const name = FAMILY_MEMBERS[member]?.name || "طفل";
+  const name = FAMILY_MEMBERS[member]?.name || "الطفل";
   const done = tasks.filter((task) => task.done);
   const points = done.reduce((sum, task) => sum + Number(task.points || 0), 0);
   const total = tasks.length;
   const doneCount = done.length;
   const next = tasks.find((task) => !task.done);
   const encouragement = doneCount === 0
-    ? `${name}، مجرد العودة للمحاولة غدًا هي خطوة شجاعة. سنبدأ بمهمة صغيرة واحدة.`
-    : `${name}، أحسنت! أكملت ${doneCount} من أصل ${total} وحصلت على ${points} نقطة لجهودك.`;
+    ? `${name}، مجرد العودة للمحاولة غداً خطوة شجاعة. نبدأ بمهمة واحدة صغيرة.`
+    : `${name}، أحسنت. أنجزت ${doneCount} من ${total} وجمعت ${points} نقطة بجهدك.`;
   return {
     points,
     done: doneCount,
     total,
     encouragement,
-    nextStep: next ? `غدًا سنبدأ بخطوة صغيرة: ${next.title}` : "غدًا سنختار مهمة جديدة بهدوء."
+    nextStep: next ? `غداً نبدأ بخطوة صغيرة: ${next.title}` : "غداً نختار مهمة جديدة بهدوء."
   };
 }
 
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    app: "عائلة Hero",
+    app: "Hero Family",
     ticktickConfigured: isTickTickConfigured(),
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     openaiModel: OPENAI_IDEA_MODEL,
@@ -797,9 +799,9 @@ app.post("/auth/parent/login", asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
-  if (!parentPinConfigured()) throw new PublicError(503, "قم بتعيين PARENT_PIN في Railway أولاً.");
+  if (!parentPinConfigured()) throw new PublicError(503, "أضف PARENT_PIN في Railway أولاً.");
   const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
-  if (!secureEqualText(pin, process.env.PARENT_PIN)) throw new PublicError(401, "رمز الآباء غير صحيح.");
+  if (!secureEqualText(pin, process.env.PARENT_PIN)) throw new PublicError(401, "رمز الوالدين غير صحيح.");
   writeParentSession(res);
   res.json({ authenticated: true });
 }));
@@ -889,7 +891,7 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   const suggestedTime = safeTime(req.body?.suggestedTime);
   const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
   const source = safeText(req.body?.source, 30) || "parent";
-  if (!isFamilyMember(assignee) || !title) throw new PublicError(400, "اختر طفلاً واكتب مهمة واضحة.");
+  if (!isFamilyMember(assignee) || !title) throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
 
   const id = crypto.randomUUID();
   const initialTask = {
@@ -935,7 +937,7 @@ app.patch("/api/family/tasks/:id/complete", asyncRoute(async (req, res) => {
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
   requireChildOrParent(req, assignee);
   const { rows } = await pool.query(`UPDATE hero_family_tasks SET done = TRUE, updated_at = NOW() WHERE id = $1 AND assignee = $2 RETURNING *`, [req.params.id, assignee]);
-  if (!rows[0]) throw new PublicError(404, "المهمة غير موجودة.");
+  if (!rows[0]) throw new PublicError(404, "لم نجد هذه المهمة.");
   const task = mapFamilyTask(rows[0]);
   const completed = await completeTickTickTaskIfPossible(req, res, task);
   if (completed) {
@@ -949,7 +951,7 @@ app.delete("/api/family/tasks/:id", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
   const result = await pool.query("DELETE FROM hero_family_tasks WHERE id = $1", [req.params.id]);
-  if (!result.rowCount) throw new PublicError(404, "المهمة غير موجودة.");
+  if (!result.rowCount) throw new PublicError(404, "لم نجد هذه المهمة.");
   res.status(204).end();
 }));
 
@@ -961,7 +963,7 @@ app.post("/api/family/events", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.body?.date);
   const time = /^\d{2}:\d{2}$/.test(String(req.body?.time || "")) ? String(req.body.time) : "";
   const note = safeText(req.body?.note, 350);
-  if (!["yaman", "judy", "family"].includes(assignee) || !title) throw new PublicError(400, "اكتب اسم الحدث وحدد لمن هو موجه.");
+  if (!["yaman", "judy", "family"].includes(assignee) || !title) throw new PublicError(400, "اكتب اسم الموعد وحدد لمن يظهر.");
   const { rows } = await pool.query(`INSERT INTO hero_family_events (id, assignee, title, event_date, event_time, note) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [crypto.randomUUID(), assignee, title, date, time, note]);
   res.status(201).json({ event: mapFamilyEvent(rows[0]) });
 }));
@@ -970,9 +972,10 @@ app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
   const result = await pool.query("DELETE FROM hero_family_events WHERE id = $1", [req.params.id]);
-  if (!result.rowCount) throw new PublicError(404, "الحدث غير موجود.");
+  if (!result.rowCount) throw new PublicError(404, "لم نجد هذا الموعد.");
   res.status(204).end();
 }));
+
 
 app.post("/api/ai/daily-plan", asyncRoute(async (req, res) => {
   requireParent(req);
@@ -988,7 +991,7 @@ app.post("/api/ai/daily-plan", asyncRoute(async (req, res) => {
       plan = await createOpenAIDailyCoachPlan(date, taskCount, instructions);
       source = "openai";
     } catch (error) {
-      warning = "لم نتمكن من إنشاء خطة OpenAI حاليًا؛ استخدمنا خطة محلية آمنة بناءً على عدد المهام والتوجيهات التي اخترتها.";
+      warning = "تعذر إنشاء خطة OpenAI الآن؛ استخدمنا خطة محلية آمنة حسب عدد المهام والتوجيهات التي اخترتها.";
       console.warn("OpenAI daily plan failed; using local fallback:", error.message);
     }
   }
@@ -1006,7 +1009,7 @@ app.get("/api/ai/end-day/:assignee", asyncRoute(async (req, res) => {
   const summary = localEndDayMessage(assignee, tasks);
   if (!process.env.OPENAI_API_KEY) return res.json({ date, source: "local", summary });
   try {
-    const prompt = `اكتب ملخص يوم بالعربية قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}. البيانات: أكمل ${summary.done} من أصل ${summary.total}، النقاط ${summary.points}. لا تقم بإجراء مقارنات بين الأطفال، بدون ضغط، اقترح خطوة صغيرة للغد.`;
+    const prompt = `اكتب تشجيع نهاية يوم عربي قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}. البيانات: أنجز ${summary.done} من ${summary.total}، النقاط ${summary.points}. لا تقارن بين الأطفال، لا تضغط، أعطِ خطوة صغيرة للغد.`;
     const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -1036,7 +1039,7 @@ app.get("/api/ticktick/diagnostics", (req, res) => {
 app.get("/api/ticktick/projects", asyncRoute(async (req, res) => {
   requireConfigured();
   const projects = await tickTickRequest(req, res, "/project");
-  if (!Array.isArray(projects)) throw new PublicError(502, "لم يتم استلام قائمة مشاريع صالحة من TickTick.");
+  if (!Array.isArray(projects)) throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
   const activeProjects = projects
     .filter((project) => project && project.id && project.closed !== true)
     .map((project) => ({ id: String(project.id), name: String(project.name || "TickTick"), color: typeof project.color === "string" ? project.color : "", kind: typeof project.kind === "string" ? project.kind : "TASK", viewMode: typeof project.viewMode === "string" ? project.viewMode : "list" }))
@@ -1049,9 +1052,9 @@ app.get("/api/ticktick/today-tasks", asyncRoute(async (req, res) => {
   const today = dateKeyInTimeZone(new Date());
   const requestedDate = typeof req.query.date === "string" ? req.query.date : "";
   const targetDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : today;
-  if (targetDate !== today) throw new PublicError(400, "يمكن استيراد مهام اليوم الحالي فقط.");
+  if (targetDate !== today) throw new PublicError(400, "אפשר לייבא רק את משימות היום הנוכחי.");
   const projects = await tickTickRequest(req, res, "/project");
-  if (!Array.isArray(projects)) throw new PublicError(502, "لم يتم استلام قائمة مشاريع صالحة من TickTick.");
+  if (!Array.isArray(projects)) throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
   const allActiveProjects = projects.filter((project) => project && project.id && project.closed !== true);
   const requestedProjectIds = selectedProjectIdsFromQuery(req.query.projectIds);
   const requestedIdSet = new Set(requestedProjectIds);
@@ -1106,17 +1109,17 @@ app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
 
 app.post("/api/ideas", asyncRoute(async (req, res) => {
   const idea = safeText(req.body?.idea, 600);
-  if (idea.length < 4) throw new PublicError(400, "اكتب فكرة قصيرة من بضع كلمات أولاً.");
+  if (idea.length < 4) throw new PublicError(400, "اكتب فكرة قصيرة من عدة كلمات أولاً.");
   if (!process.env.OPENAI_API_KEY) {
-    return res.json({ source: "local", ideas: [{ title: "فكرة قصيرة", summary: `سنحول فكرتك إلى مشهد صغير: ${idea}`, firstStep: "اكتب جملة واحدة أو سجل صوتًا قصيرًا.", taskTitle: "تطوير فكرة إبداعية لمدة 10 دقائق", category: "creative" }] });
+    return res.json({ source: "local", ideas: [{ title: "فكرة قصيرة", summary: `نحوّل فكرتك إلى مشهد صغير: ${idea}`, firstStep: "اكتب جملة واحدة أو سجّل صوتاً قصيراً.", taskTitle: "تطوير فكرة إبداعية لمدة 10 دقائق", category: "creative" }] });
   }
   const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: `اقترح 3 أفكار آمنة وبسيطة بالعربية لطفل يبلغ من العمر 15 عامًا بناءً على الفكرة التالية: ${idea}`, max_output_tokens: 700 })
+    body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: `اقترح 3 أفكار آمنة وبسيطة باللغة العربية لطفل عمره 15 سنة بناءً على: ${idea}`, max_output_tokens: 700 })
   }, OPENAI_TIMEOUT_MS);
   const body = await readResponseBody(response);
-  if (!response.ok) throw new PublicError(502, "لا يمكن الوصول إلى اقتراحات الذكاء الاصطناعي حاليًا.");
+  if (!response.ok) throw new PublicError(502, "تعذر الوصول إلى اقتراحات AI الآن.");
   res.json({ source: "openai", text: body?.output_text || body });
 }));
 
@@ -1129,7 +1132,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use((error, req, res, next) => {
   const status = Number(error?.status) || 500;
-  const message = error instanceof PublicError ? error.message : "حدث خطأ في الخادم. حاول مرة أخرى لاحقًا.";
+  const message = error instanceof PublicError ? error.message : "אירעה שגיאה בשרת. נסה שוב בעוד רגע.";
   if (!(error instanceof PublicError)) console.error("Unexpected server error:", error);
   res.status(status).json({ error: message });
 });
