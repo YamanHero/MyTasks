@@ -2,9 +2,9 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#5b5bd6" />
-  <title>عائلة هيرو — إدارة المهام الذكية</title>
+  <title>عائلة هيرو — Mobile PIN Typing Fix</title>
   <style>
     :root {
       --bg: #f7f6ff;
@@ -66,10 +66,25 @@
       text-align: center !important;
       font-size: 1.75rem;
       font-weight: 800;
-      letter-spacing: 0.2rem;
+      letter-spacing: 0.05rem;
       padding-inline: 18px;
       border-radius: 18px;
       caret-color: var(--brand);
+      cursor: text !important;
+      pointer-events: auto !important;
+      touch-action: manipulation;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      -webkit-appearance: none;
+      appearance: none;
+      position: relative;
+      z-index: 5;
+    }
+
+    .login label {
+      display: grid;
+      gap: 8px;
+      cursor: text;
     }
 
     /* Container */
@@ -637,16 +652,12 @@
       function render() {
         paintTop();
         document.getElementById("root").innerHTML = area === "parent" ? parentView() : childView(area);
-        setTimeout(() => {
-          const pin = document.querySelector(".pin-input");
-          if (pin) pin.focus({ preventScroll: true });
-        }, 80);
+        activatePinFields();
       }
 
       async function refresh() {
         await load();
         render();
-        activatePinFields();
       }
 
       function modal(html) {
@@ -895,10 +906,28 @@
         document.querySelectorAll(".pin-input").forEach((input) => {
           input.removeAttribute("readonly");
           input.disabled = false;
+          input.tabIndex = 0;
           input.style.pointerEvents = "auto";
-          input.addEventListener("pointerdown", () => setTimeout(() => input.focus(), 0), { once: true });
-          input.addEventListener("touchstart", () => setTimeout(() => input.focus(), 0), { passive: true });
-          input.addEventListener("click", () => input.focus());
+          input.style.touchAction = "manipulation";
+
+          if (input.dataset.pinReady === "1") {
+            return;
+          }
+
+          input.dataset.pinReady = "1";
+
+          const focusNow = () => {
+            if (document.activeElement !== input) {
+              input.focus({ preventScroll: true });
+            }
+          };
+
+          // חשוב למובייל: הפוקוס חייב לקרות בתוך אירוע המגע עצמו, בלי setTimeout.
+          input.addEventListener("pointerdown", focusNow);
+          input.addEventListener("touchstart", focusNow, { passive: true });
+          input.addEventListener("mousedown", focusNow);
+          input.addEventListener("click", focusNow);
+
           input.addEventListener("input", () => {
             input.value = input.value.replace(/[^0-9]/g, "").slice(0, 12);
           });
