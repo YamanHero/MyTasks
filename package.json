@@ -1,17 +1,17 @@
 {
   "name": "hero-family",
-  "version": "32.0.0",
+  "version": "34.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "pg": "^8.13.1"
+    "express": "4.21.2",
+    "pg": "8.13.1"
   },
-  "description": "Hero Family v32: soft pastel icons, inline SVG art, Arabic RTL mobile-first UI, robust PIN input, ChatGPT daily coach, TickTick 2-way tasks, timeline and task guide"
+  "description": "Hero Family v34: API JSON guard for static preview/XML responses, Node 22 deploy fix, Arabic RTL mobile-first UI, soft icons, robust PIN input, ChatGPT daily coach, TickTick 2-way tasks."
 }
