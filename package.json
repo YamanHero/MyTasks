@@ -10,8 +10,8 @@
     "node": "22.11.0"
   },
   "dependencies": {
-    "express": "4.21.2",
-    "pg": "8.13.1"
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
   },
   "description": "Hero Family v35: exact Node 22.11.0 deploy fix, API JSON guard, Arabic RTL mobile-first UI, soft icons, robust PIN input, ChatGPT daily coach, TickTick 2-way tasks."
 }
