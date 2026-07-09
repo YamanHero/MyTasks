@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "29.0.1",
+  "version": "31.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,6 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family - Mobile First redesign, Bottom-sheet modals, Arabic Translation, Touch optimization."
+  "description": "Hero Family v31 mobile PIN typing hard fix without keypad"
 }
-```eof
