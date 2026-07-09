@@ -1,17 +1,17 @@
 {
-  "name": "hero-family2",
-  "version": "0.0.2",
-  "description": "Hero Family app with Yaman Arabic math tutor",
-  "main": "server.js",
+  "name": "hero-family",
+  "version": "28.0.0",
+  "private": true,
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "pg": "^8.12.0",
-    "openai": "^5.0.0"
-  }
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  },
+  "description": "Hero Family v28 with fixed PIN typing, numeric keypad fallback, RTL timeline and task guide"
 }
