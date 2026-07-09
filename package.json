@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "28.0.0",
+  "version": "29.0.1",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,6 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v28 with fixed PIN typing, numeric keypad fallback, RTL timeline and task guide"
+  "description": "Hero Family - Mobile First redesign, Bottom-sheet modals, Arabic Translation, Touch optimization."
 }
+```eof
