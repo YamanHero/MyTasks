@@ -689,6 +689,17 @@
       }
 
 
+      function apiJsonError(url, text) {
+        const sample = String(text || "").trim().slice(0, 90);
+        const looksLikeMarkup = sample.startsWith("<") || sample.startsWith("<?xml");
+        const message = looksLikeMarkup
+          ? "الخادم أعاد صفحة HTML/XML بدل JSON. افتح التطبيق من رابط Railway بعد تشغيل server.js، وليس من معاينة index.html فقط."
+          : "الخادم أعاد رداً غير صالح بدل JSON.";
+        const error = new Error(`${message} (${url})`);
+        error.sample = sample;
+        return error;
+      }
+
       async function api(url, opts = {}) {
         const response = await fetch(url, {
           ...opts,
@@ -699,19 +710,26 @@
         });
         const text = await response.text();
         let body = null;
-        try { body = text ? JSON.parse(text) : null; } catch {}
+        let parsed = false;
+        try {
+          body = text ? JSON.parse(text) : null;
+          parsed = Boolean(text);
+        } catch {
+          if (text) throw apiJsonError(url, text);
+        }
         if (!response.ok) {
           const error = new Error(body?.error || "تعذر تنفيذ العملية.");
           error.status = response.status;
           throw error;
         }
+        if (text && !parsed) throw apiJsonError(url, text);
         return body;
       }
 
       async function load() {
         const [status, tickStatus] = await Promise.all([
-          fetch("/api/family/status", { cache: "no-store" }).then((r) => r.json()),
-          fetch("/api/ticktick/status", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ configured: false, connected: false }))
+          api("/api/family/status", { cache: "no-store" }),
+          api("/api/ticktick/status", { cache: "no-store" }).catch(() => ({ configured: false, connected: false }))
         ]);
         family = status;
         tick = tickStatus;
