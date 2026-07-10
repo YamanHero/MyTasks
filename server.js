@@ -220,9 +220,20 @@ function decryptJson(value) {
   }
 }
 
+function normalizePinText(value) {
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+  return String(value || "")
+    .trim()
+    .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)))
+    .replace(/[\s\u200e\u200f\u202a-\u202e]/g, "")
+    .replace(/^['"]|['"]$/g, "");
+}
+
 function secureEqualText(left, right) {
-  const leftBuffer = Buffer.from(String(left || ""));
-  const rightBuffer = Buffer.from(String(right || ""));
+  const leftBuffer = Buffer.from(normalizePinText(left));
+  const rightBuffer = Buffer.from(normalizePinText(right));
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
@@ -501,16 +512,22 @@ async function ensureFamilyDatabase() {
 }
 
 function parentPinConfigured() {
-  return typeof process.env.PARENT_PIN === "string" && process.env.PARENT_PIN.length >= 4;
+  return normalizePinText(process.env.PARENT_PIN).length >= 4;
 }
 
+const CHILD_PIN_VARIABLE_ALIASES = {
+  yaman: ["YAMAN_PIN"],
+  judy: ["JUDY_PIN", "JUDI_PIN", "JODI_PIN"]
+};
+
 function childPinVariableName(assignee) {
-  return `${String(assignee || "").toUpperCase()}_PIN`;
+  const key = String(assignee || "").toLowerCase();
+  const aliases = CHILD_PIN_VARIABLE_ALIASES[key] || [`${String(assignee || "").toUpperCase()}_PIN`];
+  return aliases.find((name) => normalizePinText(process.env[name]).length >= 4) || aliases[0];
 }
 
 function childPinConfigured(assignee) {
-  const pin = process.env[childPinVariableName(assignee)];
-  return typeof pin === "string" && pin.length >= 4;
+  return normalizePinText(process.env[childPinVariableName(assignee)]).length >= 4;
 }
 
 function createParentSession() {
@@ -1037,7 +1054,7 @@ app.get("/api/family/status", (req, res) => {
 
 app.post("/auth/parent/login", asyncRoute(async (req, res) => {
   if (!parentPinConfigured()) return res.redirect(303, "/?area=parent&parentLogin=not_configured");
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin = normalizePinText(req.body?.pin);
   if (!secureEqualText(pin, process.env.PARENT_PIN)) return res.redirect(303, "/?area=parent&parentLogin=invalid");
   writeParentSession(res);
   return res.redirect(303, "/?area=parent&parent=opened");
@@ -1045,7 +1062,7 @@ app.post("/auth/parent/login", asyncRoute(async (req, res) => {
 
 app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
   if (!parentPinConfigured()) throw new PublicError(503, "أضف PARENT_PIN في Railway أولاً.");
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin = normalizePinText(req.body?.pin);
   if (!secureEqualText(pin, process.env.PARENT_PIN)) throw new PublicError(401, "رمز الوالدين غير صحيح.");
   writeParentSession(res);
   res.json({ authenticated: true });
@@ -1069,7 +1086,7 @@ app.post("/auth/child/:assignee/login", asyncRoute(async (req, res) => {
     return res.redirect(303, `/?area=${encodeURIComponent(assignee)}&childLogin=not_configured`);
   }
 
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin = normalizePinText(req.body?.pin);
 
   if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) {
     return res.redirect(303, `/?area=${encodeURIComponent(assignee)}&childLogin=invalid`);
@@ -1083,7 +1100,7 @@ app.post("/api/family/child/:assignee/login", asyncRoute(async (req, res) => {
   const assignee = String(req.params.assignee || "").toLowerCase();
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
   if (!childPinConfigured(assignee)) throw new PublicError(503, `أضف ${childPinVariableName(assignee)} في Railway أولاً.`);
-  const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
+  const pin = normalizePinText(req.body?.pin);
   if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) throw new PublicError(401, "رمز الدخول غير صحيح.");
   writeChildSession(res, assignee);
   res.json({ authenticated: true, member: FAMILY_MEMBERS[assignee] });
