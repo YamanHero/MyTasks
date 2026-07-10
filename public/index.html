@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#4d6eea" />
-  <title>Hero Family — Task Chat Checklist v40</title>
+  <title>Hero Family — Login Chooser + TickTick v42</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -944,38 +944,55 @@
         return `<article class="card solid"><span class="eyebrow">TickTick</span><h2>متصل ✓</h2><p class="muted">المهام التي تضيفها في Hero يمكن إرسالها إلى قائمة ${esc(tick.projectName || "Hero")}.</p><div class="row"><button class="btn btn-line" data-action="projects" type="button">اختيار القوائم</button><button class="btn btn-soft" data-action="import" type="button">استيراد مهام اليوم</button><button class="btn btn-danger" data-action="disconnect-ticktick" type="button">فصل TickTick</button></div></article>`;
       }
 
-      function parentLogin() {
-        const err = qs.get("parentLogin") === "invalid" ? "رمز الوالدين غير صحيح." : qs.get("parentLogin") === "not_configured" ? "PARENT_PIN غير مهيأ في Railway." : "";
+      function loginErrorText() {
+        if (qs.get("parentLogin") === "invalid") return "رمز الوالدين غير صحيح.";
+        if (qs.get("parentLogin") === "not_configured") return "PARENT_PIN غير مهيأ في Railway.";
+        if (qs.get("childLogin") === "invalid") return "رمز الدخول غير صحيح.";
+        if (qs.get("childLogin") === "not_configured") return "رمز هذا الطفل غير مهيأ في Railway.";
+        return "";
+      }
+
+      function loginGateway(defaultMember = "parent") {
+        const selected = ["parent", "yaman", "judy"].includes(defaultMember) ? defaultMember : "parent";
+        const err = loginErrorText();
+        const artTypes = selected === "yaman"
+          ? ["study", "creative", "movement", "social"]
+          : selected === "judy"
+            ? ["study", "creative", "home", "routine"]
+            : ["study", "home", "creative", "routine"];
         return `<div class="stack">
           ${tickCard()}
-          <article class="card art login person-card person-parent">
-            <div class="soft-scene" aria-hidden="true" style="margin-bottom:14px; min-height:110px">${sceneIcons("study", "home", "creative", "routine")}</div>
-            <div class="login-copy"><span class="eyebrow">منطقة الوالدين</span><h2>أدخل رمز الوالدين</h2><p class="muted">هذا حقل عادي للكتابة من لوحة المفاتيح. لا توجد لوحة أرقام داخلية.</p></div>
-            <form class="form" action="/auth/parent/login" method="post" autocomplete="off">
-              <label>رمز الوالدين
+          <article class="card art login person-card person-${selected}">
+            <div class="soft-scene" aria-hidden="true" style="margin-bottom:14px; min-height:110px">${sceneIcons(...artTypes)}</div>
+            <div class="login-copy">
+              <span class="eyebrow">تسجيل الدخول</span>
+              <h2>اختر الاسم ثم اكتب الرمز</h2>
+              <p class="muted">يَمان وجودي يدخلان من أجهزتهم مباشرة لعرض مهامهم فقط. الوالدان يدخلان لإدارة الجميع.</p>
+            </div>
+            <form class="form" id="loginChooserForm" action="/auth/parent/login" method="post" autocomplete="off">
+              <label>من يدخل الآن؟
+                <select id="loginIdentity" name="identity">
+                  <option value="parent" ${selected === "parent" ? "selected" : ""}>الوالدان — يفتح الجميع</option>
+                  <option value="yaman" ${selected === "yaman" ? "selected" : ""}>يَمان — مهامي فقط</option>
+                  <option value="judy" ${selected === "judy" ? "selected" : ""}>جودي — مهامي فقط</option>
+                </select>
+              </label>
+              <label>رمز الدخول
                 <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" />
               </label>
-              <button class="btn btn-primary" type="submit">فتح منطقة الوالدين</button>
+              <button class="btn btn-primary" type="submit">فتح المنطقة</button>
               <p class="login-error">${err}</p>
             </form>
           </article>
         </div>`;
       }
 
+      function parentLogin() {
+        return loginGateway("parent");
+      }
+
       function childLogin(member) {
-        const key = member === "yaman" ? "YAMAN_PIN" : "JUDY_PIN";
-        const err = qs.get("childLogin") === "invalid" ? "رمز الدخول غير صحيح." : qs.get("childLogin") === "not_configured" ? `${key} غير مهيأ في Railway.` : "";
-        return `<article class="card art login person-card person-${member}">
-          <div class="soft-scene" aria-hidden="true" style="margin-bottom:14px; min-height:110px">${member === "yaman" ? sceneIcons("study", "creative", "movement", "social") : sceneIcons("study", "creative", "home", "routine")}</div>
-          <div class="login-copy"><span class="eyebrow">${PEOPLE[member].name}</span><h2>أدخل رمز الدخول</h2><p class="muted">اكتب الرمز من لوحة مفاتيح الهاتف أو الكمبيوتر.</p></div>
-          <form class="form" action="/auth/child/${member}/login" method="post" autocomplete="off">
-            <label>رمز ${PEOPLE[member].name}
-              <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" />
-            </label>
-            <button class="btn btn-primary" type="submit">فتح منطقتي</button>
-            <p class="login-error">${err}</p>
-          </form>
-        </article>`;
+        return loginGateway(member);
       }
 
       function eventList(events = []) {
@@ -1049,7 +1066,10 @@
 
       function render() {
         paintTop();
-        document.getElementById("root").innerHTML = area === "parent" ? parentView() : childView(area);
+        const hasAnyLogin = Boolean(family.parentAuthenticated || family.yamanAuthenticated || family.judyAuthenticated);
+        document.getElementById("root").innerHTML = hasAnyLogin
+          ? (area === "parent" ? parentView() : childView(area))
+          : loginGateway(area);
         activatePinFields();
       }
 
@@ -1290,6 +1310,14 @@
       });
 
       document.addEventListener("submit", async (event) => {
+        if (event.target.id === "loginChooserForm") {
+          const identity = document.getElementById("loginIdentity")?.value || "parent";
+          const safeIdentity = ["parent", "yaman", "judy"].includes(identity) ? identity : "parent";
+          event.target.action = safeIdentity === "parent" ? "/auth/parent/login" : `/auth/child/${safeIdentity}/login`;
+          localStorage.setItem("hero-area", safeIdentity);
+          return;
+        }
+
         if (event.target.id === "planForm") {
           event.preventDefault();
           await generatePlan({
@@ -1311,6 +1339,14 @@
           event.preventDefault();
           await api("/api/family/events", { method: "POST", body: JSON.stringify({ assignee: document.getElementById("eventMember").value, title: document.getElementById("eventTitle").value, date: document.getElementById("eventDate").value, time: document.getElementById("eventTime").value, note: document.getElementById("eventNote").value }) });
           close(); await refresh();
+        }
+      });
+
+      document.addEventListener("change", (event) => {
+        if (event.target.id === "loginIdentity") {
+          area = event.target.value || "parent";
+          localStorage.setItem("hero-area", area);
+          paintTop();
         }
       });
 
