@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "42.0.0",
+  "version": "46.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v42: unified login chooser for parent/Yaman/Judy, child independent device login, TickTick-ready redirects, OpenAI quota skip fallback, task chat checklist, start/finish timer, full day schedule, Jerusalem prayer times, Arabic RTL mobile UX, PostgreSQL."
+  "description": "Hero Family v46: empowering gamification with positive points, badges, personal levels, hero mission, task celebration cards, login screen, prayer-time source, independent child login, TickTick integration, editable tasks, timers, and ChatGPT checklist help with fallback."
 }
