@@ -19,7 +19,7 @@ const OPENAI_QUOTA_SKIP_MS = Math.min(
   24 * 60 * 60 * 1000,
   Math.max(5 * 60 * 1000, Number(process.env.OPENAI_QUOTA_SKIP_MS) || 6 * 60 * 60 * 1000)
 );
-const APP_VERSION = "41.0.0";
+const APP_VERSION = "45.0.0";
 
 let openAISkipUntil = 0;
 let openAISkipReason = "";
@@ -552,12 +552,21 @@ function writeChildSession(res, assignee) {
 }
 
 function mapFamilyTask(row) {
+  const basePoints = Number(row.points || 0);
+  const bonusPoints = taskBonusPointsFromRow(row);
+  const earnedPoints = earnedPointsFromRow(row);
+  const badges = achievementBadgesFromRow(row);
+
   return {
     id: row.id,
     assignee: row.assignee,
     title: row.title,
     type: row.task_type,
-    points: Number(row.points || 0),
+    points: basePoints,
+    basePoints,
+    bonusPoints,
+    earnedPoints,
+    badges,
     date: String(row.due_date).slice(0, 10),
     note: row.note || "",
     suggestedTime: row.suggested_time || "",
@@ -573,7 +582,6 @@ function mapFamilyTask(row) {
     ticktickCompleted: Boolean(row.ticktick_completed)
   };
 }
-
 function mapFamilyEvent(row) {
   return { id: row.id, assignee: row.assignee, title: row.title, date: String(row.event_date).slice(0, 10), time: row.event_time || "", note: row.note || "" };
 }
@@ -595,6 +603,70 @@ function safeTimerMinutes(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 0;
   return Math.min(180, Math.max(0, Math.round(number)));
+}
+
+function taskTypeAchievement(type) {
+  const map = {
+    study: { key: "smart-thinker", label: "مفكر ذكي", icon: "🧠" },
+    creative: { key: "creative-hero", label: "مبدع", icon: "🎨" },
+    movement: { key: "energy-hero", label: "قوي اليوم", icon: "💪" },
+    home: { key: "responsible-helper", label: "مسؤول", icon: "🏡" },
+    social: { key: "kind-heart", label: "لطيف", icon: "🤝" },
+    routine: { key: "organized", label: "منظم", icon: "📋" },
+    prayer: { key: "spiritual-time", label: "وقت روحاني", icon: "🕌" },
+    other: { key: "small-step", label: "خطوة جميلة", icon: "🌟" }
+  };
+  return map[type] || map.other;
+}
+
+function taskBonusPointsFromRow(row) {
+  const type = row?.task_type || row?.type || "other";
+  if (type === "prayer") return 0;
+  const done = Boolean(row?.done);
+  const started = Boolean(row?.started_at || row?.startedAt);
+  const timerMinutes = Number(row?.timer_minutes ?? row?.timerMinutes ?? 0);
+  if (!done) return started ? 2 : 0;
+  let bonus = 0;
+  if (started) bonus += 2;
+  if (timerMinutes > 0) bonus += 3;
+  if (["study", "creative", "movement"].includes(type)) bonus += 2;
+  return Math.min(10, bonus);
+}
+
+function achievementBadgesFromRow(row) {
+  const type = row?.task_type || row?.type || "other";
+  const badges = [];
+  const typeBadge = taskTypeAchievement(type);
+
+  if (type === "prayer") {
+    return [typeBadge];
+  }
+
+  if (row?.started_at || row?.startedAt) {
+    badges.push({ key: "starter", label: "بطل البداية", icon: "🚀" });
+  }
+
+  if (Number(row?.timer_minutes ?? row?.timerMinutes ?? 0) > 0 && row?.done) {
+    badges.push({ key: "timer-master", label: "ملك المؤقت", icon: "⏱️" });
+  }
+
+  if (row?.done) {
+    badges.push({ key: "completed", label: "أنجزت", icon: "✅" });
+  }
+
+  badges.push(typeBadge);
+
+  const unique = new Map();
+  for (const badge of badges) unique.set(badge.key, badge);
+  return [...unique.values()].slice(0, 5);
+}
+
+function earnedPointsFromRow(row) {
+  const type = row?.task_type || row?.type || "other";
+  if (type === "prayer") return 0;
+  const base = Number(row?.points || 0);
+  if (!row?.done) return 0;
+  return base + taskBonusPointsFromRow(row);
 }
 
 async function getFamilyTasks(assignee, date) {
@@ -634,7 +706,9 @@ function extractOpenAIOutputText(payload) {
   return parts.join("\n").trim();
 }
 
-const PRAYER_API_BASE = "https://api.aladhan.com/v1/timings";
+const PRAYER_API_BASE = process.env.PRAYER_API_BASE || "https://api.aladhan.com/v1/timings";
+const PRAYER_SOURCE_NAME = process.env.PRAYER_SOURCE_NAME || "AlAdhan Prayer Times API";
+const PRAYER_LOCATION_NAME = process.env.PRAYER_LOCATION_NAME || "Jerusalem";
 const JERUSALEM_LATITUDE = Number(process.env.PRAYER_LATITUDE) || 31.7683;
 const JERUSALEM_LONGITUDE = Number(process.env.PRAYER_LONGITUDE) || 35.2137;
 const PRAYER_METHOD = Number(process.env.PRAYER_METHOD) || 3;
@@ -705,8 +779,8 @@ async function getJerusalemPrayerTimes(date) {
     asr: cleanPrayerTime(timings.Asr),
     maghrib: cleanPrayerTime(timings.Maghrib),
     isha: cleanPrayerTime(timings.Isha),
-    source: "aladhan",
-    location: "Jerusalem",
+    source: PRAYER_SOURCE_NAME,
+    location: PRAYER_LOCATION_NAME,
     date: familyDateKey(date)
   };
 }
@@ -717,8 +791,8 @@ async function getPrayerTimesSafely(date) {
   } catch (error) {
     console.warn("Could not refresh Jerusalem prayer times:", error.message);
     return {
-      prayerTimes: { fajr: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", location: "Jerusalem", date: familyDateKey(date) },
-      warning: "تعذر تحديث مواقيت الصلاة في القدس الآن؛ لم تتم إضافة مهام الصلاة تلقائيًا لهذه الخطة."
+      prayerTimes: { fajr: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", location: PRAYER_LOCATION_NAME, date: familyDateKey(date) },
+      warning: `تعذر تحديث مواقيت الصلاة من ${PRAYER_SOURCE_NAME} الآن؛ لم تتم إضافة مهام الصلاة تلقائيًا لهذه الخطة.`
     };
   }
 }
@@ -914,7 +988,7 @@ async function insertCoachPlanTasks(req, res, plan, date) {
 function localEndDayMessage(member, tasks) {
   const name = FAMILY_MEMBERS[member]?.name || "الطفل";
   const done = tasks.filter((task) => task.done);
-  const points = done.reduce((sum, task) => sum + Number(task.points || 0), 0);
+  const points = done.reduce((sum, task) => sum + Number(task.earnedPoints ?? task.points ?? 0), 0);
   const total = tasks.length;
   const doneCount = done.length;
   const next = tasks.find((task) => !task.done);
@@ -941,7 +1015,10 @@ app.get("/api/health", (req, res) => {
     openaiSkipReason: openAISkipMessage(),
     openaiSkipUntil: openAISkipped() ? new Date(openAISkipUntil).toISOString() : null,
     openaiModel: OPENAI_IDEA_MODEL,
-    openaiTimeoutMs: OPENAI_TIMEOUT_MS
+    openaiTimeoutMs: OPENAI_TIMEOUT_MS,
+    prayerSource: PRAYER_SOURCE_NAME,
+    prayerLocation: PRAYER_LOCATION_NAME,
+    prayerApiConfigured: Boolean(PRAYER_API_BASE)
   });
 });
 
@@ -976,6 +1053,8 @@ app.post("/api/family/parent/login", asyncRoute(async (req, res) => {
 
 app.post("/api/family/parent/logout", (req, res) => {
   clearCookie(res, "hero_parent_session");
+  clearCookie(res, childSessionCookieName("yaman"));
+  clearCookie(res, childSessionCookieName("judy"));
   res.status(204).end();
 });
 
@@ -1097,6 +1176,56 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
     ]
   );
   res.status(201).json({ task: mapFamilyTask(rows[0]), ticktickSynced: Boolean(tick || initialTask.ticktickTaskId) });
+}));
+
+app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+
+  const assignee = String(req.body?.assignee || "").toLowerCase();
+  const title = safeText(req.body?.title, 180);
+  const type = safeTaskType(req.body?.type);
+  const points = Math.min(50, Math.max(0, Number(req.body?.points) || 0));
+  const dueDate = familyDateKey(req.body?.date);
+  const note = safeText(req.body?.note, 500);
+  const suggestedTime = safeTime(req.body?.suggestedTime);
+  const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
+
+  if (!isFamilyMember(assignee) || !title) {
+    throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE hero_family_tasks
+       SET assignee = $2,
+           title = $3,
+           task_type = $4,
+           points = $5,
+           due_date = $6,
+           note = $7,
+           suggested_time = $8,
+           timer_minutes = $9,
+           updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      req.params.id,
+      assignee,
+      title,
+      type,
+      Math.round(points),
+      dueDate,
+      note,
+      suggestedTime,
+      timerMinutes
+    ]
+  );
+
+  if (!rows[0]) {
+    throw new PublicError(404, "لم نجد هذه المهمة.");
+  }
+
+  res.json({ task: mapFamilyTask(rows[0]) });
 }));
 
 app.patch("/api/family/tasks/:id/start", asyncRoute(async (req, res) => {
