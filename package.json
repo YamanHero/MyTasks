@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "40.0.0",
+  "version": "41.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v40: task-level ChatGPT helper with questions, execution steps, completion checklist, start/finish task flow, integrated timer, full day AI schedule, Jerusalem prayer times, Arabic RTL mobile-first UX, TickTick and PostgreSQL."
+  "description": "Hero Family v41: skips ChatGPT automatically when OpenAI quota/billing is unavailable, uses local fallback, task chat checklist, start/finish task flow, integrated timer, full day schedule, Jerusalem prayer times, Arabic RTL mobile UX, TickTick and PostgreSQL."
 }
