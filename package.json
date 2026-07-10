@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "46.0.0",
+  "version": "47.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v46: empowering gamification with positive points, badges, personal levels, hero mission, task celebration cards, login screen, prayer-time source, independent child login, TickTick integration, editable tasks, timers, and ChatGPT checklist help with fallback."
+  "description": "Hero Family v47: fixes child PIN login for Judy/Yaman by normalizing Arabic/Persian/English digits and whitespace, keeps login gate, empowering gamification, editable checklist, TickTick, prayer-time API source, OpenAI helper, PostgreSQL."
 }
