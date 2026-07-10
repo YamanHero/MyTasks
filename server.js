@@ -19,7 +19,7 @@ const OPENAI_QUOTA_SKIP_MS = Math.min(
   24 * 60 * 60 * 1000,
   Math.max(5 * 60 * 1000, Number(process.env.OPENAI_QUOTA_SKIP_MS) || 6 * 60 * 60 * 1000)
 );
-const APP_VERSION = "45.0.0";
+const APP_VERSION = "50.0.0";
 
 let openAISkipUntil = 0;
 let openAISkipReason = "";
@@ -450,6 +450,17 @@ function familyDateKey(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : dateKeyInTimeZone(new Date());
 }
 
+function addDaysToDateKey(value, deltaDays) {
+  const key = familyDateKey(value);
+  const date = new Date(`${key}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Number(deltaDays || 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function previousDateKey(value) {
+  return addDaysToDateKey(value, -1);
+}
+
 function requireFamilyDatabase() {
   if (!pool) throw new PublicError(503, "قاعدة بيانات العائلة غير مفعّلة. أضف DATABASE_URL من PostgreSQL في Railway.");
 }
@@ -686,10 +697,110 @@ function earnedPointsFromRow(row) {
   return base + taskBonusPointsFromRow(row);
 }
 
-async function getFamilyTasks(assignee, date) {
+const DEFAULT_AUTOMATIC_TASK_SLOTS = [
+  "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+  "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
+  "18:00", "19:00", "20:00", "21:00"
+];
+
+function minutesFromClock(value) {
+  const match = String(value || "").match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function clockFromMinutes(value) {
+  const minutes = Math.max(0, Math.min(23 * 60 + 59, Number(value) || 0));
+  const h = String(Math.floor(minutes / 60)).padStart(2, "0");
+  const m = String(minutes % 60).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function automaticSlotFallback(index) {
+  const base = minutesFromClock("06:00") || 360;
+  return clockFromMinutes(base + Math.max(0, Number(index) || 0) * 45);
+}
+
+async function autoDistributeTasksForDate(date, assignee) {
   await ensureFamilyDatabase();
+  if (!isFamilyMember(assignee)) return 0;
+  const day = familyDateKey(date);
   const { rows } = await pool.query(
-    `SELECT * FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 ORDER BY done ASC, NULLIF(suggested_time, '') ASC NULLS LAST, created_at ASC`,
+    `SELECT id, task_type, suggested_time, created_at
+       FROM hero_family_tasks
+      WHERE assignee = $1 AND due_date = $2
+      ORDER BY
+        CASE WHEN task_type = 'prayer' THEN 0 ELSE 1 END,
+        NULLIF(suggested_time, '') ASC NULLS LAST,
+        created_at ASC`,
+    [assignee, day]
+  );
+
+  const used = new Set(rows.map((row) => safeTime(row.suggested_time)).filter(Boolean));
+  const updates = [];
+  for (const row of rows) {
+    const current = safeTime(row.suggested_time);
+    if (current || row.task_type === "prayer") continue;
+    let chosen = DEFAULT_AUTOMATIC_TASK_SLOTS.find((slot) => !used.has(slot));
+    if (!chosen) chosen = automaticSlotFallback(used.size + updates.length);
+    used.add(chosen);
+    updates.push({ id: row.id, time: chosen });
+  }
+
+  for (const update of updates) {
+    await pool.query(
+      `UPDATE hero_family_tasks SET suggested_time = $2, updated_at = NOW() WHERE id = $1`,
+      [update.id, update.time]
+    );
+  }
+  return updates.length;
+}
+
+async function autoDistributeFamilyDate(date, assignee = "") {
+  await ensureFamilyDatabase();
+  const day = familyDateKey(date);
+  if (isFamilyMember(assignee)) {
+    const count = await autoDistributeTasksForDate(day, assignee);
+    return { [assignee]: count };
+  }
+  const result = {};
+  for (const member of Object.keys(FAMILY_MEMBERS)) {
+    result[member] = await autoDistributeTasksForDate(day, member);
+  }
+  return result;
+}
+
+async function previousIncompleteSummary(date) {
+  await ensureFamilyDatabase();
+  const previousDate = previousDateKey(date);
+  const { rows } = await pool.query(
+    `SELECT assignee, COUNT(*) AS incomplete_count
+       FROM hero_family_tasks
+      WHERE due_date = $1 AND done = FALSE
+      GROUP BY assignee`,
+    [previousDate]
+  );
+  const summary = { yaman: 0, judy: 0 };
+  for (const row of rows) {
+    if (Object.prototype.hasOwnProperty.call(summary, row.assignee)) {
+      summary[row.assignee] = Number(row.incomplete_count || 0);
+    }
+  }
+  return { previousDate, summary, total: summary.yaman + summary.judy };
+}
+
+async function previousIncompleteForMember(date, assignee) {
+  const result = await previousIncompleteSummary(date);
+  return { previousDate: result.previousDate, incomplete: Number(result.summary[assignee] || 0) };
+}
+
+async function getFamilyTasks(assignee, date, options = {}) {
+  await ensureFamilyDatabase();
+  if (options.autoDistribute !== false) {
+    await autoDistributeTasksForDate(date, assignee);
+  }
+  const { rows } = await pool.query(
+    `SELECT * FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 ORDER BY NULLIF(suggested_time, '') ASC NULLS LAST, done ASC, created_at ASC`,
     [assignee, date]
   );
   return rows.map(mapFamilyTask);
@@ -1004,20 +1115,43 @@ async function insertCoachPlanTasks(req, res, plan, date) {
 
 function localEndDayMessage(member, tasks) {
   const name = FAMILY_MEMBERS[member]?.name || "الطفل";
-  const done = tasks.filter((task) => task.done);
-  const points = done.reduce((sum, task) => sum + Number(task.earnedPoints ?? task.points ?? 0), 0);
-  const total = tasks.length;
-  const doneCount = done.length;
-  const next = tasks.find((task) => !task.done);
+  const list = Array.isArray(tasks) ? tasks : [];
+  const doneTasks = list.filter((task) => task.done);
+  const openTasks = list.filter((task) => !task.done);
+  const points = doneTasks.reduce((sum, task) => sum + Number(task.earnedPoints ?? task.points ?? 0), 0);
+  const total = list.length;
+  const doneCount = doneTasks.length;
+  const openCount = openTasks.length;
+  const next = openTasks.find((task) => task.type !== "prayer") || openTasks[0];
+  const byType = list.reduce((acc, task) => {
+    const key = safeTaskType(task.type || task.task_type);
+    if (!acc[key]) acc[key] = { total: 0, done: 0, open: 0 };
+    acc[key].total += 1;
+    if (task.done) acc[key].done += 1;
+    else acc[key].open += 1;
+    return acc;
+  }, {});
+  const completedTasks = doneTasks.slice(0, 6).map((task) => task.title);
+  const unfinishedTasks = openTasks.slice(0, 6).map((task) => task.title);
   const encouragement = doneCount === 0
-    ? `${name}، مجرد العودة للمحاولة غداً خطوة شجاعة. نبدأ بمهمة واحدة صغيرة.`
-    : `${name}، أحسنت. أنجزت ${doneCount} من ${total} وجمعت ${points} نقطة بجهدك.`;
+    ? `${name}، مجرد العودة للمحاولة غداً خطوة شجاعة. نبدأ بمهمة واحدة صغيرة بلا ضغط.`
+    : `${name}، أحسنت. أنجزت ${doneCount} من ${total} وجمعت ${points} نقطة بجهدك. هذا تقدم حقيقي.`;
+  const parentRecommendation = openCount > 0
+    ? `غداً لا نرحّل كل شيء. نختار مهمة واحدة سهلة كبداية، ثم نقرر بهدوء إن كانت المهام الباقية مناسبة.`
+    : "الخطة كانت مناسبة اليوم. غداً نحافظ على نفس الإيقاع مع مهمة ممتعة واحدة.";
   return {
     points,
     done: doneCount,
+    open: openCount,
     total,
+    completedTasks,
+    unfinishedTasks,
+    byType,
     encouragement,
-    nextStep: next ? `غداً نبدأ بخطوة صغيرة: ${next.title}` : "غداً نختار مهمة جديدة بهدوء."
+    parentRecommendation,
+    reasonPrompt: openCount > 0 ? "اختر سبب عدم الإكمال: لم يكن وقت / كانت صعبة / نسينا / احتاجت مساعدة / لا تناسب اليوم." : "لا توجد مهام غير مكتملة اليوم.",
+    nextStep: next ? `غداً نبدأ بخطوة صغيرة: ${next.title}` : "غداً نختار مهمة جديدة بهدوء.",
+    tomorrowFocus: next ? `ابدأ بـ: ${next.title}` : "مهمة قصيرة وممتعة كبداية."
   };
 }
 
@@ -1038,6 +1172,69 @@ app.get("/api/health", (req, res) => {
     prayerApiConfigured: Boolean(PRAYER_API_BASE)
   });
 });
+
+app.get("/api/system/diagnostics", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const date = familyDateKey(req.query.date);
+  const database = { configured: Boolean(pool), ok: false, message: "DATABASE_URL غير مهيأ" };
+  if (pool) {
+    try {
+      await pool.query("SELECT 1 AS ok");
+      database.ok = true;
+      database.message = "PostgreSQL يعمل";
+    } catch (error) {
+      database.message = error.message || "تعذر الاتصال بقاعدة البيانات";
+    }
+  }
+
+  const openai = {
+    configured: isOpenAIConfigured(),
+    available: openAIAvailable(),
+    skipped: isOpenAISkipped(),
+    model: OPENAI_IDEA_MODEL,
+    timeoutMs: OPENAI_TIMEOUT_MS,
+    message: openAIAvailable() ? "ChatGPT جاهز" : openAISkipMessage()
+  };
+
+  const ticktick = {
+    configured: isTickTickConfigured(),
+    connected: isTickTickConfigured() && Boolean(getStoredTokens(req)?.accessToken),
+    redirectUriConfigured: Boolean(process.env.TICKTICK_REDIRECT_URI),
+    projectName: HERO_PROJECT_NAME,
+    message: isTickTickConfigured() ? "TickTick مهيأ" : "TickTick غير مهيأ بالكامل"
+  };
+
+  let prayer = {
+    configured: Boolean(PRAYER_API_BASE),
+    ok: false,
+    source: PRAYER_SOURCE_NAME,
+    location: PRAYER_LOCATION_NAME,
+    message: "لم يتم فحص مواقيت الصلاة بعد"
+  };
+  try {
+    const prayerResult = await getPrayerTimesSafely(date);
+    const times = prayerResult.prayerTimes || {};
+    prayer = {
+      ...prayer,
+      ok: Boolean(times.fajr && times.dhuhr && times.asr && times.maghrib && times.isha),
+      message: prayerResult.warning || "مواقيت الصلاة تعمل",
+      times
+    };
+  } catch (error) {
+    prayer.message = error.message || "تعذر فحص مواقيت الصلاة";
+  }
+
+  res.json({
+    app: "Hero Family",
+    version: APP_VERSION,
+    date,
+    timeZone: APP_TIME_ZONE,
+    database,
+    openai,
+    ticktick,
+    prayer
+  });
+}));
 
 app.get("/api/family/status", (req, res) => {
   res.json({
@@ -1113,10 +1310,21 @@ app.post("/api/family/child/:assignee/logout", (req, res) => {
   res.status(204).end();
 });
 
+app.post("/api/family/auto-distribute", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const date = familyDateKey(req.body?.date || req.query?.date);
+  const assignee = String(req.body?.assignee || req.query?.assignee || "").toLowerCase();
+  const distribution = await autoDistributeFamilyDate(date, assignee);
+  res.json({ date, distribution });
+}));
+
 app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
   const date = familyDateKey(req.query.date);
+  const distribution = await autoDistributeFamilyDate(date);
+  const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
     pool.query(
       `SELECT assignee, COUNT(*) FILTER (WHERE done = FALSE) AS open_count, COUNT(*) FILTER (WHERE done = TRUE) AS done_count, COUNT(*) AS total_count FROM hero_family_tasks WHERE due_date = $1 GROUP BY assignee`,
@@ -1131,7 +1339,14 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   for (const row of tasks) {
     if (summary[row.assignee]) summary[row.assignee] = { open: Number(row.open_count || 0), done: Number(row.done_count || 0), total: Number(row.total_count || 0) };
   }
-  res.json({ date, summary, events: events.map(mapFamilyEvent) });
+  res.json({
+    date,
+    todayStart: true,
+    previousIncomplete,
+    autoDistribution: distribution,
+    summary,
+    events: events.map(mapFamilyEvent)
+  });
 }));
 
 app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
@@ -1139,8 +1354,8 @@ app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
   requireChildOrParent(req, assignee);
   const date = familyDateKey(req.query.date);
-  const [tasks, events] = await Promise.all([getFamilyTasks(assignee, date), getFamilyEvents(assignee, date)]);
-  res.json({ member: FAMILY_MEMBERS[assignee], date, tasks, events, parentAuthenticated: hasParentSession(req) });
+  const [tasks, events, previousIncomplete] = await Promise.all([getFamilyTasks(assignee, date), getFamilyEvents(assignee, date), previousIncompleteForMember(date, assignee)]);
+  res.json({ member: FAMILY_MEMBERS[assignee], date, todayStart: true, previousIncomplete, tasks, events, parentAuthenticated: hasParentSession(req) });
 }));
 
 app.post("/api/family/tasks", asyncRoute(async (req, res) => {
@@ -1192,7 +1407,9 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
       initialTask.ticktickProjectName || tick?.ticktickProjectName || null
     ]
   );
-  res.status(201).json({ task: mapFamilyTask(rows[0]), ticktickSynced: Boolean(tick || initialTask.ticktickTaskId) });
+  await autoDistributeTasksForDate(dueDate, assignee);
+  const updated = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [rows[0].id]);
+  res.status(201).json({ task: mapFamilyTask(updated.rows[0] || rows[0]), ticktickSynced: Boolean(tick || initialTask.ticktickTaskId) });
 }));
 
 app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
@@ -1242,7 +1459,9 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
     throw new PublicError(404, "لم نجد هذه المهمة.");
   }
 
-  res.json({ task: mapFamilyTask(rows[0]) });
+  await autoDistributeTasksForDate(dueDate, assignee);
+  const updated = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [rows[0].id]);
+  res.json({ task: mapFamilyTask(updated.rows[0] || rows[0]) });
 }));
 
 app.patch("/api/family/tasks/:id/start", asyncRoute(async (req, res) => {
@@ -1352,7 +1571,11 @@ app.get("/api/ai/end-day/:assignee", asyncRoute(async (req, res) => {
   const summary = localEndDayMessage(assignee, tasks);
   if (!openAIAvailable()) return res.json({ date, source: "local", summary, warning: openAISkipMessage() });
   try {
-    const prompt = `اكتب تشجيع نهاية يوم عربي قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}. البيانات: أنجز ${summary.done} من ${summary.total}، النقاط ${summary.points}. لا تقارن بين الأطفال، لا تضغط، أعطِ خطوة صغيرة للغد.`;
+    const prompt = `اكتب تقرير نهاية يوم عربي قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}.
+البيانات: أنجز ${summary.done} من ${summary.total}، غير مكتمل ${summary.open}، النقاط ${summary.points}.
+المهام المكتملة: ${(summary.completedTasks || []).join("، ") || "لا يوجد"}.
+المهام غير المكتملة: ${(summary.unfinishedTasks || []).join("، ") || "لا يوجد"}.
+القواعد: لا تقارن بين الأطفال، لا تضغط، لا تعاقب، لا تخصم نقاط، أعطِ خطوة صغيرة للغد وتوصية قصيرة للوالدين.`;
     const body = await openAIResponsesRequest({ model: OPENAI_IDEA_MODEL, input: prompt, max_output_tokens: 350 }, OPENAI_TIMEOUT_MS);
     const text = extractOpenAIOutputText(body) || "";
     return res.json({ date, source: text ? "openai" : "local", summary: { ...summary, encouragement: text || summary.encouragement } });
@@ -1387,11 +1610,12 @@ function buildTaskHelpAnswer(help) {
   ].filter(Boolean).join("\n\n");
 }
 
-function localTaskHelp(task, question = "") {
+function localTaskHelp(task, question = "", mode = "full") {
   const type = safeTaskType(task?.type);
   const title = safeText(task?.title, 180) || "المهمة";
   const note = safeText(task?.note, 500);
   const cleanQuestion = safeText(question, 700);
+  const helpMode = safeText(mode, 40) || "full";
   const timer = safeTimerMinutes(task?.timerMinutes);
   const time = safeTime(task?.suggestedTime);
   const taskText = `${title} ${note} ${cleanQuestion}`.toLowerCase();
@@ -1447,12 +1671,31 @@ function localTaskHelp(task, question = "") {
         "إذا توقفت، ما المعلومة الناقصة التي أحتاج أن أسأل عنها؟"
       ];
 
+  let modeAnswer = answer;
+  let modeQuestions = questions;
+  let modeSteps = steps;
+  let modeChecklist = checklist;
+  if (helpMode === "first_step") {
+    modeAnswer = `أول خطوة الآن: ${steps[0] || "اقرأ اسم المهمة وابدأ لخمس دقائق"}. لا تفكر في كل المهمة؛ نفذ هذه الخطوة فقط.`;
+    modeQuestions = ["هل أستطيع تنفيذ هذه الخطوة الآن؟", "ما الشيء الوحيد الذي أحتاجه قبل البدء؟"];
+    modeSteps = steps.slice(0, 3);
+    modeChecklist = checklist.slice(0, 4);
+  } else if (helpMode === "checklist") {
+    modeAnswer = "هذه قائمة إنجاز خاصة بالمهمة. علّم ✓ بعد كل مرحلة، ولا تنتقل للمرحلة التالية إذا احتجت مساعدة.";
+    modeQuestions = [];
+    modeSteps = steps.slice(0, 4);
+  } else if (helpMode === "clarify") {
+    modeAnswer = "قبل أن أجيب بدقة كاملة، هذه الأسئلة تساعدنا نعرف ما الناقص. إذا أرسلت نص التمرين أو الصورة أو المطلوب الكامل، أستطيع إعطاء جواب أدق.";
+    modeSteps = ["أجب عن سؤال واحد فقط من القائمة.", "أرسل النص أو المعلومة الناقصة إن وجدت.", "ابدأ بأصغر خطوة لا تحتاج معلومات إضافية."];
+    modeChecklist = ["حددت ما لا أفهمه بعد.", "كتبت أو صورت نص السؤال إذا كان مطلوبًا.", "اخترت أول خطوة آمنة للبدء."];
+  }
+
   const help = {
     intro: `لننفذ «${title}» بهدوء ومن غير ضغط.${note ? ` ملاحظة المهمة: ${note}.` : ""}`,
-    answer,
-    questions,
-    steps,
-    checklist,
+    answer: modeAnswer,
+    questions: modeQuestions,
+    steps: modeSteps,
+    checklist: modeChecklist,
     encouragement: "خطوة صغيرة صحيحة أفضل من انتظار طويل. ابدأ الآن، وأنا معك."
   };
 
@@ -1488,9 +1731,10 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
   };
 
   const question = safeText(req.body?.question, 700) || "اسألني أسئلة قصيرة، ثم حضّر checklist، ثم اشرح كيف أنفذ المهمة.";
+  const mode = ["full", "first_step", "checklist", "clarify"].includes(String(req.body?.mode || "")) ? String(req.body.mode) : "full";
   if (!task.title) throw new PublicError(400, "لم تصل تفاصيل المهمة.");
 
-  const fallback = localTaskHelp(task, question);
+  const fallback = localTaskHelp(task, question, mode);
 
   if (!openAIAvailable()) {
     return res.json({ source: "local", ...fallback, warning: openAISkipMessage() });
@@ -1521,6 +1765,19 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 5) اللغة عربية بسيطة، قصيرة، مشجعة، مناسبة لطفل.
 6) لا تضغط، لا تقارن بين الأطفال، لا تستخدم لغة مخيفة.
 7) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
+
+وضع المساعدة المطلوب: ${mode}
+- full: إجابة مباشرة + خطوات + checklist.
+- first_step: ركّز على أول خطوة فقط.
+- checklist: ركّز على checklist خاص وقابل للتعليم.
+- clarify: ركّز على أسئلة التوضيح وما الناقص.
+
+تعامل حسب نوع المهمة:
+- study/رياضيات: لا تعطِ الناتج النهائي إذا لا يوجد نص تمرين؛ اطلب نص السؤال، واشرح طريقة الحل خطوة خطوة.
+- creative/دبلجة/رسم: أعطِ خطوات عملية قصيرة وممتعة.
+- home/routine: checklist بسيط وواضح.
+- social: جملة تدريب واحدة وسيناريو قصير.
+- prayer: تذكير هادئ بلا نقاط ولا مكافآت.
 
 الطفل: ${FAMILY_MEMBERS[assignee].name}
 المهمة: ${task.title}
