@@ -1472,38 +1472,60 @@
         const task = findTask(member, id) || findTask("yaman", id) || findTask("judy", id);
         if (!task) return;
         const guide = getTaskGuide(task);
+        const firstChecklist = [
+          `فهمت المهمة: ${task.title}`,
+          task.note ? `قرأت الملاحظة: ${task.note.slice(0, 90)}${task.note.length > 90 ? "…" : ""}` : "حددت ما أحتاجه قبل البدء",
+          Number(task.timerMinutes || 0) > 0 ? `شغّلت المؤقت ${Number(task.timerMinutes)} دقيقة` : "بدأت بخطوة صغيرة",
+          guide.steps[0] || "بدأت أول خطوة",
+          "راجعت النتيجة أو سألت عند الحاجة",
+          "أنهيت المهمة وضغطت زر الإنهاء"
+        ];
         modal(`
-          <span class="eyebrow">خطوات تنفيذ المهمة</span>
-          <div class="task-main" style="margin-bottom:10px">${typeIcon(task.type)}<div><h2 style="margin:0">${esc(task.title)}</h2><p class="muted" style="margin:4px 0 0">${esc(guide.intro)}</p></div></div>
-          <div class="grid">
-            <article class="metric"><div><strong>${esc(taskTimeRange(task))}</strong><span class="muted">من ساعة إلى ساعة</span></div></article>
-            <article class="metric"><div><strong>${taskStatusLabel(task)}</strong><span class="muted">الحالة</span></div></article>
+          <span class="eyebrow">صفحة المهمة</span>
+          <div class="task-main" style="margin-bottom:10px">
+            ${typeIcon(task.type)}
+            <div>
+              <h2 style="margin:0">${esc(task.title)}</h2>
+              <p class="muted" style="margin:4px 0 0">${esc(task.note || guide.intro)}</p>
+            </div>
           </div>
-          <div class="guide-box" style="margin-top:14px">
-            <h3>التحفيز والإنجاز</h3>
-            <div class="badges">${taskBadges(task)}</div>
-            <p class="muted small">النقاط إيجابية فقط. لا خصومات، ولا مقارنة بين يَمان وجودي.</p>
+
+          <div class="guide-box" style="margin-top:12px">
+            <h3>1. معلومات المهمة</h3>
+            <div class="grid">
+              <article class="metric"><div><strong>${esc(taskTimeRange(task))}</strong><span class="muted">الوقت</span></div></article>
+              <article class="metric"><div><strong>${taskStatusLabel(task)}</strong><span class="muted">الحالة</span></div></article>
+            </div>
+            <div class="badges" style="margin-top:10px">${taskBadges(task)}</div>
+            <p class="muted small">النقاط إيجابية فقط. لا خصومات ولا مقارنة بين يَمان وجودي.</p>
           </div>
-          <div class="guide-box" style="margin-top:14px">
-            <h3>${esc(guide.title)}</h3>
-            <ol class="guide-steps">${guide.steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
-            <p class="notice ok"><strong>نصيحة Hero:</strong><br>${esc(guide.tip)}</p>
-            ${task.note ? `<p class="notice"><strong>ملاحظة:</strong><br>${esc(task.note)}</p>` : ""}
+
+          <div class="guide-box" style="margin-top:12px">
+            <h3>2. ابدأ أو أنهِ المهمة</h3>
+            <p class="muted small">ابدأ بالمؤقت إذا وُجد. بعد الإنجاز اضغط إنهاء المهمة.</p>
+            <div class="row">${taskActionButtons(task, member, false)}</div>
           </div>
-          <div class="guide-box" style="margin-top:14px">
-            <h3>مساعد ChatGPT داخل المهمة</h3>
-            <p class="muted small">يسأل أسئلة قصيرة، يشرح طريقة التنفيذ، ويحضّر checklist للإنجاز.</p>
-            <textarea id="taskHelpQuestion" maxlength="700" placeholder="اكتب سؤالك هنا...">اسألني أسئلة قصيرة، ثم حضّر checklist، ثم اشرح كيف أنفذ المهمة.</textarea>
+
+          <div class="guide-box" style="margin-top:12px">
+            <h3>3. المساعد الذكي — إجابة دقيقة + Checklist</h3>
+            <p class="muted small">اكتب سؤالًا محددًا، مثل: “كيف أحل أول سؤال؟” أو “ما الخطوات؟”. إذا كانت تفاصيل التمرين ناقصة، سيقول لك ما الناقص بدل أن يخترع جوابًا.</p>
+            <textarea id="taskHelpQuestion" maxlength="900" placeholder="اكتب السؤال هنا بدقة... مثال: كيف أبدأ هذه المهمة؟ ما أول خطوة؟ حضّر checklist ملائم."></textarea>
             <div class="row" style="margin-top:10px">
-              <button class="btn btn-primary" data-action="task-help" data-member="${member}" data-id="${task.id}" type="button">مساعدة كاملة</button>
-              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="اسألني أسئلة قصيرة قبل أن أبدأ" type="button">أسئلة قبل البدء</button>
-              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="حضّر checklist واضح لإنجاز هذه المهمة" type="button">Checklist</button>
-              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="ابدأ معي بأول خطوة فقط" type="button">أول خطوة فقط</button>
+              <button class="btn btn-primary" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="أعطني إجابة مباشرة دقيقة لهذه المهمة، ثم خطوات مرتبة، ثم checklist ملائم بعلامة ✓" type="button">إجابة دقيقة + Checklist</button>
+              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="ما أول خطوة صغيرة أبدأ بها الآن؟" type="button">أول خطوة</button>
+              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="حضّر checklist خاص بهذه المهمة فقط" type="button">Checklist فقط</button>
+              <button class="btn btn-soft" data-action="task-help" data-member="${member}" data-id="${task.id}" data-quick="اسألني أسئلة قصيرة لتفهم ما ينقص قبل البدء" type="button">أسئلة توضيح</button>
             </div>
             <div id="taskHelpOutput" class="guide-box" style="display:none; margin-top:12px"></div>
           </div>
-          <div class="row" style="margin-top:16px">
-            ${taskActionButtons(task, member, false)}
+
+          ${renderChecklistStages(firstChecklist, `quick-${task.id}`)}
+
+          <div class="guide-box" style="margin-top:12px">
+            <h3>5. خطة تنفيذ سريعة</h3>
+            <p class="muted small">هذه خطة ثابتة وسريعة. للحصول على شرح أدق، استخدم المساعد في الأعلى.</p>
+            <ol class="guide-steps">${guide.steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
+            <p class="notice ok"><strong>نصيحة Hero:</strong><br>${esc(guide.tip)}</p>
           </div>
         `);
       }
@@ -1616,16 +1638,18 @@
         const questions = Array.isArray(result.questions) ? result.questions : [];
         const steps = Array.isArray(result.steps) ? result.steps : [];
         const checklist = Array.isArray(result.checklist) ? result.checklist : [];
+        const answer = result.answer || result.directAnswer || "";
         const sourceLabel = result.source === "openai" ? "ChatGPT" : "Hero";
         return `
           <span class="eyebrow">${sourceLabel}</span>
-          <h3 style="margin-top:0">مساعدة تنفيذ المهمة</h3>
+          <h3 style="margin-top:0">إجابة المساعد وخطة التنفيذ</h3>
           ${result.intro ? `<p class="notice ok">${esc(result.intro)}</p>` : ""}
-          ${questions.length ? `<div class="guide-box" style="margin-top:10px"><h3>أسئلة قصيرة قبل البدء</h3><ol class="guide-steps">${questions.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
-          ${steps.length ? `<div class="guide-box" style="margin-top:10px"><h3>خطوات التنفيذ</h3><ol class="guide-steps">${steps.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
+          ${answer ? `<div class="guide-box" style="margin-top:10px"><h3>الإجابة المباشرة</h3><p class="notice ok" style="white-space:pre-wrap">${esc(answer)}</p></div>` : ""}
+          ${questions.length ? `<div class="guide-box" style="margin-top:10px"><h3>أسئلة قصيرة للتوضيح</h3><ol class="guide-steps">${questions.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
+          ${steps.length ? `<div class="guide-box" style="margin-top:10px"><h3>خطوات التنفيذ بالترتيب</h3><ol class="guide-steps">${steps.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
           ${checklist.length ? renderChecklistStages(checklist, taskId || "task") : ""}
           ${result.encouragement ? `<p class="notice ok" style="margin-top:10px"><strong>تشجيع Hero:</strong><br>${esc(result.encouragement)}</p>` : ""}
-          ${(!questions.length && !steps.length && !checklist.length) ? `<p class="notice ok" style="white-space:pre-wrap">${esc(result.answer || "ابدأ بخطوة صغيرة واحدة.")}</p>` : ""}
+          ${(!answer && !questions.length && !steps.length && !checklist.length) ? `<p class="notice ok" style="white-space:pre-wrap">${esc(result.answerText || "ابدأ بخطوة صغيرة واحدة.")}</p>` : ""}
           ${result.warning ? `<p class="notice" style="margin-top:10px">${esc(result.warning)}</p>` : ""}
         `;
       }
@@ -1635,10 +1659,10 @@
         if (!task) return;
         const questionInput = document.getElementById("taskHelpQuestion");
         const output = document.getElementById("taskHelpOutput");
-        const question = quickQuestion || questionInput?.value?.trim() || "اسألني أسئلة قصيرة، ثم حضّر checklist، ثم اشرح كيف أنفذ المهمة.";
+        const question = quickQuestion || questionInput?.value?.trim() || "أعطني إجابة مباشرة دقيقة لهذه المهمة، ثم خطوات مرتبة، ثم checklist ملائم بعلامة ✓.";
         if (output) {
           output.style.display = "block";
-          output.innerHTML = `<p class="notice ok">Hero يفكر في أسئلة قصيرة و checklist عملي...</p>`;
+          output.innerHTML = `<p class="notice ok">Hero يجهّز إجابة دقيقة، خطوات مرتبة، و checklist ملائم للمهمة...</p>`;
         }
         try {
           const result = await api("/api/ai/task-help", {
