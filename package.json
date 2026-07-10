@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "48.0.0",
+  "version": "50.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v48: Task Assistant Pro with direct accurate answers, task-specific checklist, clearer logical task page order, keeps v47 PIN fix, login gate, empowering gamification, TickTick, prayer-time API source, PostgreSQL."
+  "description": "Hero Family v50: focused task page, type-aware task assistant, end-of-day report, system diagnostics, daily reset, auto schedule, gamification, login gate, TickTick and prayer source."
 }
