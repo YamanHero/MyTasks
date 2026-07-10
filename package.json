@@ -1,16 +1,17 @@
 {
   "name": "hero-family",
-  "version": "36.0.0",
+  "version": "40.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": "22.11.0"
+    "node": ">=20 <23"
   },
   "dependencies": {
     "express": "^4.21.2",
     "pg": "^8.13.1"
-  }
+  },
+  "description": "Hero Family v40: task-level ChatGPT helper with questions, execution steps, completion checklist, start/finish task flow, integrated timer, full day AI schedule, Jerusalem prayer times, Arabic RTL mobile-first UX, TickTick and PostgreSQL."
 }
