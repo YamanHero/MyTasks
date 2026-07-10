@@ -1371,6 +1371,7 @@ function normalizeHelpList(value, fallback = []) {
 
 function buildTaskHelpAnswer(help) {
   const intro = safeText(help?.intro, 360);
+  const answer = safeText(help?.answer, 900);
   const questions = normalizeHelpList(help?.questions, []);
   const steps = normalizeHelpList(help?.steps, []);
   const checklist = normalizeHelpList(help?.checklist, []);
@@ -1378,6 +1379,7 @@ function buildTaskHelpAnswer(help) {
 
   return [
     intro,
+    answer ? `الإجابة المباشرة:\n${answer}` : "",
     questions.length ? `أسئلة سريعة قبل البدء:\n${questions.map((item, index) => `${index + 1}. ${item}`).join("\n")}` : "",
     steps.length ? `خطوات التنفيذ:\n${steps.map((item, index) => `${index + 1}. ${item}`).join("\n")}` : "",
     checklist.length ? `Checklist للإنجاز:\n${checklist.map((item) => `☐ ${item}`).join("\n")}` : "",
@@ -1389,60 +1391,86 @@ function localTaskHelp(task, question = "") {
   const type = safeTaskType(task?.type);
   const title = safeText(task?.title, 180) || "المهمة";
   const note = safeText(task?.note, 500);
+  const cleanQuestion = safeText(question, 700);
   const timer = safeTimerMinutes(task?.timerMinutes);
   const time = safeTime(task?.suggestedTime);
+  const taskText = `${title} ${note} ${cleanQuestion}`.toLowerCase();
+
+  const isMath = /رياض|حساب|جمع|طرح|ضرب|قسمة|مسائل|معادلة|كسور|نسبة|math|שבר|חשבון|מתמט/.test(taskText);
+  const isReading = /قراءة|اقرأ|نص|قصة|فقرة|تلخيص|מקריאה|קריאה|read/.test(taskText);
+  const isDubbing = /دبلجة|صوت|تسجيل|فيديو|يوتيوب|تمثيل|dub|record/.test(taskText);
+  const isDrawing = /رسم|ارسم|لون|تصميم|צייר|ציור|draw/.test(taskText);
 
   const stepsByType = {
-    study: ["حضّر الدفتر والقلم فقط.", "اقرأ المطلوب بصوت هادئ.", "ابدأ بالسؤال الأسهل أو الفقرة الأولى.", "ضع علامة على الشيء الصعب لتسأل عنه لاحقًا."],
-    creative: ["اختر فكرة واحدة فقط.", "جرّب نسخة أولى قصيرة دون محاولة الكمال.", "سجّل أو ارسم أو اكتب لمدة قصيرة.", "اختر شيئًا واحدًا أعجبك واحتفظ به."],
-    home: ["افهم المطلوب بالضبط.", "حضّر المكان أو الأداة المطلوبة.", "أنجز جزءًا صغيرًا وآمنًا.", "أخبر أحد الوالدين عندما تنتهي."],
-    movement: ["اشرب قليلًا من الماء.", "ابدأ بحركة خفيفة.", "استمر حتى نهاية المؤقت دون مبالغة.", "خذ نفسًا هادئًا في النهاية."],
-    social: ["اختر جملة واحدة.", "قلها بصوت هادئ.", "جرّبها مع شخص تثق به.", "لاحظ ما نجح بدون ضغط."],
-    routine: ["اختر خطوة واحدة فقط.", "ضع الشيء المطلوب في مكان واضح.", "أنجزها بهدوء.", "انتقل لشيء آخر فقط إذا بقيت طاقة."],
-    other: ["اقرأ اسم المهمة.", "حوّلها إلى أول خطوة صغيرة.", "ابدأ لخمس دقائق.", "اطلب مساعدة إذا احتجت."]
+    study: isMath
+      ? ["انسخ السؤال أو اقرأه كاملًا مرة واحدة.", "حدد: ما المطلوب إيجاده؟", "اكتب المعطيات المهمة بالأرقام أو الكلمات.", "حل خطوة واحدة فقط ثم توقف للمراجعة.", "افحص الجواب: هل يناسب السؤال؟"]
+      : isReading
+        ? ["اقرأ العنوان أولًا.", "اقرأ فقرة قصيرة بصوت هادئ.", "ضع خطًا تحت كلمة أو فكرة مهمة.", "قل بجملة واحدة: ماذا فهمت؟", "اسأل عن الكلمة الصعبة بدل التوقف."]
+        : ["حضّر الدفتر والقلم فقط.", "اقرأ المطلوب بصوت هادئ.", "ابدأ بالجزء الأسهل أو الفقرة الأولى.", "ضع علامة على الشيء الصعب لتسأل عنه لاحقًا.", "راجع النتيجة قبل الضغط على إنهاء."],
+    creative: isDubbing
+      ? ["اختر مشهدًا قصيرًا جدًا.", "اقرأ الجملة بصوت عادي مرة واحدة.", "سجل محاولة أولى بلا كمال.", "استمع واختر شيئًا واحدًا لتحسينه.", "احفظ النسخة الأفضل فقط."]
+      : isDrawing
+        ? ["اختر فكرة واحدة للرسم.", "ارسم الشكل الكبير أولًا.", "أضف تفصيلًا واحدًا فقط.", "لوّن بهدوء دون استعجال.", "اكتب اسم الرسم أو احفظه."]
+        : ["اختر فكرة واحدة فقط.", "جرّب نسخة أولى قصيرة دون محاولة الكمال.", "سجّل أو ارسم أو اكتب لمدة قصيرة.", "اختر شيئًا واحدًا أعجبك واحتفظ به."],
+    home: ["افهم المطلوب بالضبط.", "حضّر المكان أو الأداة المطلوبة.", "أنجز جزءًا صغيرًا وآمنًا.", "أعد الشيء إلى مكانه إذا احتجت.", "أخبر أحد الوالدين عندما تنتهي."],
+    movement: ["اشرب قليلًا من الماء.", "ابدأ بحركة خفيفة.", "استمر حتى نهاية المؤقت دون مبالغة.", "توقف إذا شعرت بتعب غير عادي.", "خذ نفسًا هادئًا في النهاية."],
+    social: ["اختر جملة واحدة.", "قلها بصوت هادئ.", "جرّبها مع شخص تثق به.", "استمع للرد دون مقاطعة.", "لاحظ ما نجح بدون ضغط."],
+    routine: ["اختر خطوة واحدة فقط.", "ضع الشيء المطلوب في مكان واضح.", "أنجزها بهدوء.", "راجع المكان بسرعة.", "انتقل لشيء آخر فقط إذا بقيت طاقة."],
+    prayer: ["تأكد من دخول الوقت.", "استعد للوضوء بهدوء.", "صلِّ بخشوع دون استعجال.", "اذكر دعاءً قصيرًا بعد الصلاة.", "ارجع إلى جدولك التالي بهدوء."],
+    other: ["اقرأ اسم المهمة.", "حوّلها إلى أول خطوة صغيرة.", "ابدأ لخمس دقائق.", "اطلب مساعدة إذا احتجت.", "اضغط إنهاء فقط بعد إنجاز الجزء المطلوب."]
   };
 
   const steps = stepsByType[type] || stepsByType.other;
+  const answer = type === "prayer"
+    ? "هذه ليست مهمة نقاط. المطلوب فقط تذكير هادئ: الاستعداد، الوضوء، الصلاة بخشوع، ثم العودة لليوم بهدوء."
+    : cleanQuestion && !/^اسألني|^حضّر|^ابدأ/.test(cleanQuestion)
+      ? `سؤالك عن «${title}». بحسب تفاصيل المهمة المتوفرة، أفضل إجابة الآن هي أن تبدأ بتحديد المطلوب ثم تنفذ أول خطوة صغيرة. إذا كان السؤال يحتاج تمرينًا أو نصًا غير ظاهر، اكتب نص السؤال كاملًا وسأجيب عليه بدقة أكبر.`
+      : `المطلوب في «${title}» هو تنفيذها بخطوات صغيرة وواضحة. ابدأ بالخطوة الأولى في القائمة، ولا تنتظر أن تكون جاهزًا 100%.`;
+
   const checklist = [
-    "فهمت المطلوب من المهمة.",
-    time ? `بدأت في الوقت المقترح ${time}.` : "اخترت وقتًا مناسبًا للبدء.",
+    `فهمت ماذا يعني: ${title}.`,
+    note ? `راجعت ملاحظة المهمة: ${note.slice(0, 90)}${note.length > 90 ? "…" : ""}` : "حددت ما أحتاجه قبل البدء.",
+    time ? `تأكدت من الوقت المقترح: ${time}.` : "اخترت وقتًا مناسبًا للبدء.",
     timer ? `شغّلت المؤقت لمدة ${timer} دقيقة.` : "بدأت بخمس دقائق على الأقل.",
-    "أنجزت أول خطوة صغيرة.",
+    steps[0] || "أنجزت أول خطوة صغيرة.",
     "راجعت النتيجة أو طلبت مساعدة عند الحاجة.",
     "ضغطت إنهاء المهمة بعد الإنجاز."
   ];
 
-  const questions = [
-    "ما أول خطوة صغيرة أستطيع تنفيذها الآن؟",
-    "ما الشيء الذي أحتاجه قبل أن أبدأ؟",
-    timer ? "هل شغّلت المؤقت؟" : "هل أبدأ بخمس دقائق فقط؟",
-    "من يمكنني أن أسأل إذا علقت؟"
-  ];
+  const questions = type === "prayer"
+    ? ["هل دخل وقت الصلاة؟", "هل أحتاج وضوءًا؟", "ما الشيء الذي يساعدني على الخشوع الآن؟"]
+    : [
+        "ما المطلوب بالضبط في هذه المهمة؟",
+        "ما أول خطوة صغيرة أستطيع تنفيذها الآن؟",
+        "ما الشيء الذي أحتاجه قبل أن أبدأ؟",
+        timer ? "هل شغّلت المؤقت؟" : "هل أبدأ بخمس دقائق فقط؟",
+        "إذا توقفت، ما المعلومة الناقصة التي أحتاج أن أسأل عنها؟"
+      ];
 
   const help = {
-    intro: `لننفذ «${title}» بهدوء. ${question ? `سؤالك: ${question}. ` : ""}${note ? `ملاحظة المهمة: ${note}.` : "المهم أن نبدأ بخطوة صغيرة، وليس أن نكون مثاليين."}`,
+    intro: `لننفذ «${title}» بهدوء ومن غير ضغط.${note ? ` ملاحظة المهمة: ${note}.` : ""}`,
+    answer,
     questions,
     steps,
     checklist,
-    encouragement: "أحسنت. ابدأ الآن بأول خطوة فقط، وبعدها يصبح الطريق أسهل."
+    encouragement: "خطوة صغيرة صحيحة أفضل من انتظار طويل. ابدأ الآن، وأنا معك."
   };
 
-  return { ...help, answer: buildTaskHelpAnswer(help) };
+  return { ...help, answerText: buildTaskHelpAnswer(help) };
 }
-
 function normalizeTaskHelp(value, fallback) {
   const base = fallback || localTaskHelp({}, "");
   const help = value && typeof value === "object" ? value : {};
   const normalized = {
     intro: safeText(help.intro, 360) || base.intro,
+    answer: safeText(help.answer, 900) || safeText(help.directAnswer, 900) || base.answer,
     questions: normalizeHelpList(help.questions, base.questions),
     steps: normalizeHelpList(help.steps, base.steps),
     checklist: normalizeHelpList(help.checklist, base.checklist),
     encouragement: safeText(help.encouragement, 260) || base.encouragement
   };
-  return { ...normalized, answer: buildTaskHelpAnswer(normalized) };
+  return { ...normalized, answerText: buildTaskHelpAnswer(normalized) };
 }
-
 app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
   const assignee = String(req.body?.assignee || "").toLowerCase();
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
@@ -1474,15 +1502,37 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
       additionalProperties: false,
       properties: {
         intro: { type: "string" },
+        answer: { type: "string" },
         questions: { type: "array", minItems: 3, maxItems: 6, items: { type: "string" } },
         steps: { type: "array", minItems: 4, maxItems: 8, items: { type: "string" } },
-        checklist: { type: "array", minItems: 4, maxItems: 8, items: { type: "string" } },
+        checklist: { type: "array", minItems: 5, maxItems: 9, items: { type: "string" } },
         encouragement: { type: "string" }
       },
-      required: ["intro", "questions", "steps", "checklist", "encouragement"]
+      required: ["intro", "answer", "questions", "steps", "checklist", "encouragement"]
     };
 
-    const prompt = `أنت Hero، مساعد عربي دافئ وعملي لطفل/طفلة. داخل كل مهمة يجب أن تساعد الطفل على التنفيذ لا أن تعطي كلامًا عامًا. اسأل 3-6 أسئلة قصيرة تساعده يفهم المهمة، ثم اشرح خطوات صغيرة جدًا، ثم حضّر checklist واضح للإنجاز. لا تضغط، لا تقارن بين الأطفال، لا تستخدم لغة مخيفة. لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: وضوء، نية، خشوع، وهدوء، بدون نقاط.\n\nالطفل: ${FAMILY_MEMBERS[assignee].name}\nالمهمة: ${task.title}\nالنوع: ${task.type}\nالوقت: ${task.suggestedTime || "غير محدد"}\nالمؤقت: ${task.timerMinutes || 0} دقيقة\nالنقاط: ${task.points}\nالحالة: ${task.status || "مفتوحة"}\nملاحظة المهمة: ${task.note || "لا توجد"}\nسؤال الطفل/الأهل: ${question}\n\nاكتب بالعربية فقط وبشكل عملي جدًا.`;
+    const prompt = `أنت Hero، مساعد عربي دافئ وعملي لطفل/طفلة داخل صفحة مهمة واحدة. الهدف: جواب دقيق، ثم خطة تنفيذ واضحة، ثم checklist ملائم للمهمة نفسها.
+
+قواعد مهمة جدًا:
+1) ابدأ بحقل answer كإجابة مباشرة على سؤال الطفل/الأهل. لا تتهرب ولا تكتب كلامًا عامًا.
+2) إذا كان السؤال يحتاج نص تمرين أو معلومة غير موجودة، قل بالضبط ما المعلومة الناقصة، ثم أعطِ طريقة البدء بما هو متاح. لا تخترع أرقامًا أو حقائق.
+3) اجعل checklist خاصًا بالمهمة، لا checklist عام. كل بند يجب أن يكون قابلًا للتعليم بعلامة ✓.
+4) الخطوات يجب أن تكون مرتبة زمنيًا ومنطقية: فهم المطلوب → تجهيز → أول خطوة → تنفيذ → مراجعة → إنهاء.
+5) اللغة عربية بسيطة، قصيرة، مشجعة، مناسبة لطفل.
+6) لا تضغط، لا تقارن بين الأطفال، لا تستخدم لغة مخيفة.
+7) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
+
+الطفل: ${FAMILY_MEMBERS[assignee].name}
+المهمة: ${task.title}
+النوع: ${task.type}
+الوقت: ${task.suggestedTime || "غير محدد"}
+المؤقت: ${task.timerMinutes || 0} دقيقة
+النقاط: ${task.points}
+الحالة: ${task.status || "مفتوحة"}
+ملاحظة المهمة: ${task.note || "لا توجد"}
+سؤال الطفل/الأهل: ${question}
+
+أعد JSON فقط حسب المخطط. لا تستخدم Markdown داخل القيم.`;
 
     const body = await openAIResponsesRequest({
       model: OPENAI_IDEA_MODEL,
