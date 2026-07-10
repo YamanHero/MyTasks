@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#4d6eea" />
-  <title>Hero Family — Login Chooser + TickTick v42</title>
+  <title>Hero Family — Empowering Gamification v46</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -299,6 +299,142 @@
       box-shadow: var(--shadow-soft);
     }
 
+    .tabs.is-hidden { display: none; }
+    body.is-login .hero { display: none; }
+    .login-gate {
+      max-width: 860px;
+      margin: 0 auto;
+      min-height: calc(100vh - 120px);
+      align-content: center;
+      padding-top: max(14px, env(safe-area-inset-top));
+    }
+    .login-screen-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 38px;
+      padding: clamp(22px, 5vw, 42px);
+      background:
+        radial-gradient(circle at 15% 8%, rgba(239,189,103,.14), transparent 12rem),
+        radial-gradient(circle at 92% 4%, rgba(105,203,212,.12), transparent 12rem),
+        linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,250,244,.88));
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,.66);
+    }
+    .login-screen-card::before {
+      content: "";
+      position: absolute;
+      inset: auto auto -46px -34px;
+      width: 210px;
+      height: 110px;
+      border-radius: 60% 60% 0 0;
+      background: linear-gradient(135deg, rgba(105,203,212,.18), rgba(239,189,103,.16));
+      opacity: .75;
+      pointer-events: none;
+    }
+    .login-logo {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      text-align: center;
+      margin-bottom: 22px;
+    }
+    .family-symbol {
+      display: grid;
+      place-items: center;
+      width: 86px;
+      height: 86px;
+      border-radius: 30px;
+      color: #b77b22;
+      background: radial-gradient(circle at 35% 25%, #fff, #fff4dc 45%, #f5cf84);
+      box-shadow: 0 16px 34px rgba(239,189,103,.22);
+      font-size: 2rem;
+      font-weight: 900;
+    }
+    .login-logo h1 {
+      margin: 0;
+      font-size: clamp(2rem, 7vw, 3.15rem);
+      letter-spacing: .01em;
+      color: var(--brand-deep);
+    }
+    .gold-divider {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #c58a32;
+      font-weight: 900;
+    }
+    .gold-divider::before, .gold-divider::after {
+      content: "";
+      width: 52px;
+      height: 2px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, transparent, #d6a14a, transparent);
+    }
+    .account-panel {
+      position: relative;
+      z-index: 1;
+      border-radius: 32px;
+      padding: clamp(18px, 4vw, 28px);
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(73,91,130,.10);
+      box-shadow: 0 20px 55px rgba(31,39,66,.10);
+      backdrop-filter: blur(16px);
+    }
+    .account-panel h2 { margin: 0 0 16px; text-align: center; }
+    .account-choices {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .account-choice {
+      min-height: 174px;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 11px;
+      border-radius: 24px;
+      border: 1px solid rgba(73,91,130,.12);
+      background: var(--account-bg, #fff);
+      color: var(--ink);
+      box-shadow: 0 13px 30px rgba(31,39,66,.08);
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .account-choice:hover { transform: translateY(-2px); }
+    .account-choice.is-selected {
+      border-color: var(--account-color, var(--brand));
+      box-shadow: 0 18px 42px rgba(31,39,66,.13);
+    }
+    .account-choice.parent-account { --account-bg: linear-gradient(180deg,#fff9ec,#fff); --account-color: #c58a32; }
+    .account-choice.yaman-account { --account-bg: linear-gradient(180deg,#edf6ff,#fff); --account-color: #6a95ee; }
+    .account-choice.judy-account { --account-bg: linear-gradient(180deg,#fff0f7,#fff); --account-color: #df7aa2; }
+    .account-avatar {
+      display: grid;
+      place-items: center;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(73,91,130,.10);
+      color: var(--account-color, var(--brand));
+      font-size: 2rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 14px 26px rgba(31,39,66,.08);
+    }
+    .account-name { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; }
+    .account-line { width: 34px; height: 4px; border-radius: 999px; background: var(--account-color, var(--brand)); opacity: .7; }
+    .login-pin-area { display: grid; gap: 12px; max-width: 620px; margin: 0 auto; }
+    .pin-label { text-align: center; font-family: var(--font-display); font-size: 1.15rem; color: var(--muted); }
+    .login-submit { min-height: 66px; border-radius: 24px; font-size: 1.25rem; }
+    .switch-note {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-weight: 800;
+      margin-top: 8px;
+    }
+
     .tab {
       min-height: 66px;
       border: 0;
@@ -518,7 +654,125 @@
     }
     .selected { border-color: rgba(110,86,232,.72); background: var(--brand-soft); }
 
+
+    .checklist-stages {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 9px;
+    }
+    .checklist-stage {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,.86);
+      color: var(--ink);
+      padding: 10px 12px;
+      text-align: right;
+      font-weight: 800;
+      transition: .16s ease;
+    }
+    .checklist-stage .v-mark {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(87,185,155,.35);
+      color: rgba(87,185,155,.7);
+      background: #fff;
+      font-weight: 900;
+    }
+    .checklist-stage.checked {
+      background: #eafaf5;
+      color: #0c614e;
+      border-color: rgba(87,185,155,.35);
+    }
+    .checklist-stage.checked .v-mark {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+    .checklist-stage.checked .stage-text {
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      text-decoration-color: rgba(12,97,78,.35);
+    }
+
     .footer { margin-top: 26px; color: var(--muted); text-align: center; font-size: .86rem; }
+
+    .progress-card {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,.70);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+    }
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+    }
+    .progress-track {
+      height: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(39,52,102,.10);
+      border: 1px solid rgba(73,91,130,.10);
+    }
+    .progress-fill {
+      height: 100%;
+      width: var(--progress, 0%);
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green), var(--cyan), var(--brand));
+      transition: width .35s ease;
+    }
+    .level-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #fff7e6;
+      color: #79530b;
+      border: 1px solid rgba(243,180,78,.35);
+      font-weight: 900;
+    }
+    .achievement-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .achievement-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(73,91,130,.12);
+      font-size: .84rem;
+      font-weight: 900;
+    }
+    .hero-mission {
+      border: 1px solid rgba(239,189,103,.35);
+      background: linear-gradient(145deg, #fff8eb, #f5eeff);
+    }
+    .bonus-text {
+      color: #0c614e;
+      font-weight: 900;
+    }
 
     @media (max-width: 900px) {
       .shell { width: min(100% - 18px, 1180px); padding-top: 10px; padding-bottom: 96px; }
@@ -567,6 +821,18 @@
       .modal-root { align-items: end; padding: 0; }
       .modal { width: 100%; max-height: 92vh; border-radius: 28px 28px 0 0; padding: 18px; }
       .modal-top { align-items: stretch; flex-direction: column-reverse; }
+    }
+    @media (max-width: 640px) {
+      .login-gate { padding: 10px; min-height: 100vh; }
+      .login-screen-card { border-radius: 30px; padding: 22px 14px 20px; }
+      .family-symbol { width: 68px; height: 68px; border-radius: 24px; font-size: 1.55rem; }
+      .account-panel { border-radius: 28px; padding: 16px; }
+      .account-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .account-choice { min-height: 132px; border-radius: 20px; gap: 7px; padding: 8px 5px; }
+      .account-avatar { width: 56px; height: 56px; font-size: 1.45rem; }
+      .account-name { font-size: 1rem; }
+      .account-line { height: 3px; }
+      .login-submit { min-height: 60px; }
     }
   </style>
 </head>
@@ -769,8 +1035,61 @@
         document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.area === area));
       }
 
+      function checklistBonusPoints(task) {
+        if (!task?.done || task?.type === "prayer") return 0;
+        try {
+          const saved = JSON.parse(localStorage.getItem(checklistStorageKey(task.id)) || "[]");
+          return Array.isArray(saved) && saved.length >= 3 ? 3 : 0;
+        } catch {
+          return 0;
+        }
+      }
+
+      function taskEarnedPoints(task) {
+        if (!task?.done || task?.type === "prayer") return 0;
+        return Number(task.earnedPoints ?? task.points ?? 0) + checklistBonusPoints(task);
+      }
+
       function score(tasks = []) {
-        return tasks.filter((task) => task.done).reduce((sum, task) => sum + Number(task.points || 0), 0);
+        return tasks.filter((task) => task.done).reduce((sum, task) => sum + taskEarnedPoints(task), 0);
+      }
+
+      function levelForPoints(points) {
+        const p = Number(points) || 0;
+        if (p >= 121) return { label: "قائد يومه", next: 160, pct: Math.min(100, (p / 160) * 100), icon: "👑" };
+        if (p >= 81) return { label: "بطل اليوم", next: 120, pct: ((p - 81) / 39) * 100, icon: "🏆" };
+        if (p >= 51) return { label: "يوم قوي", next: 80, pct: ((p - 51) / 29) * 100, icon: "💪" };
+        if (p >= 21) return { label: "تقدم رائع", next: 50, pct: ((p - 21) / 29) * 100, icon: "🌟" };
+        return { label: "بداية جميلة", next: 20, pct: Math.min(100, (p / 20) * 100), icon: "🌱" };
+      }
+
+      function progressCard(member, tasks = []) {
+        const points = score(tasks);
+        const level = levelForPoints(points);
+        const done = tasks.filter((task) => task.done).length;
+        const total = tasks.length;
+        return `<article class="progress-card person-card person-${member}">
+          <div class="progress-top"><span>${PEOPLE[member].name}</span><span class="level-pill">${level.icon} ${level.label}</span></div>
+          <div class="progress-track" aria-label="تقدم اليوم"><div class="progress-fill" style="--progress:${Math.max(0, Math.min(100, level.pct))}%"></div></div>
+          <div class="muted small">${points} نقطة إيجابية · ${done}/${total} مهام منجزة · لا توجد خصومات ولا مقارنة.</div>
+        </article>`;
+      }
+
+      function heroMissionCard(member, tasks = []) {
+        const mission = sortedTasks(tasks).find((task) => !task.done && task.type !== "prayer" && Number(task.points || 0) >= 10) || sortedTasks(tasks).find((task) => !task.done && task.type !== "prayer");
+        if (!mission) return "";
+        return `<article class="card hero-mission">
+          <span class="eyebrow">مهمة البطل اليوم</span>
+          <h2>${esc(PEOPLE[member].name)} · ${esc(mission.title)}</h2>
+          <p class="muted">هذه ليست إجبارية وليست للمقارنة. فقط تحدٍّ لطيف يعطي شعور إنجاز قوي.</p>
+          <div class="badges">${taskBadges(mission)}</div>
+        </article>`;
+      }
+
+      function badgesHtml(task) {
+        const badges = Array.isArray(task?.badges) ? task.badges : [];
+        if (!badges.length) return "";
+        return `<div class="achievement-grid">${badges.map((badge) => `<span class="achievement-chip">${esc(badge.icon || "🌟")} ${esc(badge.label || "إنجاز")}</span>`).join("")}</div>`;
       }
 
       function minutesFromTime(time) {
@@ -830,18 +1149,29 @@
       }
 
       function taskBadges(task) {
+        const earned = taskEarnedPoints(task);
+        const bonus = Number(task.bonusPoints || 0) + checklistBonusPoints(task);
         return [
           `<span class="badge ${taskStatusClass(task)}">${taskStatusLabel(task)}</span>`,
           `<span class="badge">${typeIcon(task.type, true)}${typeLabel(task.type)}</span>`,
-          Number(task.points || 0) > 0 ? `<span class="badge">${Number(task.points || 0)} نقطة</span>` : `<span class="badge">بدون نقاط</span>`,
+          task.type === "prayer" ? `<span class="badge">وقت روحاني</span>` : `<span class="badge">${Number(task.points || 0)} نقطة أساس</span>`,
+          bonus > 0 ? `<span class="badge bonus-text">+${bonus} بونوس</span>` : "",
+          task.done && earned > 0 ? `<span class="badge status-done">${earned} نقطة مكتسبة</span>` : "",
           Number(task.timerMinutes) > 0 ? `<span class="badge">مؤقت ${Number(task.timerMinutes)} د</span>` : "",
           task.ticktickTaskId ? `<span class="badge">TickTick</span>` : ""
-        ].filter(Boolean).join("");
+        ].filter(Boolean).join("") + badgesHtml(task);
       }
 
       function taskActionButtons(task, member, parentMode = false) {
+        const editButton = parentMode
+          ? `<button class="btn btn-line" type="button" data-action="edit-task" data-member="${member}" data-id="${task.id}">تعديل</button>`
+          : "";
+        const deleteButton = parentMode
+          ? `<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${task.id}">حذف</button>`
+          : "";
+
         if (task.done) {
-          return `<span class="btn btn-line">تم ✓</span>${parentMode ? `<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${task.id}">حذف</button>` : ""}`;
+          return `<span class="btn btn-line">تم ✓</span>${editButton}${deleteButton}`;
         }
 
         const minutes = Number(task.timerMinutes || 0);
@@ -853,7 +1183,7 @@
         const timerButton = isTaskStarted(task) && minutes > 0
           ? `<button class="btn btn-soft" type="button" data-action="timer" ${timerAttrs}>المؤقت</button>`
           : "";
-        return `${primaryAction}${timerButton}${parentMode ? `<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${task.id}">حذف</button>` : ""}`;
+        return `${primaryAction}${timerButton}${editButton}${deleteButton}`;
       }
 
       function getTaskGuide(task) {
@@ -955,34 +1285,36 @@
       function loginGateway(defaultMember = "parent") {
         const selected = ["parent", "yaman", "judy"].includes(defaultMember) ? defaultMember : "parent";
         const err = loginErrorText();
-        const artTypes = selected === "yaman"
-          ? ["study", "creative", "movement", "social"]
-          : selected === "judy"
-            ? ["study", "creative", "home", "routine"]
-            : ["study", "home", "creative", "routine"];
-        return `<div class="stack">
-          ${tickCard()}
-          <article class="card art login person-card person-${selected}">
-            <div class="soft-scene" aria-hidden="true" style="margin-bottom:14px; min-height:110px">${sceneIcons(...artTypes)}</div>
-            <div class="login-copy">
-              <span class="eyebrow">تسجيل الدخول</span>
-              <h2>اختر الاسم ثم اكتب الرمز</h2>
-              <p class="muted">يَمان وجودي يدخلان من أجهزتهم مباشرة لعرض مهامهم فقط. الوالدان يدخلان لإدارة الجميع.</p>
+        const actionPath = selected === "parent" ? "/auth/parent/login" : `/auth/child/${selected}/login`;
+        const loginButtonText = selected === "parent" ? "دخول الوالدين" : selected === "yaman" ? "دخول يَمان" : "دخول جودي";
+        const accounts = [
+          { id: "judy", name: "جودي", sub: "مهامي فقط", icon: "👧", cls: "judy-account" },
+          { id: "yaman", name: "يَمان", sub: "مهامي فقط", icon: "👦", cls: "yaman-account" },
+          { id: "parent", name: "الوالدان", sub: "إدارة الجميع", icon: "👪", cls: "parent-account" }
+        ];
+        return `<div class="stack login-gate">
+          <article class="login-screen-card">
+            <div class="login-logo">
+              <div class="family-symbol" aria-hidden="true">👪</div>
+              <h1>Hero Family</h1>
+              <div class="gold-divider">♥</div>
+              <p class="muted" style="margin:0">مرحبًا بكم في هيرو فاميلي</p>
+              <p class="muted small" style="margin:0">منصة عائلية هادئة لتنظيم اليوم، التشجيع، والتقدم خطوة بخطوة.</p>
             </div>
-            <form class="form" id="loginChooserForm" action="/auth/parent/login" method="post" autocomplete="off">
-              <label>من يدخل الآن؟
-                <select id="loginIdentity" name="identity">
-                  <option value="parent" ${selected === "parent" ? "selected" : ""}>الوالدان — يفتح الجميع</option>
-                  <option value="yaman" ${selected === "yaman" ? "selected" : ""}>يَمان — مهامي فقط</option>
-                  <option value="judy" ${selected === "judy" ? "selected" : ""}>جودي — مهامي فقط</option>
-                </select>
-              </label>
-              <label>رمز الدخول
-                <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" />
-              </label>
-              <button class="btn btn-primary" type="submit">فتح المنطقة</button>
-              <p class="login-error">${err}</p>
-            </form>
+            <section class="account-panel">
+              <h2>اختر حسابك للمتابعة</h2>
+              <div class="account-choices" role="group" aria-label="اختيار الحساب">
+                ${accounts.map((account) => `<button class="account-choice ${account.cls} ${selected === account.id ? "is-selected" : ""}" data-action="login-select" data-member="${account.id}" type="button" aria-pressed="${selected === account.id ? "true" : "false"}"><span class="account-avatar" aria-hidden="true">${account.icon}</span><span class="account-name">${account.name}</span><small class="muted">${account.sub}</small><span class="account-line"></span></button>`).join("")}
+              </div>
+              <form class="form login-pin-area" id="loginChooserForm" action="${actionPath}" method="post" autocomplete="off">
+                <input id="loginIdentity" name="identity" type="hidden" value="${selected}">
+                <div class="pin-label">أدخل رمز الدخول</div>
+                <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" aria-label="رمز الدخول" />
+                <button class="btn btn-primary login-submit" type="submit">${loginButtonText}</button>
+                <p class="login-error">${err}</p>
+              </form>
+              <div class="switch-note">تغيير الحساب يتم من البطاقات أعلاه</div>
+            </section>
           </article>
         </div>`;
       }
@@ -1012,7 +1344,7 @@
               <div>
                 <span class="eyebrow">ChatGPT Daily Coach</span>
                 <h2>خطة يومية ذكية، جميلة، وقابلة للتنفيذ</h2>
-                <p class="muted">اكتب أهداف اليوم، وسيبني Hero خطة كاملة من 06:00 إلى 21:00 لكل طفل، ساعة بساعة، مع مواقيت الصلاة المحدثة تلقائيًا للقدس.</p>
+                <p class="muted">اكتب أهداف اليوم، وسيبني Hero خطة كاملة من 06:00 إلى 21:00 لكل طفل، ساعة بساعة، مع مواقيت الصلاة المحدثة تلقائيًا من مصدر مواقيت الصلاة.</p>
                 <div class="row"><button class="btn btn-primary" data-action="ai-plan" type="button">توليد خطة اليوم</button><button class="btn btn-soft" data-action="end-day-parent" type="button">تشجيع نهاية اليوم</button></div>
               </div>
               <div class="soft-scene" aria-hidden="true">${sceneIcons("study", "creative", "movement", "routine")}</div>
@@ -1025,10 +1357,20 @@
             <article class="metric"><div><strong>${score(yamanTasks) + score(judyTasks)}</strong><span class="muted">نقاط العائلة اليوم</span></div><span class="score-orb">★</span></article>
           </div>
 
+          <div class="grid">
+            ${progressCard("yaman", yamanTasks)}
+            ${progressCard("judy", judyTasks)}
+          </div>
+
+          <div class="grid">
+            ${heroMissionCard("yaman", yamanTasks)}
+            ${heroMissionCard("judy", judyTasks)}
+          </div>
+
           <article class="card solid">
             <span class="eyebrow">إدارة سريعة</span>
             <h2>المهام، المواعيد، والمزامنة</h2>
-            <div class="row"><button class="btn btn-primary" data-action="add-task" type="button">إضافة مهمة</button><button class="btn btn-soft" data-action="add-event" type="button">إضافة موعد</button><button class="btn btn-line" data-action="reload" type="button">تحديث</button><button class="btn btn-danger" data-action="logout-parent" type="button">خروج</button></div>
+            <div class="row"><button class="btn btn-primary" data-action="add-task" type="button">إضافة مهمة</button><button class="btn btn-soft" data-action="add-event" type="button">إضافة موعد</button><button class="btn btn-line" data-action="reload" type="button">تحديث</button><button class="btn btn-danger" data-action="logout-parent" type="button">خروج الوالدين</button></div>
           </article>
 
           ${tickCard()}
@@ -1054,21 +1396,44 @@
                 <span class="eyebrow">منطقة ${PEOPLE[member].name}</span>
                 <h2>جدول مهامي اليوم</h2>
                 <p class="muted">اضغط على أي مهمة لتعرف كيف تنفذها خطوة بخطوة. كل إنجاز يضيف نقاطًا إيجابية فقط.</p>
-                <div class="row"><span class="score-orb">${score(tasks)}</span><button class="btn btn-soft" data-action="end-day" data-member="${member}" type="button">تشجيع نهاية اليوم</button><button class="btn btn-line" data-action="logout-child" data-member="${member}" type="button">قفل المنطقة</button></div>
+                <div class="row"><span class="score-orb">${score(tasks)}</span><button class="btn btn-soft" data-action="end-day" data-member="${member}" type="button">تشجيع نهاية اليوم</button><button class="btn btn-line" data-action="logout-child" data-member="${member}" type="button">الخروج من الحساب</button></div>
               </div>
               <div class="soft-scene" aria-hidden="true">${member === "yaman" ? sceneIcons("study", "creative", "movement", "social") : sceneIcons("study", "creative", "home", "routine")}</div>
             </div>
           </article>
+          ${progressCard(member, tasks)}
+          ${heroMissionCard(member, tasks)}
           <article class="card list"><div class="list-head"><h3>المهام من ساعة إلى ساعة</h3><span class="muted">${today()}</span></div><ul class="timeline">${taskRows(tasks, member, false)}</ul></article>
           <article class="card solid"><span class="eyebrow">المواعيد</span><h2>ما يجب الانتباه له</h2>${eventList(data.events || [])}</article>
         </div>`;
       }
 
+      function currentAccount() {
+        if (family.parentAuthenticated) return "parent";
+        if (family.yamanAuthenticated && area === "yaman") return "yaman";
+        if (family.judyAuthenticated && area === "judy") return "judy";
+        if (family.yamanAuthenticated) return "yaman";
+        if (family.judyAuthenticated) return "judy";
+        return "";
+      }
+
+      function showTabsFor(account) {
+        const tabs = document.querySelector(".tabs");
+        if (!tabs) return;
+        tabs.classList.toggle("is-hidden", account !== "parent");
+      }
+
       function render() {
+        const account = currentAccount();
+        document.body.classList.toggle("is-login", !account);
+        if (account && account !== "parent") {
+          area = account;
+          localStorage.setItem("hero-area", account);
+        }
         paintTop();
-        const hasAnyLogin = Boolean(family.parentAuthenticated || family.yamanAuthenticated || family.judyAuthenticated);
-        document.getElementById("root").innerHTML = hasAnyLogin
-          ? (area === "parent" ? parentView() : childView(area))
+        showTabsFor(account);
+        document.getElementById("root").innerHTML = account
+          ? (account === "parent" ? parentView() : childView(account))
           : loginGateway(area);
         activatePinFields();
       }
@@ -1103,6 +1468,11 @@
             <article class="metric"><div><strong>${taskStatusLabel(task)}</strong><span class="muted">الحالة</span></div></article>
           </div>
           <div class="guide-box" style="margin-top:14px">
+            <h3>التحفيز والإنجاز</h3>
+            <div class="badges">${taskBadges(task)}</div>
+            <p class="muted small">النقاط إيجابية فقط. لا خصومات، ولا مقارنة بين يَمان وجودي.</p>
+          </div>
+          <div class="guide-box" style="margin-top:14px">
             <h3>${esc(guide.title)}</h3>
             <ol class="guide-steps">${guide.steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
             <p class="notice ok"><strong>نصيحة Hero:</strong><br>${esc(guide.tip)}</p>
@@ -1126,8 +1496,18 @@
         `);
       }
 
+      function taskTypeOptions(selected = "study") {
+        return Object.entries(TYPES).map(([key, value]) => `<option value="${key}" ${key === selected ? "selected" : ""}>${value[0]} · ${value[1]} نقطة</option>`).join("");
+      }
+
       function addTaskModal() {
-        modal(`<span class="eyebrow">إضافة مهمة</span><h2>مهمة جديدة</h2><form class="form" id="taskForm"><label>الطفل<select id="taskMember"><option value="yaman">يَمان</option><option value="judy">جودي</option></select></label><label>المهمة<input id="taskTitle" required placeholder="مثال: حل 3 أسئلة رياضيات"></label><label>النوع<select id="taskType">${Object.entries(TYPES).map(([key, value]) => `<option value="${key}">${value[0]} · ${value[1]} نقطة</option>`).join("")}</select></label><label>ملاحظة<input id="taskNote" placeholder="كيف يبدأ؟ ماذا يحتاج؟"></label><label>وقت البداية<input id="taskSuggestedTime" type="time"></label><label>مؤقت بالدقائق<input id="taskTimerMinutes" type="number" min="0" max="180" value="0"></label><button class="btn btn-primary" type="submit">حفظ المهمة</button></form>`);
+        modal(`<span class="eyebrow">إضافة مهمة</span><h2>مهمة جديدة</h2><form class="form" id="taskForm"><label>الطفل<select id="taskMember"><option value="yaman">يَمان</option><option value="judy">جودي</option></select></label><label>المهمة<input id="taskTitle" required placeholder="مثال: حل 3 أسئلة رياضيات"></label><label>النوع<select id="taskType">${taskTypeOptions("study")}</select></label><label>ملاحظة<input id="taskNote" placeholder="كيف يبدأ؟ ماذا يحتاج؟"></label><label>وقت البداية<input id="taskSuggestedTime" type="time"></label><label>مؤقت بالدقائق<input id="taskTimerMinutes" type="number" min="0" max="180" value="0"></label><button class="btn btn-primary" type="submit">حفظ المهمة</button></form>`);
+      }
+
+      function editTaskModal(member, id) {
+        const task = findTask(member, id) || findTask("yaman", id) || findTask("judy", id);
+        if (!task) return;
+        modal(`<span class="eyebrow">تعديل مهمة</span><h2>تغيير المهمة بعد توليدها آليًا</h2><p class="muted">يمكن للأهل تعديل مهام ChatGPT أو TickTick أو المهام اليدوية دون حذف الخطة.</p><form class="form" id="editTaskForm"><input id="editTaskId" type="hidden" value="${esc(task.id)}"><label>الطفل<select id="editTaskMember"><option value="yaman" ${task.assignee === "yaman" ? "selected" : ""}>يَمان</option><option value="judy" ${task.assignee === "judy" ? "selected" : ""}>جودي</option></select></label><label>المهمة<input id="editTaskTitle" required value="${esc(task.title)}"></label><label>النوع<select id="editTaskType">${taskTypeOptions(task.type || "other")}</select></label><label>النقاط<input id="editTaskPoints" type="number" min="0" max="50" value="${Number(task.points || 0)}"></label><label>التاريخ<input id="editTaskDate" type="date" value="${esc(task.date || today())}"></label><label>ملاحظة<input id="editTaskNote" value="${esc(task.note || "")}" placeholder="كيف يبدأ؟ ماذا يحتاج؟"></label><label>وقت البداية<input id="editTaskSuggestedTime" type="time" value="${esc(task.suggestedTime || "")}"></label><label>مؤقت بالدقائق<input id="editTaskTimerMinutes" type="number" min="0" max="180" value="${Number(task.timerMinutes || 0)}"></label><button class="btn btn-primary" type="submit">حفظ التعديل</button></form>`);
       }
 
       function addEventModal() {
@@ -1135,15 +1515,15 @@
       }
 
       function aiPlanModal() {
-        modal(`<span class="eyebrow">ChatGPT Daily Coach</span><h2>بناء خطة يوم كامل</h2><p class="muted">سيبني Hero خطة كاملة ليَمان وجودي من 06:00 إلى 21:00، ساعة بساعة. أضف أهدافك، وسيقترح مهام تعليمية، إبداعية، حركية، اجتماعية وروتينية. سيتم تحديث مواقيت الصلاة لمدينة القدس تلقائيًا وإضافتها كتذكير بدون نقاط.</p><form class="form" id="planForm"><div class="grid"><label>بداية اليوم<input id="planStartTime" type="time" value="06:00" required></label><label>نهاية اليوم<input id="planEndTime" type="time" value="21:00" required></label></div><label>أهداف اليوم وما يجب أن تشمله الخطة<textarea id="planGoals" maxlength="1400" placeholder="مثال: يَمان يحتاج رياضيات، قراءة قصيرة، دبلجة، حركة، وترتيب. جودي تحتاج قراءة، رسم، كتابة، ومساعدة بسيطة في البيت. أريد خطة متنوعة ومتعلمة بدون ضغط، مع استراحات قصيرة."></textarea></label><p class="notice ok">ملاحظة: الصلاة ستضاف حسب مواقيت اليوم في القدس، بدون نقاط وبدون ربطها بالمكافآت.</p><button class="btn btn-primary" type="submit">توليد خطة كاملة من 06:00 إلى 21:00</button></form>`);
+        modal(`<span class="eyebrow">ChatGPT Daily Coach</span><h2>بناء خطة يوم كامل</h2><p class="muted">سيبني Hero خطة كاملة ليَمان وجودي من 06:00 إلى 21:00، ساعة بساعة. أضف أهدافك، وسيقترح مهام تعليمية، إبداعية، حركية، اجتماعية وروتينية. سيتم تحديث مواقيت الصلاة تلقائيًا من مصدر المواقيت وإضافتها كتذكير بدون نقاط.</p><form class="form" id="planForm"><div class="grid"><label>بداية اليوم<input id="planStartTime" type="time" value="06:00" required></label><label>نهاية اليوم<input id="planEndTime" type="time" value="21:00" required></label></div><label>أهداف اليوم وما يجب أن تشمله الخطة<textarea id="planGoals" maxlength="1400" placeholder="مثال: يَمان يحتاج رياضيات، قراءة قصيرة، دبلجة، حركة، وترتيب. جودي تحتاج قراءة، رسم، كتابة، ومساعدة بسيطة في البيت. أريد خطة متنوعة ومتعلمة بدون ضغط، مع استراحات قصيرة."></textarea></label><p class="notice ok">ملاحظة: الصلاة ستضاف حسب مواقيت اليوم في القدس، بدون نقاط وبدون ربطها بالمكافآت.</p><button class="btn btn-primary" type="submit">توليد خطة كاملة من 06:00 إلى 21:00</button></form>`);
       }
 
       async function generatePlan(options) {
-        modal(`<span class="eyebrow">Hero يعمل الآن</span><h2>نبني خطة يوم كامل…</h2><p class="muted">سيتم إنشاء برنامج متنوع من ${esc(options.startTime)} إلى ${esc(options.endTime)} لكل طفل، مع تحديث مواقيت الصلاة في القدس. إذا تأخر الذكاء الاصطناعي سيستخدم Hero خطة محلية آمنة بدلًا من التوقف.</p>`);
+        modal(`<span class="eyebrow">Hero يعمل الآن</span><h2>نبني خطة يوم كامل…</h2><p class="muted">سيتم إنشاء برنامج متنوع من ${esc(options.startTime)} إلى ${esc(options.endTime)} لكل طفل، مع تحديث مواقيت الصلاة. إذا تأخر الذكاء الاصطناعي سيستخدم Hero خطة محلية آمنة بدلًا من التوقف.</p>`);
         try {
           const result = await api("/api/ai/daily-plan", { method: "POST", body: JSON.stringify({ date: today(), fullDay: true, startTime: options.startTime, endTime: options.endTime, goals: options.goals }) });
           const prayer = result.prayerTimes || {};
-          modal(`<span class="eyebrow">تم إنشاء الخطة</span><h2>الخطة اليومية جاهزة ✓</h2><p class="notice ok">تمت إضافة ${result.inserted?.length || 0} مهمة/تذكير. المصدر: ${result.source === "openai" ? "OpenAI" : "خطة محلية آمنة"}.</p><p class="notice">مواقيت الصلاة في القدس اليوم: الفجر ${esc(prayer.fajr || "—")} · الظهر ${esc(prayer.dhuhr || "—")} · العصر ${esc(prayer.asr || "—")} · المغرب ${esc(prayer.maghrib || "—")} · العشاء ${esc(prayer.isha || "—")}</p>${result.warning ? `<p class="notice">${esc(result.warning)}</p>` : ""}<button class="btn btn-primary" data-action="reload" type="button">عرض الخطة</button>`);
+          modal(`<span class="eyebrow">تم إنشاء الخطة</span><h2>الخطة اليومية جاهزة ✓</h2><p class="notice ok">تمت إضافة ${result.inserted?.length || 0} مهمة/تذكير. المصدر: ${result.source === "openai" ? "OpenAI" : "خطة محلية آمنة"}.</p><p class="notice">مواقيت الصلاة اليوم: الفجر ${esc(prayer.fajr || "—")} · الظهر ${esc(prayer.dhuhr || "—")} · العصر ${esc(prayer.asr || "—")} · المغرب ${esc(prayer.maghrib || "—")} · العشاء ${esc(prayer.isha || "—")}</p>${result.warning ? `<p class="notice">${esc(result.warning)}</p>` : ""}<button class="btn btn-primary" data-action="reload" type="button">عرض الخطة</button>`);
         } catch (error) {
           modal(`<span class="eyebrow">تعذر إنشاء الخطة</span><h2>حدثت مشكلة</h2><p class="notice bad">${esc(error.message)}</p><button class="btn btn-line" data-action="close" type="button">إغلاق</button>`);
         }
@@ -1182,7 +1562,45 @@
         modal(`<span class="eyebrow">TickTick</span><h2>استيراد مهام اليوم</h2>${importTasks.length ? importTasks.map((task) => `<button class="import-row ${chosenTasks.has(task.projectId + ":" + task.id) ? "selected" : ""}" data-action="toggle-import" data-key="${task.projectId}:${task.id}" type="button"><span><strong>${esc(task.title)}</strong><br><small>${esc(task.projectName)}</small></span><b>${chosenTasks.has(task.projectId + ":" + task.id) ? "✓" : ""}</b></button>`).join("") : `<p class="empty">لا توجد مهام بتاريخ اليوم.</p>`}<div class="row"><button class="btn btn-primary" data-action="assign-import" data-member="yaman" type="button">إضافة ليَمان</button><button class="btn btn-primary" data-action="assign-import" data-member="judy" type="button">إضافة لجودي</button></div>`);
       }
 
-      function renderTaskHelpResult(result) {
+      function checklistStorageKey(taskId) {
+        return `hero-checklist:${taskId}`;
+      }
+
+      function getChecklistState(taskId) {
+        try {
+          return new Set(JSON.parse(localStorage.getItem(checklistStorageKey(taskId)) || "[]"));
+        } catch {
+          return new Set();
+        }
+      }
+
+      function saveChecklistState(taskId, state) {
+        localStorage.setItem(checklistStorageKey(taskId), JSON.stringify([...state].map(Number).filter(Number.isFinite)));
+      }
+
+      function renderChecklistStages(items, taskId) {
+        const checked = getChecklistState(taskId);
+        return `<div class="guide-box" style="margin-top:10px"><h3>Checklist للإنجاز — علّم ✓ لكل مرحلة</h3><p class="muted small">اضغط على كل مرحلة بعد إنجازها. تبقى العلامات محفوظة على هذا الجهاز.</p><div class="checklist-stages">${items.map((item, index) => {
+          const done = checked.has(index);
+          return `<button class="checklist-stage ${done ? "checked" : ""}" type="button" data-action="toggle-checklist" data-task-id="${esc(taskId)}" data-index="${index}" aria-pressed="${done ? "true" : "false"}"><span class="v-mark">${done ? "✓" : "○"}</span><span class="stage-text">${esc(item)}</span></button>`;
+        }).join("")}</div></div>`;
+      }
+
+      function toggleChecklistStage(button) {
+        const taskId = button.dataset.taskId || "task";
+        const index = Number(button.dataset.index);
+        const state = getChecklistState(taskId);
+        if (state.has(index)) state.delete(index);
+        else state.add(index);
+        saveChecklistState(taskId, state);
+        const done = state.has(index);
+        button.classList.toggle("checked", done);
+        button.setAttribute("aria-pressed", done ? "true" : "false");
+        const mark = button.querySelector(".v-mark");
+        if (mark) mark.textContent = done ? "✓" : "○";
+      }
+
+      function renderTaskHelpResult(result, member, taskId) {
         const questions = Array.isArray(result.questions) ? result.questions : [];
         const steps = Array.isArray(result.steps) ? result.steps : [];
         const checklist = Array.isArray(result.checklist) ? result.checklist : [];
@@ -1193,7 +1611,7 @@
           ${result.intro ? `<p class="notice ok">${esc(result.intro)}</p>` : ""}
           ${questions.length ? `<div class="guide-box" style="margin-top:10px"><h3>أسئلة قصيرة قبل البدء</h3><ol class="guide-steps">${questions.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
           ${steps.length ? `<div class="guide-box" style="margin-top:10px"><h3>خطوات التنفيذ</h3><ol class="guide-steps">${steps.map((item) => `<li>${esc(item)}</li>`).join("")}</ol></div>` : ""}
-          ${checklist.length ? `<div class="guide-box" style="margin-top:10px"><h3>Checklist للإنجاز</h3><ul class="guide-steps">${checklist.map((item) => `<li>☐ ${esc(item)}</li>`).join("")}</ul></div>` : ""}
+          ${checklist.length ? renderChecklistStages(checklist, taskId || "task") : ""}
           ${result.encouragement ? `<p class="notice ok" style="margin-top:10px"><strong>تشجيع Hero:</strong><br>${esc(result.encouragement)}</p>` : ""}
           ${(!questions.length && !steps.length && !checklist.length) ? `<p class="notice ok" style="white-space:pre-wrap">${esc(result.answer || "ابدأ بخطوة صغيرة واحدة.")}</p>` : ""}
           ${result.warning ? `<p class="notice" style="margin-top:10px">${esc(result.warning)}</p>` : ""}
@@ -1217,7 +1635,7 @@
           });
           if (output) {
             output.style.display = "block";
-            output.innerHTML = renderTaskHelpResult(result || {});
+            output.innerHTML = renderTaskHelpResult(result || {}, member, id);
           }
         } catch (error) {
           if (output) {
@@ -1256,6 +1674,25 @@
         await refresh();
       }
 
+      function achievementModal(task, member = "") {
+        const earned = taskEarnedPoints(task);
+        const bonus = Number(task.bonusPoints || 0) + checklistBonusPoints(task);
+        const personName = PEOPLE[member]?.name || "بطل";
+        modal(`<span class="eyebrow">إنجاز جديد</span>
+          <h2>أحسنت يا ${esc(personName)} ✨</h2>
+          <p class="notice ok">أنهيت المهمة: <strong>${esc(task.title || "مهمة")}</strong></p>
+          <div class="grid">
+            <article class="metric"><div><strong>${earned}</strong><span class="muted">نقطة مكتسبة</span></div></article>
+            <article class="metric"><div><strong>${bonus > 0 ? `+${bonus}` : "0"}</strong><span class="muted">بونوس هادئ</span></div></article>
+          </div>
+          <div class="guide-box" style="margin-top:14px">
+            <h3>الأوسمة</h3>
+            ${badgesHtml(task) || `<p class="muted">وسام جميل للمحاولة والإنجاز.</p>`}
+          </div>
+          <p class="muted">الهدف هو التقدم خطوة بخطوة، بدون ضغط وبدون مقارنة.</p>
+          <button class="btn btn-primary" data-action="reload" type="button">العودة للمهام</button>`);
+      }
+
       document.addEventListener("click", async (event) => {
         const target = event.target.closest("[data-area],[data-action]");
         if (!target) return;
@@ -1272,11 +1709,20 @@
         const action = target.dataset.action;
 
         try {
+          if (action === "login-select") {
+            area = target.dataset.member || "parent";
+            localStorage.setItem("hero-area", area);
+            history.replaceState(null, "", `?area=${area}`);
+            render();
+            return;
+          }
           if (action === "close") { close(); return; }
           if (action === "reload") { close(); await refresh(); return; }
           if (action === "pause-timer") { timerPaused = !timerPaused; target.textContent = timerPaused ? "متابعة" : "إيقاف مؤقت"; return; }
           if (action === "task-guide") { taskGuideModal(target.dataset.member, target.dataset.id); return; }
           if (action === "task-help") { await askTaskHelp(target.dataset.member, target.dataset.id, target.dataset.quick || ""); return; }
+          if (action === "toggle-checklist") { toggleChecklistStage(target); return; }
+          if (action === "edit-task") { editTaskModal(target.dataset.member, target.dataset.id); return; }
           if (action === "timer") { startTimer(target.dataset.minutes, target.dataset.title, target.dataset.member || "", target.dataset.id || ""); return; }
           if (action === "start-task") { await startTask(target.dataset.member, target.dataset.id, target.dataset.minutes, target.dataset.title); return; }
           if (action === "ai-plan") { aiPlanModal(); return; }
@@ -1300,10 +1746,10 @@
             }
             close(); await refresh(); return;
           }
-          if (action === "complete") { await api(`/api/family/tasks/${target.dataset.id}/complete`, { method: "PATCH", body: JSON.stringify({ assignee: target.dataset.member }) }); close(); await refresh(); return; }
+          if (action === "complete") { const result = await api(`/api/family/tasks/${target.dataset.id}/complete`, { method: "PATCH", body: JSON.stringify({ assignee: target.dataset.member }) }); close(); await refresh(); achievementModal(result.task || {}, target.dataset.member); return; }
           if (action === "delete-task") { if (confirm("حذف المهمة؟")) { await api(`/api/family/tasks/${target.dataset.id}`, { method: "DELETE" }); await refresh(); } return; }
-          if (action === "logout-parent") { await api("/api/family/parent/logout", { method: "POST" }); await refresh(); return; }
-          if (action === "logout-child") { await api(`/api/family/child/${target.dataset.member}/logout`, { method: "POST" }); await refresh(); return; }
+          if (action === "logout-parent") { await api("/api/family/parent/logout", { method: "POST" }); area = "parent"; localStorage.setItem("hero-area", "parent"); history.replaceState(null, "", "?area=parent"); await refresh(); return; }
+          if (action === "logout-child") { await api(`/api/family/child/${target.dataset.member}/logout`, { method: "POST" }); area = target.dataset.member || "parent"; localStorage.setItem("hero-area", area); history.replaceState(null, "", `?area=${area}`); await refresh(); return; }
         } catch (error) {
           modal(`<span class="eyebrow">تنبيه</span><h2>لم تكتمل العملية</h2><p class="notice bad">${esc(error.message)}</p><button class="btn btn-line" data-action="close" type="button">إغلاق</button>`);
         }
@@ -1332,6 +1778,13 @@
           event.preventDefault();
           const type = document.getElementById("taskType").value;
           await api("/api/family/tasks", { method: "POST", body: JSON.stringify({ assignee: document.getElementById("taskMember").value, title: document.getElementById("taskTitle").value, type, points: TYPES[type][1], date: today(), note: document.getElementById("taskNote").value, suggestedTime: document.getElementById("taskSuggestedTime").value, timerMinutes: Number(document.getElementById("taskTimerMinutes").value) || 0, source: "parent" }) });
+          close(); await refresh(); return;
+        }
+
+        if (event.target.id === "editTaskForm") {
+          event.preventDefault();
+          const id = document.getElementById("editTaskId").value;
+          await api(`/api/family/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ assignee: document.getElementById("editTaskMember").value, title: document.getElementById("editTaskTitle").value, type: document.getElementById("editTaskType").value, points: Number(document.getElementById("editTaskPoints").value) || 0, date: document.getElementById("editTaskDate").value || today(), note: document.getElementById("editTaskNote").value, suggestedTime: document.getElementById("editTaskSuggestedTime").value, timerMinutes: Number(document.getElementById("editTaskTimerMinutes").value) || 0 }) });
           close(); await refresh(); return;
         }
 
