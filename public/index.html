@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#4d6eea" />
-  <title>Hero Family — Empowering Gamification v46</title>
+  <title>Hero Family — PIN Login Fix + Empowering Gamification v46</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -911,6 +911,17 @@
       };
 
       const qs = new URLSearchParams(location.search);
+
+      function normalizePinValue(value) {
+        const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+        const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+        return String(value || "")
+          .trim()
+          .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)))
+          .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)))
+          .replace(/[\s\u200e\u200f\u202a-\u202e]/g, "")
+          .replace(/^['"]|['"]$/g, "");
+      }
       let area = qs.get("area") || localStorage.getItem("hero-area") || "parent";
       if (!["parent", "yaman", "judy"].includes(area)) area = "parent";
 
@@ -1309,7 +1320,8 @@
               <form class="form login-pin-area" id="loginChooserForm" action="${actionPath}" method="post" autocomplete="off">
                 <input id="loginIdentity" name="identity" type="hidden" value="${selected}">
                 <div class="pin-label">أدخل رمز الدخول</div>
-                <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" aria-label="رمز الدخول" />
+                <input class="pin-input" name="pin" type="text" inputmode="numeric" enterkeyhint="go" maxlength="12" required autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr" placeholder="••••" aria-label="رمز الدخول" pattern="[0-9٠-٩۰-۹ ]*" />
+                <small class="muted">يمكن إدخال الأرقام العربية أو الإنجليزية — سيتم تحويلها تلقائيًا.</small>
                 <button class="btn btn-primary login-submit" type="submit">${loginButtonText}</button>
                 <p class="login-error">${err}</p>
               </form>
@@ -1759,6 +1771,8 @@
         if (event.target.id === "loginChooserForm") {
           const identity = document.getElementById("loginIdentity")?.value || "parent";
           const safeIdentity = ["parent", "yaman", "judy"].includes(identity) ? identity : "parent";
+          const pinInput = event.target.querySelector('input[name="pin"]');
+          if (pinInput) pinInput.value = normalizePinValue(pinInput.value);
           event.target.action = safeIdentity === "parent" ? "/auth/parent/login" : `/auth/child/${safeIdentity}/login`;
           localStorage.setItem("hero-area", safeIdentity);
           return;
