@@ -15,7 +15,96 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.OPENAI_TIMEOUT_MS) || 12000));
 const EXTERNAL_FETCH_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.EXTERNAL_FETCH_TIMEOUT_MS) || 10000));
-const APP_VERSION = "31.0.0";
+const OPENAI_QUOTA_SKIP_MS = Math.min(
+  24 * 60 * 60 * 1000,
+  Math.max(5 * 60 * 1000, Number(process.env.OPENAI_QUOTA_SKIP_MS) || 6 * 60 * 60 * 1000)
+);
+const APP_VERSION = "41.0.0";
+
+let openAISkipUntil = 0;
+let openAISkipReason = "";
+
+class OpenAISkipError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "OpenAISkipError";
+    this.skipOpenAI = true;
+  }
+}
+
+function isOpenAIConfigured() {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+
+function isOpenAISkipped() {
+  return Boolean(openAISkipUntil && openAISkipUntil > Date.now());
+}
+
+function openAISkipMessage() {
+  if (!isOpenAIConfigured()) return "OpenAI API key is not configured.";
+  if (!isOpenAISkipped()) return "";
+  return openAISkipReason || "OpenAI is temporarily skipped.";
+}
+
+function openAIAvailable() {
+  return isOpenAIConfigured() && !isOpenAISkipped();
+}
+
+function markOpenAISkipped(reason, durationMs = OPENAI_QUOTA_SKIP_MS) {
+  openAISkipUntil = Date.now() + durationMs;
+  openAISkipReason = reason || "OpenAI quota or billing is unavailable; using local fallback.";
+  console.warn(`OpenAI disabled temporarily: ${openAISkipReason}`);
+}
+
+function isOpenAIQuotaOrBillingError(status, body, message = "") {
+  const code = String(body?.error?.code || body?.error?.type || "").toLowerCase();
+  const text = String(body?.error?.message || message || "").toLowerCase();
+  return (
+    status === 429 &&
+    (
+      code.includes("quota") ||
+      code.includes("billing") ||
+      text.includes("quota") ||
+      text.includes("billing") ||
+      text.includes("exceeded your current quota") ||
+      text.includes("usage limit") ||
+      text.includes("insufficient")
+    )
+  );
+}
+
+async function openAIResponsesRequest(payload, timeoutMs = OPENAI_TIMEOUT_MS) {
+  if (!isOpenAIConfigured()) {
+    throw new OpenAISkipError("OpenAI is not configured; using local fallback.");
+  }
+
+  if (isOpenAISkipped()) {
+    throw new OpenAISkipError(openAISkipMessage());
+  }
+
+  const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify(payload)
+  }, timeoutMs);
+
+  const body = await readResponseBody(response);
+
+  if (!response.ok) {
+    const message = body?.error?.message || `OpenAI request failed with status ${response.status}`;
+
+    if (isOpenAIQuotaOrBillingError(response.status, body, message)) {
+      markOpenAISkipped("OpenAI quota/billing unavailable. Hero will skip ChatGPT and use local fallback.");
+    }
+
+    const error = new Error(message);
+    error.status = response.status;
+    error.openAIBody = body;
+    throw error;
+  }
+
+  return body;
+}
 
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "200kb" }));
@@ -790,13 +879,12 @@ async function createOpenAIDailyCoachPlan(date, options = {}) {
   };
 
   const prompt = `أنت Hero، مدرب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة كاملة ليوم ${date} من الساعة ${startTime} حتى ${endTime}. المطلوب بالضبط ${count} مهام تعليمية/إثرائية/حياتية لكل طفل، موزعة على هذه الساعات بالترتيب: ${slots.join(", ")}. اجعل لكل ساعة مهمة واحدة صغيرة لكل طفل. لا تُدخل الصلاة داخل JSON؛ النظام سيضيف مواقيت الصلاة تلقائيًا لمدينة القدس. مواقيت الصلاة للوعي فقط: الفجر ${prayerTimes.fajr || "غير متاح"}، الظهر ${prayerTimes.dhuhr || "غير متاح"}، العصر ${prayerTimes.asr || "غير متاح"}، المغرب ${prayerTimes.maghrib || "غير متاح"}، العشاء ${prayerTimes.isha || "غير متاح"}. يَمان يحب الدبلجة والرسم والرياضيات ويحتاج خطوات قصيرة ومؤقتات. جودي تحتاج مهام لطيفة وواضحة ومتعلمة. نوّع بين دراسة، حركة، إبداع، مسؤولية بيت، مهارة اجتماعية وروتين. نقاط الصلاة لا تُحسب ولا ترتبط بمكافآت. اجعل timerMinutes بين 0 و60. استخدم timer للرياضيات، القراءة، الإبداع، الحركة والتركيز. أهداف الوالدين لهذا اليوم: ${parentGoals || "لا توجد أهداف إضافية"}. يجب احترام أهداف الوالدين طالما هي آمنة ومناسبة للأطفال. أعد JSON فقط حسب المخطط.`;
-  const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: prompt, text: { format: { type: "json_schema", name: "hero_full_day_coach_plan", strict: true, schema } }, max_output_tokens: Math.min(9000, 1200 + count * 520) })
+  const body = await openAIResponsesRequest({
+    model: OPENAI_IDEA_MODEL,
+    input: prompt,
+    text: { format: { type: "json_schema", name: "hero_full_day_coach_plan", strict: true, schema } },
+    max_output_tokens: Math.min(9000, 1200 + count * 520)
   }, Math.max(OPENAI_TIMEOUT_MS, 20000));
-  const body = await readResponseBody(response);
-  if (!response.ok) throw new Error(body?.error?.message || "OpenAI full day plan failed");
   const output = extractOpenAIOutputText(body);
   return normalizeDailyCoachPlan(JSON.parse(output), { ...options, taskCount: count, goals: parentGoals });
 }
@@ -847,7 +935,11 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     app: "Hero Family",
     ticktickConfigured: isTickTickConfigured(),
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    openaiConfigured: isOpenAIConfigured(),
+    openaiAvailable: openAIAvailable(),
+    openaiSkipped: isOpenAISkipped(),
+    openaiSkipReason: openAISkipMessage(),
+    openaiSkipUntil: openAISkipped() ? new Date(openAISkipUntil).toISOString() : null,
     openaiModel: OPENAI_IDEA_MODEL,
     openaiTimeoutMs: OPENAI_TIMEOUT_MS
   });
@@ -1086,14 +1178,17 @@ app.post("/api/ai/daily-plan", asyncRoute(async (req, res) => {
   let plan = localDailyCoachPlan(planOptions);
   let warning = prayerResult.warning;
 
-  if (process.env.OPENAI_API_KEY) {
+  if (openAIAvailable()) {
     try {
       plan = await createOpenAIDailyCoachPlan(date, planOptions);
       source = "openai";
     } catch (error) {
-      warning = [warning, "لم نتمكن من إنشاء خطة OpenAI حاليًا؛ استخدمنا خطة محلية آمنة كاملة من 06:00 إلى 21:00 وفق أهدافك."].filter(Boolean).join(" ");
-      console.warn("OpenAI full day plan failed; using local fallback:", error.message);
+      warning = [warning, "تخطينا ChatGPT مؤقتًا واستخدمنا خطة محلية آمنة كاملة من 06:00 إلى 21:00 وفق أهدافك."].filter(Boolean).join(" ");
+      if (error.skipOpenAI) console.warn("OpenAI skipped; using local fallback:", error.message);
+      else console.warn("OpenAI full day plan failed; using local fallback:", error.message);
     }
+  } else if (isOpenAIConfigured() && isOpenAISkipped()) {
+    warning = [warning, "تم تخطي ChatGPT لأن رصيد/حد OpenAI غير متاح حاليًا؛ استخدمنا خطة محلية آمنة."].filter(Boolean).join(" ");
   }
 
   plan = normalizeDailyCoachPlan(plan, planOptions);
@@ -1109,16 +1204,11 @@ app.get("/api/ai/end-day/:assignee", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.query.date);
   const tasks = await getFamilyTasks(assignee, date);
   const summary = localEndDayMessage(assignee, tasks);
-  if (!process.env.OPENAI_API_KEY) return res.json({ date, source: "local", summary });
+  if (!openAIAvailable()) return res.json({ date, source: "local", summary, warning: openAISkipMessage() });
   try {
     const prompt = `اكتب تشجيع نهاية يوم عربي قصير ودافئ لـ ${FAMILY_MEMBERS[assignee].name}. البيانات: أنجز ${summary.done} من ${summary.total}، النقاط ${summary.points}. لا تقارن بين الأطفال، لا تضغط، أعطِ خطوة صغيرة للغد.`;
-    const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: prompt, max_output_tokens: 350 })
-    }, OPENAI_TIMEOUT_MS);
-    const body = await readResponseBody(response);
-    const text = response.ok ? extractOpenAIOutputText(body) : "";
+    const body = await openAIResponsesRequest({ model: OPENAI_IDEA_MODEL, input: prompt, max_output_tokens: 350 }, OPENAI_TIMEOUT_MS);
+    const text = extractOpenAIOutputText(body) || "";
     return res.json({ date, source: text ? "openai" : "local", summary: { ...summary, encouragement: text || summary.encouragement } });
   } catch (error) {
     return res.json({ date, source: "local", summary });
@@ -1228,8 +1318,8 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 
   const fallback = localTaskHelp(task, question);
 
-  if (!process.env.OPENAI_API_KEY) {
-    return res.json({ source: "local", ...fallback });
+  if (!openAIAvailable()) {
+    return res.json({ source: "local", ...fallback, warning: openAISkipMessage() });
   }
 
   try {
@@ -1248,26 +1338,19 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 
     const prompt = `أنت Hero، مساعد عربي دافئ وعملي لطفل/طفلة. داخل كل مهمة يجب أن تساعد الطفل على التنفيذ لا أن تعطي كلامًا عامًا. اسأل 3-6 أسئلة قصيرة تساعده يفهم المهمة، ثم اشرح خطوات صغيرة جدًا، ثم حضّر checklist واضح للإنجاز. لا تضغط، لا تقارن بين الأطفال، لا تستخدم لغة مخيفة. لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: وضوء، نية، خشوع، وهدوء، بدون نقاط.\n\nالطفل: ${FAMILY_MEMBERS[assignee].name}\nالمهمة: ${task.title}\nالنوع: ${task.type}\nالوقت: ${task.suggestedTime || "غير محدد"}\nالمؤقت: ${task.timerMinutes || 0} دقيقة\nالنقاط: ${task.points}\nالحالة: ${task.status || "مفتوحة"}\nملاحظة المهمة: ${task.note || "لا توجد"}\nسؤال الطفل/الأهل: ${question}\n\nاكتب بالعربية فقط وبشكل عملي جدًا.`;
 
-    const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({
-        model: OPENAI_IDEA_MODEL,
-        input: prompt,
-        text: { format: { type: "json_schema", name: "hero_task_help_checklist", strict: true, schema } },
-        max_output_tokens: 1200
-      })
+    const body = await openAIResponsesRequest({
+      model: OPENAI_IDEA_MODEL,
+      input: prompt,
+      text: { format: { type: "json_schema", name: "hero_task_help_checklist", strict: true, schema } },
+      max_output_tokens: 1200
     }, OPENAI_TIMEOUT_MS);
-
-    const body = await readResponseBody(response);
-    if (!response.ok) throw new Error(body?.error?.message || "OpenAI task help failed");
     const output = extractOpenAIOutputText(body);
     const parsed = output ? JSON.parse(output) : null;
     const help = normalizeTaskHelp(parsed, fallback);
     return res.json({ source: "openai", ...help });
   } catch (error) {
     console.warn("OpenAI task help failed; using local fallback:", error.message);
-    return res.json({ source: "local", ...fallback, warning: "استخدمنا مساعدة محلية لأن اتصال ChatGPT تأخر." });
+    return res.json({ source: "local", ...fallback, warning: error.skipOpenAI ? "تم تخطي ChatGPT مؤقتًا واستخدمنا مساعدة محلية." : "استخدمنا مساعدة محلية لأن اتصال ChatGPT تأخر." });
   }
 }));
 
@@ -1358,17 +1441,15 @@ app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
 app.post("/api/ideas", asyncRoute(async (req, res) => {
   const idea = safeText(req.body?.idea, 600);
   if (idea.length < 4) throw new PublicError(400, "اكتب فكرة قصيرة من عدة كلمات أولاً.");
-  if (!process.env.OPENAI_API_KEY) {
-    return res.json({ source: "local", ideas: [{ title: "فكرة قصيرة", summary: `نحوّل فكرتك إلى مشهد صغير: ${idea}`, firstStep: "اكتب جملة واحدة أو سجّل صوتاً قصيراً.", taskTitle: "تطوير فكرة إبداعية لمدة 10 دقائق", category: "creative" }] });
+  const fallbackIdeas = { source: "local", ideas: [{ title: "فكرة قصيرة", summary: `نحوّل فكرتك إلى مشهد صغير: ${idea}`, firstStep: "اكتب جملة واحدة أو سجّل صوتاً قصيراً.", taskTitle: "تطوير فكرة إبداعية لمدة 10 دقائق", category: "creative" }] };
+  if (!openAIAvailable()) return res.json({ ...fallbackIdeas, warning: openAISkipMessage() });
+  try {
+    const body = await openAIResponsesRequest({ model: OPENAI_IDEA_MODEL, input: `اقترح 3 أفكار آمنة وبسيطة باللغة العربية لطفل عمره 15 سنة بناءً على: ${idea}`, max_output_tokens: 700 }, OPENAI_TIMEOUT_MS);
+    return res.json({ source: "openai", text: body?.output_text || body });
+  } catch (error) {
+    console.warn("OpenAI ideas failed; using local fallback:", error.message);
+    return res.json({ ...fallbackIdeas, warning: error.skipOpenAI ? "تم تخطي ChatGPT مؤقتًا." : "استخدمنا فكرة محلية لأن AI غير متاح مؤقتًا." });
   }
-  const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: OPENAI_IDEA_MODEL, input: `اقترح 3 أفكار آمنة وبسيطة باللغة العربية لطفل عمره 15 سنة بناءً على: ${idea}`, max_output_tokens: 700 })
-  }, OPENAI_TIMEOUT_MS);
-  const body = await readResponseBody(response);
-  if (!response.ok) throw new PublicError(502, "تعذر الوصول إلى اقتراحات AI الآن.");
-  res.json({ source: "openai", text: body?.output_text || body });
 }));
 
 app.post("/api/ticktick/disconnect", (req, res) => {
