@@ -1,6 +1,6 @@
 {
   "name": "hero-family",
-  "version": "55.0.0",
+  "version": "57.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,5 +13,5 @@
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
-  "description": "Hero Family v55: switches prayer times to a Palestine-first source: ShoBiddak Beit Hanina/Jerusalem prayer page, with Mawaqit Palestine as the intended reference, and does not silently fall back to approximate calculation. Keeps v54 YouTube/channel coach, calm breathing, clean task assistant, completed tasks, parent filtering, gamification, daily reset, TickTick and system check."
+  "description": "Hero Family v57: ultra-clean focused task screen. Shows only the current next step, one primary task action, and a compact Hero assistant by default; Checklist, extra assistant tools, timing, points, and longer guidance are collapsed to reduce overload. Keeps v56 Palestine prayer manual entry, Judy task repair, YouTube coach, calm breathing, parent filtering, gamification, daily reset, TickTick and system check."
 }
