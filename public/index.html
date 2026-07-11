@@ -665,6 +665,81 @@
     .guide-steps { margin: 10px 0; padding-right: 24px; line-height: 2; }
     .timer-big { font-family: var(--font-display); font-size: clamp(3rem, 16vw, 5rem); text-align: center; color: var(--brand-deep); margin: 12px 0; }
 
+
+    .task-modal-ultra {
+      width: min(640px, 100%);
+      padding: 18px;
+      border-radius: 30px;
+    }
+    .task-modal-ultra .modal-top { margin-bottom: 4px; }
+    .task-modal-ultra h2 { font-size: clamp(1.25rem, 5vw, 1.8rem); }
+    .task-ultra-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .task-ultra-head h2 { margin: 0; line-height: 1.25; }
+    .task-ultra-head .muted { margin: 4px 0 0; }
+    .task-now-minimal {
+      padding: 16px;
+      border-radius: 24px;
+      border: 1px solid rgba(108,125,241,.18);
+      background: linear-gradient(135deg, #ffffff, #f5f7ff);
+      box-shadow: 0 16px 42px rgba(43,52,93,.08);
+    }
+    .task-now-minimal h3,
+    .task-assistant-minimal h3 { margin: 0 0 8px; }
+    .task-now-minimal .notice { margin: 8px 0 12px; }
+    .task-primary-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 9px;
+      margin-top: 8px;
+    }
+    .task-assistant-minimal {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .task-assistant-minimal textarea {
+      min-height: 86px;
+      margin-top: 8px;
+    }
+    .task-assistant-minimal .row,
+    .task-more-actions .row { margin-top: 10px; }
+    .task-mini-details {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .task-mini-details summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 13px 14px;
+      font-weight: 900;
+      color: var(--brand-deep);
+    }
+    .task-mini-details summary::-webkit-details-marker { display: none; }
+    .task-mini-details summary::before { content: "＋"; margin-left: 8px; color: var(--brand); }
+    .task-mini-details[open] summary::before { content: "−"; }
+    .task-mini-details .details-body { padding: 0 14px 14px; }
+    .task-mini-details .guide-box { box-shadow: none; }
+    .task-help-output-clean { display: none; margin-top: 12px; }
+    @media (max-width: 560px) {
+      .task-modal-ultra { max-height: 92vh; padding: 14px; border-radius: 26px; }
+      .task-ultra-head { grid-template-columns: 1fr; text-align: center; }
+      .task-ultra-head .icon-circle { margin: 0 auto; }
+      .task-assistant-minimal .row .btn,
+      .task-more-actions .row .btn { width: 100%; }
+    }
+
+
     .choice-row, .project-row, .import-row {
       display: flex;
       justify-content: space-between;
@@ -1335,7 +1410,7 @@
 
       function taskRows(tasks, member, parentMode = false) {
         const ordered = sortedTasks(tasks || []);
-        if (!ordered.length) return `<li class="empty">لا توجد مهام بعد. يمكن توليد خطة اليوم أو إضافة مهمة يدويًا.</li>`;
+        if (!ordered.length) return `<li class="empty">لا توجد مهام بعد. ${parentMode ? `<br><button class="btn btn-primary" data-action="seed-child-plan" data-member="${member}" type="button">إنشاء مهام اليوم لـ ${PEOPLE[member]?.name || "الطفل"}</button>` : "اطلب من الوالدين توليد خطة اليوم."}</li>`;
         return ordered.map((task) => `
           <li class="task-row type-${typeKey(task.type)} ${task.done ? "done" : ""}">
             <div class="time-box"><span>${esc(taskTimeRange(task))}</span><small>${Number(task.timerMinutes) > 0 ? `${Number(task.timerMinutes)} دقيقة` : "بدون مؤقت"}</small></div>
@@ -1476,7 +1551,7 @@
           <article class="card solid">
             <span class="eyebrow">إدارة سريعة</span>
             <h2>المهام، المواعيد، والمزامنة</h2>
-            <div class="row"><button class="btn btn-primary" data-action="add-task" type="button">إضافة مهمة</button><button class="btn btn-soft" data-action="add-event" type="button">إضافة موعد</button><button class="btn btn-line" data-action="auto-distribute" type="button">توزيع الوقت تلقائيًا</button><button class="btn btn-line" data-action="system-check" type="button">فحص النظام</button><button class="btn btn-line" data-action="reload" type="button">تحديث</button><button class="btn btn-danger" data-action="logout-parent" type="button">خروج الوالدين</button></div>
+            <div class="row"><button class="btn btn-primary" data-action="add-task" type="button">إضافة مهمة</button><button class="btn btn-soft" data-action="add-event" type="button">إضافة موعد</button><button class="btn btn-line" data-action="auto-distribute" type="button">توزيع الوقت تلقائيًا</button><button class="btn btn-line" data-action="prayer-manual" type="button">تعديل مواقيت الصلاة</button><button class="btn btn-line" data-action="system-check" type="button">فحص النظام</button><button class="btn btn-line" data-action="reload" type="button">تحديث</button><button class="btn btn-danger" data-action="logout-parent" type="button">خروج الوالدين</button></div>
           </article>
 
           ${tickCard()}
@@ -1496,7 +1571,7 @@
         if (!data) return `<article class="card"><h2>جاري تحميل منطقة ${PEOPLE[member].name}…</h2></article>`;
         const tasks = data.tasks || [];
         const parentTools = parentMode
-          ? `<button class="btn btn-primary" data-action="add-task" data-member="${member}" type="button">إضافة مهمة لـ ${PEOPLE[member].name}</button><button class="btn btn-line" data-area="parent" type="button">العودة للوالدين</button>`
+          ? `<button class="btn btn-primary" data-action="add-task" data-member="${member}" type="button">إضافة مهمة لـ ${PEOPLE[member].name}</button><button class="btn btn-soft" data-action="seed-child-plan" data-member="${member}" type="button">إصلاح/إنشاء مهام ${PEOPLE[member].name}</button><button class="btn btn-line" data-area="parent" type="button">العودة للوالدين</button>`
           : `<button class="btn btn-line" data-action="logout-child" data-member="${member}" type="button">الخروج من الحساب</button>`;
         return `<div class="stack">
           <article class="card art person-card person-${member}">
@@ -1615,63 +1690,69 @@
           "راجعت النتيجة أو سألت عند الحاجة",
           "أنهيت المهمة وضغطت زر الإنهاء"
         ];
-        const statusText = task.done ? "هذه المهمة منجزة ✓" : "هذه هي المهمة المفتوحة الآن";
+        const statusText = task.done ? "منجزة ✓" : isTaskStarted(task) ? "بدأت — أكمل خطوة واحدة" : "مفتوحة الآن";
+        const quickDefault = "أجب بدقة حسب النص الذي كتبته أولاً، ثم حسب عنوان المهمة. أعطني جوابًا قصيرًا، خطوة أولى، وChecklist مناسبًا فقط إذا كان مفيدًا.";
+        const compactNote = task.note || guide.intro || "خطوة واحدة بهدوء تكفي كبداية.";
         modal(`
-          <span class="eyebrow">صفحة مهمة مركّزة</span>
-          <div class="task-focus-head">
+          <span class="eyebrow">وضع التركيز</span>
+          <div class="task-ultra-head">
             ${typeIcon(task.type)}
             <div>
               <h2>${esc(task.title)}</h2>
-              <p class="muted">${esc(task.note || guide.intro)}</p>
+              <p class="muted small">${esc(statusText)} · ${esc(typeLabel(task.type))}${task.suggestedTime ? ` · ${esc(task.suggestedTime)}` : ""}</p>
             </div>
           </div>
 
-          <div class="guide-box now-card task-focus-actions">
+          <section class="task-now-minimal">
             <h3>ماذا أفعل الآن؟</h3>
             <p class="notice ok">${esc(currentNextStep(task, guide))}</p>
-            <div class="row">${taskActionButtons(task, member, false)}</div>
-            <p class="helper-note muted small">${esc(statusText)} · اكتب للمساعد ما تريد بالضبط، وسيجيب حسب النص المكتوب + عنوان المهمة.</p>
-          </div>
+            <div class="task-primary-row">${taskActionButtons(task, member, false)}</div>
+          </section>
 
-          <div class="guide-box" style="margin-top:12px">
-            <h3>المساعد الذكي</h3>
-            <p class="muted small">المساعد سيقرأ <strong>عنوان المهمة</strong> و<strong>النص الذي تكتبه هنا</strong>. إذا كتبت تمرينًا أو سؤالًا محددًا سيجيب عليه مباشرة؛ وإذا التفاصيل ناقصة سيقول ما الناقص.</p>
-            <textarea id="taskHelpQuestion" maxlength="1200" placeholder="اكتب هنا السؤال أو المطلوب... مثال: حل السؤال التالي، حضّر checklist، أو ساعدني أبني فكرة فيديو آمنة لقناتي."></textarea>
-            <div class="row" style="margin-top:10px">
-              <button class="btn btn-primary" data-action="task-help" data-mode="full" data-member="${member}" data-id="${task.id}" data-quick="أجب حسب النص الذي كتبته وعنوان المهمة، ثم أعطني خطوات مرتبة و checklist ملائم" type="button">إجابة حسب النص + Checklist</button>
-              <button class="btn btn-soft" data-action="task-help" data-mode="first_step" data-member="${member}" data-id="${task.id}" data-quick="ما أول خطوة صغيرة أبدأ بها الآن حسب عنوان المهمة والنص المكتوب؟" type="button">أول خطوة</button>
-              <button class="btn btn-soft" data-action="task-help" data-mode="checklist" data-member="${member}" data-id="${task.id}" data-quick="حضّر checklist خاص بهذه المهمة فقط، حسب عنوان المهمة والنص المكتوب" type="button">Checklist فقط</button>
-              <button class="btn btn-soft" data-action="task-help" data-mode="clarify" data-member="${member}" data-id="${task.id}" data-quick="اسألني فقط الأسئلة الناقصة لتجيب بدقة" type="button">ما الناقص؟</button>
-              <button class="btn btn-soft" data-action="task-help" data-mode="youtube" data-member="${member}" data-id="${task.id}" data-quick="إذا كانت المهمة تتعلق بقناة شخصية أو فيديو، كن مدرب قناة آمنة: فكرة، سيناريو، checklist خصوصية، وخطوة إنتاج واحدة. إذا لا علاقة لها بالقناة، اربط النص بالمهمة فقط." type="button">مدرب قناة</button>
-              ${task.type === "breathing" ? `<button class="btn btn-soft" data-action="task-help" data-mode="checklist" data-member="${member}" data-id="${task.id}" data-quick="اختر تمرين تنفس مناسب ليَمان: وردة وشمعة أو الأصابع الخمسة أو 2 داخل و4 خارج، مع checklist بسيط وآمن" type="button">تمرين هدوء مناسب</button>` : ""}
-              ${task.type === "youtube" ? `<button class="btn btn-soft" data-action="task-help" data-mode="youtube" data-member="${member}" data-id="${task.id}" data-quick="كن مدرب قناة شخصية آمنة: أعطني فكرة حلقة، سيناريو قصير، checklist أمان، وخطوة إنتاج واحدة اليوم" type="button">مدرب القناة</button>` : ""}
+          <section class="task-assistant-minimal">
+            <h3>اسأل Hero</h3>
+            <p class="muted small">اكتب سؤالك أو الصعوبة. Hero سيرد حسب كلامك أولًا، ثم حسب عنوان المهمة.</p>
+            <textarea id="taskHelpQuestion" maxlength="1200" placeholder="مثال: لم أفهم ماذا أفعل، اشرح لي أول خطوة، أو حضّر لي checklist قصير..."></textarea>
+            <div class="row">
+              <button class="btn btn-primary" data-action="task-help" data-mode="full" data-member="${member}" data-id="${task.id}" data-quick="${esc(quickDefault)}" type="button">أجبني وساعدني</button>
+              <button class="btn btn-soft" data-action="task-help" data-mode="first_step" data-member="${member}" data-id="${task.id}" data-quick="ما أول خطوة صغيرة أبدأ بها الآن حسب النص الذي كتبته وعنوان المهمة؟" type="button">أول خطوة فقط</button>
             </div>
-            <div id="taskHelpOutput" class="guide-box" style="display:none; margin-top:12px"></div>
-          </div>
+            <details class="task-mini-details task-more-actions">
+              <summary>خيارات مساعدة إضافية</summary>
+              <div class="details-body">
+                <div class="row">
+                  <button class="btn btn-soft" data-action="task-help" data-mode="checklist" data-member="${member}" data-id="${task.id}" data-quick="حضّر checklist قصيرًا وخاصًا بهذه المهمة فقط، حسب النص المكتوب وعنوان المهمة" type="button">Checklist فقط</button>
+                  <button class="btn btn-soft" data-action="task-help" data-mode="clarify" data-member="${member}" data-id="${task.id}" data-quick="اسألني فقط الأسئلة الناقصة لتجيب بدقة، بدون شرح طويل" type="button">ما الناقص؟</button>
+                  ${task.type === "breathing" ? `<button class="btn btn-soft" data-action="task-help" data-mode="checklist" data-member="${member}" data-id="${task.id}" data-quick="اختر تمرين هدوء واحد فقط: وردة وشمعة أو الأصابع الخمسة أو 2 داخل و4 خارج، مع تعليمات قصيرة وآمنة" type="button">تمرين هدوء</button>` : ""}
+                  ${task.type === "youtube" ? `<button class="btn btn-soft" data-action="task-help" data-mode="youtube" data-member="${member}" data-id="${task.id}" data-quick="كن مدرب قناة شخصية آمنة: أعطني فكرة حلقة، سيناريو قصير، checklist أمان، وخطوة إنتاج واحدة اليوم" type="button">مدرب القناة</button>` : ""}
+                </div>
+              </div>
+            </details>
+            <div id="taskHelpOutput" class="guide-box task-help-output-clean"></div>
+          </section>
 
-          ${renderChecklistStages(firstChecklist, `quick-${task.id}`)}
-
-          <details class="task-compact-details">
-            <summary>تفاصيل المهمة والنقاط</summary>
+          <details class="task-mini-details">
+            <summary>Checklist للإنجاز ✓</summary>
             <div class="details-body">
+              ${renderChecklistStages(firstChecklist, `quick-${task.id}`)}
+            </div>
+          </details>
+
+          <details class="task-mini-details">
+            <summary>تفاصيل إضافية</summary>
+            <div class="details-body">
+              <p class="muted">${esc(compactNote)}</p>
               <div class="grid">
                 <article class="metric"><div><strong>${esc(taskTimeRange(task))}</strong><span class="muted">الوقت</span></div></article>
                 <article class="metric"><div><strong>${taskStatusLabel(task)}</strong><span class="muted">الحالة</span></div></article>
                 <article class="metric"><div><strong>${esc(typeLabel(task.type))}</strong><span class="muted">النوع</span></div></article>
               </div>
-              <div class="badges" style="margin-top:10px">${taskBadges(task)}</div>
+              <ol class="guide-steps">${guide.steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
+              <p class="notice ok"><strong>نصيحة Hero:</strong><br>${esc(guide.tip)}</p>
               <p class="muted small">النقاط إيجابية فقط. لا خصومات ولا مقارنة بين يَمان وجودي.</p>
             </div>
           </details>
-
-          <details class="task-compact-details">
-            <summary>خطة تنفيذ مختصرة</summary>
-            <div class="details-body">
-              <ol class="guide-steps">${guide.steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
-              <p class="notice ok"><strong>نصيحة Hero:</strong><br>${esc(guide.tip)}</p>
-            </div>
-          </details>
-        `, "task-modal-clean");
+        `, "task-modal-clean task-modal-ultra");
       }
 
       function taskTypeOptions(selected = "study") {
@@ -1741,6 +1822,17 @@
       async function endDayParent() {
         const [yaman, judy] = await Promise.all([api(`/api/ai/end-day/yaman?date=${today()}`), api(`/api/ai/end-day/judy?date=${today()}`)]);
         modal(`<span class="eyebrow">تقرير نهاية اليوم</span><h2>ملخص العائلة</h2><div class="grid">${endDayReportHtml(yaman, "yaman")}${endDayReportHtml(judy, "judy")}</div>`);
+      }
+
+      async function prayerManualModal() {
+        const current = await api(`/api/prayer/today?date=${today()}`).catch(() => ({ prayerTimes: {} }));
+        const prayer = current.prayerTimes || {};
+        modal(`<span class="eyebrow">مواقيت فلسطين</span><h2>إدخال مواقيت الصلاة لليوم</h2><p class="muted">إذا لم يعمل الجلب الآلي من شو بدك، أدخل المواقيت يدويًا من تطبيق مواقيت فلسطين أو موقع شو بدك. سيستخدم Hero هذه الأوقات لإضافة تذكيرات الصلاة بدون نقاط.</p><form class="form" id="prayerManualForm"><input id="prayerManualDate" type="hidden" value="${today()}"><div class="grid"><label>الفجر<input id="prayerFajr" type="time" value="${esc(prayer.fajr || "")}" required></label><label>الشروق<input id="prayerSunrise" type="time" value="${esc(prayer.sunrise || "")}"></label><label>الظهر<input id="prayerDhuhr" type="time" value="${esc(prayer.dhuhr || "")}" required></label><label>العصر<input id="prayerAsr" type="time" value="${esc(prayer.asr || "")}" required></label><label>المغرب<input id="prayerMaghrib" type="time" value="${esc(prayer.maghrib || "")}" required></label><label>العشاء<input id="prayerIsha" type="time" value="${esc(prayer.isha || "")}" required></label></div><label>المصدر<input id="prayerSourceName" value="مواقيت فلسطين / شو بدك - إدخال الوالدين"></label><button class="btn btn-primary" type="submit">حفظ مواقيت اليوم</button></form>`);
+      }
+
+      async function seedChildPlan(member) {
+        const result = await api(`/api/family/child/${member}/seed-today`, { method: "POST", body: JSON.stringify({ date: today() }) });
+        modal(`<span class="eyebrow">مهام ${esc(PEOPLE[member]?.name || "الطفل")}</span><h2>تم فحص مهام اليوم</h2><p class="notice ok">${result.skipped ? "توجد مهام بالفعل، لذلك لم نكرر الخطة." : `تم إنشاء ${Number(result.inserted?.length || 0)} مهمة/تذكير.`}</p>${result.warning ? `<p class="notice">${esc(result.warning)}</p>` : ""}<button class="btn btn-primary" data-action="reload" type="button">عرض المهام</button>`);
       }
 
       async function systemCheck() {
@@ -1956,6 +2048,8 @@
           if (action === "end-day") { await endDay(target.dataset.member); return; }
           if (action === "end-day-parent") { await endDayParent(); return; }
           if (action === "system-check") { await systemCheck(); return; }
+          if (action === "prayer-manual") { await prayerManualModal(); return; }
+          if (action === "seed-child-plan") { await seedChildPlan(target.dataset.member); return; }
           if (action === "add-task") { addTaskModal(); return; }
           if (action === "add-event") { addEventModal(); return; }
           if (action === "projects") { await projectsModal(); return; }
@@ -2016,6 +2110,14 @@
           const id = document.getElementById("editTaskId").value;
           await api(`/api/family/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ assignee: document.getElementById("editTaskMember").value, title: document.getElementById("editTaskTitle").value, type: document.getElementById("editTaskType").value, points: Number(document.getElementById("editTaskPoints").value) || 0, date: document.getElementById("editTaskDate").value || today(), note: document.getElementById("editTaskNote").value, suggestedTime: document.getElementById("editTaskSuggestedTime").value, timerMinutes: Number(document.getElementById("editTaskTimerMinutes").value) || 0 }) });
           close(); await refresh(); return;
+        }
+
+        if (event.target.id === "prayerManualForm") {
+          event.preventDefault();
+          await api("/api/prayer/manual", { method: "POST", body: JSON.stringify({ date: document.getElementById("prayerManualDate").value || today(), fajr: document.getElementById("prayerFajr").value, sunrise: document.getElementById("prayerSunrise").value, dhuhr: document.getElementById("prayerDhuhr").value, asr: document.getElementById("prayerAsr").value, maghrib: document.getElementById("prayerMaghrib").value, isha: document.getElementById("prayerIsha").value, sourceName: document.getElementById("prayerSourceName").value }) });
+          close();
+          modal(`<span class="eyebrow">تم الحفظ</span><h2>مواقيت الصلاة محفوظة ✓</h2><p class="notice ok">سيستخدم Hero مواقيت فلسطين التي أدخلتها لهذا اليوم عند توليد الخطة.</p><button class="btn btn-primary" data-action="reload" type="button">حسنًا</button>`);
+          return;
         }
 
         if (event.target.id === "eventForm") {
