@@ -19,7 +19,7 @@ const OPENAI_QUOTA_SKIP_MS = Math.min(
   24 * 60 * 60 * 1000,
   Math.max(5 * 60 * 1000, Number(process.env.OPENAI_QUOTA_SKIP_MS) || 6 * 60 * 60 * 1000)
 );
-const APP_VERSION = "53.0.0";
+const APP_VERSION = "56.0.0";
 
 let openAISkipUntil = 0;
 let openAISkipReason = "";
@@ -513,6 +513,19 @@ async function ensureFamilyDatabase() {
         );
 
         CREATE INDEX IF NOT EXISTS hero_family_events_date_idx ON hero_family_events (event_date, assignee);
+
+        CREATE TABLE IF NOT EXISTS hero_family_prayer_times (
+          date_key TEXT PRIMARY KEY,
+          fajr TEXT NOT NULL DEFAULT '',
+          sunrise TEXT NOT NULL DEFAULT '',
+          dhuhr TEXT NOT NULL DEFAULT '',
+          asr TEXT NOT NULL DEFAULT '',
+          maghrib TEXT NOT NULL DEFAULT '',
+          isha TEXT NOT NULL DEFAULT '',
+          source_name TEXT NOT NULL DEFAULT 'مواقيت فلسطين - إدخال الأهل',
+          note TEXT NOT NULL DEFAULT '',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
       `);
     })().catch((error) => {
       familyDatabaseReady = null;
@@ -917,6 +930,82 @@ function findPrayerTimeByLabels(text, labels = []) {
   return "";
 }
 
+function manualPrayerComplete(times = {}) {
+  return Boolean(times.fajr && times.dhuhr && times.asr && times.maghrib && times.isha);
+}
+
+function normalizePrayerTimesObject(input = {}, date = new Date(), sourceName = "مواقيت فلسطين") {
+  return {
+    fajr: safeTime(input.fajr),
+    sunrise: safeTime(input.sunrise),
+    dhuhr: safeTime(input.dhuhr),
+    asr: safeTime(input.asr),
+    maghrib: safeTime(input.maghrib),
+    isha: safeTime(input.isha),
+    source: sourceName,
+    sourceMode: PRAYER_SOURCE_MODE,
+    sourceUrl: PRAYER_SHOBIDDAK_URL,
+    appReference: PRAYER_APP_REFERENCE,
+    location: PRAYER_LOCATION_NAME,
+    date: familyDateKey(date),
+    trustedManual: true
+  };
+}
+
+function envPrayerTimes(date) {
+  const times = normalizePrayerTimesObject({
+    fajr: process.env.PRAYER_FAJR,
+    sunrise: process.env.PRAYER_SUNRISE,
+    dhuhr: process.env.PRAYER_DHUHR,
+    asr: process.env.PRAYER_ASR,
+    maghrib: process.env.PRAYER_MAGHRIB,
+    isha: process.env.PRAYER_ISHA
+  }, date, process.env.PRAYER_ENV_SOURCE_NAME || "مواقيت فلسطين - Railway Variables");
+  return manualPrayerComplete(times) ? times : null;
+}
+
+async function getStoredManualPrayerTimes(date) {
+  if (!pool) return null;
+  try {
+    await ensureFamilyDatabase();
+    const key = familyDateKey(date);
+    const { rows } = await pool.query("SELECT * FROM hero_family_prayer_times WHERE date_key = $1", [key]);
+    if (!rows[0]) return null;
+    const times = normalizePrayerTimesObject(rows[0], key, rows[0].source_name || "مواقيت فلسطين - إدخال الأهل");
+    times.note = rows[0].note || "";
+    times.updatedAt = rows[0].updated_at || null;
+    return manualPrayerComplete(times) ? times : null;
+  } catch (error) {
+    console.warn("Could not read manual Palestine prayer times:", error.message);
+    return null;
+  }
+}
+
+async function saveManualPrayerTimes(date, body = {}) {
+  await ensureFamilyDatabase();
+  const key = familyDateKey(date);
+  const times = normalizePrayerTimesObject(body, key, safeText(body.sourceName, 120) || "مواقيت فلسطين - إدخال الأهل");
+  if (!manualPrayerComplete(times)) throw new PublicError(400, "أدخل مواقيت الفجر والظهر والعصر والمغرب والعشاء بصيغة HH:MM حسب مواقيت فلسطين.");
+  const note = safeText(body.note, 260);
+  const { rows } = await pool.query(
+    `INSERT INTO hero_family_prayer_times (date_key, fajr, sunrise, dhuhr, asr, maghrib, isha, source_name, note, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+     ON CONFLICT (date_key) DO UPDATE SET
+       fajr = EXCLUDED.fajr,
+       sunrise = EXCLUDED.sunrise,
+       dhuhr = EXCLUDED.dhuhr,
+       asr = EXCLUDED.asr,
+       maghrib = EXCLUDED.maghrib,
+       isha = EXCLUDED.isha,
+       source_name = EXCLUDED.source_name,
+       note = EXCLUDED.note,
+       updated_at = NOW()
+     RETURNING *`,
+    [key, times.fajr, times.sunrise, times.dhuhr, times.asr, times.maghrib, times.isha, times.source, note]
+  );
+  return normalizePrayerTimesObject(rows[0], key, rows[0].source_name);
+}
+
 function parseShobiddakPrayerTimes(html, date) {
   const text = htmlToReadableText(html);
   const prayerTimes = {
@@ -951,7 +1040,7 @@ async function getShobiddakPrayerTimes(date) {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "ar,en;q=0.8,he;q=0.7",
       "Cache-Control": "no-cache",
-      "User-Agent": "Mozilla/5.0 (HeroFamily/55; prayer-times-check)"
+      "User-Agent": "Mozilla/5.0 (HeroFamily/56; prayer-times-check)"
     }
   }, EXTERNAL_FETCH_TIMEOUT_MS);
 
@@ -968,13 +1057,23 @@ async function getJerusalemPrayerTimes(date) {
 }
 
 async function getPrayerTimesSafely(date) {
+  const storedManual = await getStoredManualPrayerTimes(date);
+  if (storedManual) {
+    return { prayerTimes: storedManual, warning: "" };
+  }
+
+  const envManual = envPrayerTimes(date);
+  if (envManual) {
+    return { prayerTimes: envManual, warning: "" };
+  }
+
   try {
     return { prayerTimes: await getJerusalemPrayerTimes(date), warning: "" };
   } catch (error) {
     console.warn("Could not refresh Jerusalem prayer times:", error.message);
     return {
-      prayerTimes: { fajr: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", sourceMode: PRAYER_SOURCE_MODE, sourceUrl: PRAYER_SHOBIDDAK_URL, appReference: PRAYER_APP_REFERENCE, location: PRAYER_LOCATION_NAME, date: familyDateKey(date) },
-      warning: `تعذر تحديث مواقيت الصلاة من ${PRAYER_SOURCE_NAME} الآن. لم أستخدم مصدرًا بديلًا حتى لا تظهر أوقات غير مطابقة لمصدر فلسطين/شو بدك.`
+      prayerTimes: { fajr: "", sunrise: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", sourceMode: PRAYER_SOURCE_MODE, sourceUrl: PRAYER_SHOBIDDAK_URL, appReference: PRAYER_APP_REFERENCE, location: PRAYER_LOCATION_NAME, date: familyDateKey(date) },
+      warning: `تعذر جلب مواقيت الصلاة تلقائيًا من ${PRAYER_SOURCE_NAME}. موقع شو بدك قد يمنع القراءة الآلية أحيانًا. أدخل مواقيت اليوم مرة واحدة من تطبيق مواقيت فلسطين/شو بدك في لوحة الوالدين، وسأستخدمها لإضافة تذكيرات الصلاة بدقة.`
     };
   }
 }
@@ -1175,6 +1274,30 @@ async function insertCoachPlanTasks(req, res, plan, date) {
   return inserted;
 }
 
+async function seedTodayTasksForMember(req, res, member, date) {
+  await ensureFamilyDatabase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  const existing = await getFamilyTasks(member, date);
+  if (existing.some((task) => task.type !== "prayer")) {
+    return { inserted: [], skipped: true, reason: "توجد مهام بالفعل لهذا الطفل اليوم." };
+  }
+  const options = { fullDay: true, startTime: "06:00", endTime: "21:00", slots: hourlySlots("06:00", "21:00"), taskCount: hourlySlots("06:00", "21:00").length, goals: "خطة إنقاذ هادئة لليوم لأن القائمة كانت فارغة." };
+  const fallbackPlan = localDailyCoachPlan(options);
+  const prayerResult = await getPrayerTimesSafely(date);
+  const oneChildPlan = {
+    familyMessage: "خطة اليوم تم إنشاؤها يدويًا للطفل المحدد.",
+    children: {
+      yaman: { encouragement: fallbackPlan.children.yaman.encouragement, tasks: [] },
+      judy: { encouragement: fallbackPlan.children.judy.encouragement, tasks: [] }
+    }
+  };
+  oneChildPlan.children[member].tasks = fallbackPlan.children[member].tasks.map(normalizePlanTask);
+  const planWithPrayers = addPrayerTasksToPlan(oneChildPlan, prayerResult.prayerTimes);
+  const inserted = await insertCoachPlanTasks(req, res, planWithPrayers, date);
+  await autoDistributeTasksForDate(date, member);
+  return { inserted, warning: prayerResult.warning || "" };
+}
+
 function localEndDayMessage(member, tasks) {
   const name = FAMILY_MEMBERS[member]?.name || "الطفل";
   const list = Array.isArray(tasks) ? tasks : [];
@@ -1234,7 +1357,8 @@ app.get("/api/health", (req, res) => {
     prayerSourceUrl: PRAYER_SHOBIDDAK_URL,
     prayerAppReference: PRAYER_APP_REFERENCE,
     prayerLocation: PRAYER_LOCATION_NAME,
-    prayerApiConfigured: Boolean(PRAYER_SHOBIDDAK_URL)
+    prayerApiConfigured: Boolean(PRAYER_SHOBIDDAK_URL),
+    prayerManualEntrySupported: Boolean(pool)
   });
 });
 
@@ -1270,7 +1394,7 @@ app.get("/api/system/diagnostics", asyncRoute(async (req, res) => {
   };
 
   let prayer = {
-    configured: Boolean(PRAYER_API_BASE),
+    configured: Boolean(PRAYER_SHOBIDDAK_URL) || Boolean(pool),
     ok: false,
     source: PRAYER_SOURCE_NAME,
     location: PRAYER_LOCATION_NAME,
@@ -1590,6 +1714,29 @@ app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {
   res.status(204).end();
 }));
 
+
+app.get("/api/prayer/manual", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const date = familyDateKey(req.query.date);
+  const manual = await getStoredManualPrayerTimes(date);
+  res.json({ date, prayerTimes: manual, exists: Boolean(manual) });
+}));
+
+app.post("/api/prayer/manual", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const date = familyDateKey(req.body?.date);
+  const prayerTimes = await saveManualPrayerTimes(date, req.body || {});
+  res.json({ date, prayerTimes, message: "تم حفظ مواقيت الصلاة لهذا اليوم حسب مواقيت فلسطين/شو بدك." });
+}));
+
+app.post("/api/family/child/:assignee/seed-today", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const assignee = String(req.params.assignee || "").toLowerCase();
+  const date = familyDateKey(req.body?.date || req.query?.date);
+  const result = await seedTodayTasksForMember(req, res, assignee, date);
+  const tasks = await getFamilyTasks(assignee, date);
+  res.json({ date, member: FAMILY_MEMBERS[assignee], tasks, ...result });
+}));
 
 app.get("/api/prayer/today", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.query.date);
