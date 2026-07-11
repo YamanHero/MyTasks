@@ -19,7 +19,7 @@ const OPENAI_QUOTA_SKIP_MS = Math.min(
   24 * 60 * 60 * 1000,
   Math.max(5 * 60 * 1000, Number(process.env.OPENAI_QUOTA_SKIP_MS) || 6 * 60 * 60 * 1000)
 );
-const APP_VERSION = "50.0.0";
+const APP_VERSION = "53.0.0";
 
 let openAISkipUntil = 0;
 let openAISkipReason = "";
@@ -619,7 +619,7 @@ function safeText(value, maxLength) {
 }
 
 function safeTaskType(value) {
-  return ["study", "home", "creative", "movement", "social", "routine", "prayer", "other"].includes(value) ? value : "other";
+  return ["study", "home", "creative", "movement", "social", "routine", "breathing", "youtube", "prayer", "other"].includes(value) ? value : "other";
 }
 
 function safeTime(value) {
@@ -641,6 +641,8 @@ function taskTypeAchievement(type) {
     home: { key: "responsible-helper", label: "مسؤول", icon: "🏡" },
     social: { key: "kind-heart", label: "لطيف", icon: "🤝" },
     routine: { key: "organized", label: "منظم", icon: "📋" },
+    breathing: { key: "calm-breath", label: "هدوء وتنفس", icon: "🌬️" },
+    youtube: { key: "channel-builder", label: "صانع محتوى", icon: "🎬" },
     prayer: { key: "spiritual-time", label: "وقت روحاني", icon: "🕌" },
     other: { key: "small-step", label: "خطوة جميلة", icon: "🌟" }
   };
@@ -657,7 +659,7 @@ function taskBonusPointsFromRow(row) {
   let bonus = 0;
   if (started) bonus += 2;
   if (timerMinutes > 0) bonus += 3;
-  if (["study", "creative", "movement"].includes(type)) bonus += 2;
+  if (["study", "creative", "movement", "youtube"].includes(type)) bonus += 2;
   return Math.min(10, bonus);
 }
 
@@ -834,13 +836,11 @@ function extractOpenAIOutputText(payload) {
   return parts.join("\n").trim();
 }
 
-const PRAYER_API_BASE = process.env.PRAYER_API_BASE || "https://api.aladhan.com/v1/timings";
-const PRAYER_SOURCE_NAME = process.env.PRAYER_SOURCE_NAME || "AlAdhan Prayer Times API";
-const PRAYER_LOCATION_NAME = process.env.PRAYER_LOCATION_NAME || "Jerusalem";
-const JERUSALEM_LATITUDE = Number(process.env.PRAYER_LATITUDE) || 31.7683;
-const JERUSALEM_LONGITUDE = Number(process.env.PRAYER_LONGITUDE) || 35.2137;
-const PRAYER_METHOD = Number(process.env.PRAYER_METHOD) || 3;
-const PRAYER_SCHOOL = Number(process.env.PRAYER_SCHOOL) || 1;
+const PRAYER_SOURCE_MODE = String(process.env.PRAYER_SOURCE_MODE || "shobiddak").toLowerCase();
+const PRAYER_SHOBIDDAK_URL = process.env.PRAYER_SHOBIDDAK_URL || "https://www.shobiddak.com/prayers/prayer_today?town_id=164";
+const PRAYER_SOURCE_NAME = process.env.PRAYER_SOURCE_NAME || "شو بدك - مواقيت بيت حنينا/القدس";
+const PRAYER_LOCATION_NAME = process.env.PRAYER_LOCATION_NAME || "بيت حنينا - القدس";
+const PRAYER_APP_REFERENCE = process.env.PRAYER_APP_REFERENCE || "مواقيت فلسطين";
 
 function timeToMinutes(value) {
   if (!/^\d{2}:\d{2}$/.test(String(value || ""))) return null;
@@ -876,41 +876,95 @@ function parseFullDayOptions(body = {}) {
 }
 
 function cleanPrayerTime(value) {
-  const match = String(value || "").match(/\b([0-2]\d:[0-5]\d)\b/);
-  return match ? safeTime(match[1]) : "";
+  const match = String(value || "").match(/\b([0-2]?\d:[0-5]\d)\b/);
+  if (!match) return "";
+  const [hours, minutes] = match[1].split(":");
+  return `${String(Number(hours)).padStart(2, "0")}:${minutes}`;
 }
 
-function dateForPrayerApi(date) {
-  const raw = /^\d{4}-\d{2}-\d{2}$/.test(String(date || "")) ? String(date) : dateKeyInTimeZone(new Date());
-  const [year, month, day] = raw.split("-");
-  return `${day}-${month}-${year}`;
+function decodeHtmlEntities(value = "") {
+  return String(value)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
 }
 
-async function getJerusalemPrayerTimes(date) {
-  const apiDate = dateForPrayerApi(date);
-  const url = new URL(`${PRAYER_API_BASE}/${apiDate}`);
-  url.searchParams.set("latitude", String(JERUSALEM_LATITUDE));
-  url.searchParams.set("longitude", String(JERUSALEM_LONGITUDE));
-  url.searchParams.set("method", String(PRAYER_METHOD));
-  url.searchParams.set("school", String(PRAYER_SCHOOL));
+function htmlToReadableText(html = "") {
+  return decodeHtmlEntities(String(html))
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<\/(tr|li|p|div|td|th|h\d)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[\u200e\u200f]/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .trim();
+}
 
-  const response = await fetchWithTimeout(url.toString(), { headers: { Accept: "application/json" } }, EXTERNAL_FETCH_TIMEOUT_MS);
-  const body = await readResponseBody(response);
-  if (!response.ok || !body?.data?.timings) {
-    throw new Error("Prayer API failed");
+function findPrayerTimeByLabels(text, labels = []) {
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const direct = new RegExp(`${escaped}[\\s\\S]{0,80}?([0-2]?\\d:[0-5]\\d)`, "i").exec(text);
+    const reverse = new RegExp(`([0-2]?\\d:[0-5]\\d)[\\s\\S]{0,80}?${escaped}`, "i").exec(text);
+    const found = direct?.[1] || reverse?.[1];
+    const cleaned = cleanPrayerTime(found);
+    if (cleaned) return cleaned;
   }
+  return "";
+}
 
-  const timings = body.data.timings;
-  return {
-    fajr: cleanPrayerTime(timings.Fajr),
-    dhuhr: cleanPrayerTime(timings.Dhuhr),
-    asr: cleanPrayerTime(timings.Asr),
-    maghrib: cleanPrayerTime(timings.Maghrib),
-    isha: cleanPrayerTime(timings.Isha),
+function parseShobiddakPrayerTimes(html, date) {
+  const text = htmlToReadableText(html);
+  const prayerTimes = {
+    fajr: findPrayerTimeByLabels(text, ["الفجر", "فجر", "Fajr"]),
+    dhuhr: findPrayerTimeByLabels(text, ["الظهر", "ظهر", "Dhuhr", "Zuhr"]),
+    asr: findPrayerTimeByLabels(text, ["العصر", "عصر", "Asr"]),
+    maghrib: findPrayerTimeByLabels(text, ["المغرب", "مغرب", "Maghrib"]),
+    isha: findPrayerTimeByLabels(text, ["العشاء", "عشاء", "Isha"]),
     source: PRAYER_SOURCE_NAME,
+    sourceMode: PRAYER_SOURCE_MODE,
+    sourceUrl: PRAYER_SHOBIDDAK_URL,
+    appReference: PRAYER_APP_REFERENCE,
     location: PRAYER_LOCATION_NAME,
     date: familyDateKey(date)
   };
+
+  const missing = ["fajr", "dhuhr", "asr", "maghrib", "isha"].filter((key) => !prayerTimes[key]);
+  if (missing.length) {
+    throw new Error(`لم أستطع قراءة كل مواقيت الصلاة من شو بدك: ${missing.join(", ")}`);
+  }
+
+  return prayerTimes;
+}
+
+async function getShobiddakPrayerTimes(date) {
+  if (PRAYER_SOURCE_MODE !== "shobiddak") {
+    throw new Error(`مصدر مواقيت الصلاة غير مدعوم الآن: ${PRAYER_SOURCE_MODE}`);
+  }
+
+  const response = await fetchWithTimeout(PRAYER_SHOBIDDAK_URL, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "ar,en;q=0.8,he;q=0.7",
+      "Cache-Control": "no-cache",
+      "User-Agent": "Mozilla/5.0 (HeroFamily/55; prayer-times-check)"
+    }
+  }, EXTERNAL_FETCH_TIMEOUT_MS);
+
+  const body = await response.text();
+  if (!response.ok || !body) {
+    throw new Error(`تعذر جلب مواقيت الصلاة من شو بدك (${response.status})`);
+  }
+
+  return parseShobiddakPrayerTimes(body, date);
+}
+
+async function getJerusalemPrayerTimes(date) {
+  return getShobiddakPrayerTimes(date);
 }
 
 async function getPrayerTimesSafely(date) {
@@ -919,11 +973,12 @@ async function getPrayerTimesSafely(date) {
   } catch (error) {
     console.warn("Could not refresh Jerusalem prayer times:", error.message);
     return {
-      prayerTimes: { fajr: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", location: PRAYER_LOCATION_NAME, date: familyDateKey(date) },
-      warning: `تعذر تحديث مواقيت الصلاة من ${PRAYER_SOURCE_NAME} الآن؛ لم تتم إضافة مهام الصلاة تلقائيًا لهذه الخطة.`
+      prayerTimes: { fajr: "", dhuhr: "", asr: "", maghrib: "", isha: "", source: "unavailable", sourceMode: PRAYER_SOURCE_MODE, sourceUrl: PRAYER_SHOBIDDAK_URL, appReference: PRAYER_APP_REFERENCE, location: PRAYER_LOCATION_NAME, date: familyDateKey(date) },
+      warning: `تعذر تحديث مواقيت الصلاة من ${PRAYER_SOURCE_NAME} الآن. لم أستخدم مصدرًا بديلًا حتى لا تظهر أوقات غير مطابقة لمصدر فلسطين/شو بدك.`
     };
   }
 }
+
 
 function buildPrayerTasks(prayerTimes = {}) {
   const prayers = [
@@ -950,7 +1005,7 @@ function addPrayerTasksToPlan(plan, prayerTimes) {
   };
   return {
     ...plan,
-    familyMessage: `${plan.familyMessage || ""} تم تحديث مواقيت الصلاة تلقائيًا لمدينة القدس لهذا اليوم.`,
+    familyMessage: `${plan.familyMessage || ""} تم تحديث مواقيت الصلاة تلقائيًا من مصدر شو بدك/مواقيت فلسطين لهذا اليوم.`,
     children: { yaman: addToChild(plan.children.yaman), judy: addToChild(plan.children.judy) },
     prayerTimes
   };
@@ -959,8 +1014,11 @@ function addPrayerTasksToPlan(plan, prayerTimes) {
 function normalizePlanTask(task) {
   const type = safeTaskType(task?.type);
   const isPrayer = type === "prayer";
+  const isBreathing = type === "breathing";
+  const isYouTube = type === "youtube";
   const basePoints = Number(task?.points);
-  const points = isPrayer ? 0 : Math.min(30, Math.max(5, Number.isFinite(basePoints) ? basePoints : (type === "study" || type === "creative" ? 15 : 10)));
+  const defaultPoints = isBreathing ? 5 : (isYouTube ? 15 : (type === "study" || type === "creative" ? 15 : 10));
+  const points = isPrayer ? 0 : Math.min(30, Math.max(5, Number.isFinite(basePoints) ? basePoints : defaultPoints));
   return {
     title: safeText(task?.title, 180) || "مهمة صغيرة وواضحة",
     type,
@@ -987,11 +1045,15 @@ function taskFromSlot(member, time, index, goals = "") {
     ["routine", "بداية هادئة وترتيب سريع", 5, 10],
     ["study", "رياضيات مركزة: خطوة واحدة واضحة", 15, 25],
     ["movement", "حركة قصيرة وتنشيط الجسم", 10, 12],
+    ["breathing", "مهارة تنفس هادئة: وردة وشمعة", 5, 5],
     ["study", "قراءة أو مراجعة علمية قصيرة", 10, 20],
+    ["youtube", "مدرب القناة: فكرة فيديو آمنة وقصيرة", 15, 20],
     ["creative", "دبلجة أو تسجيل صوتي قصير", 15, 20],
     ["home", "مسؤولية منزلية صغيرة", 10, 12],
     ["social", "تدريب جملة اجتماعية لطيفة", 10, 8],
-    ["creative", "رسم فكرة أو مشهد لفيديو", 10, 20]
+    ["youtube", "سيناريو قصير لقناة شخصية بدون نشر مباشر", 15, 25],
+    ["creative", "رسم فكرة أو مشهد لفيديو", 10, 20],
+    ["breathing", "تنفس الأصابع الخمسة وهدوء الجسم", 5, 5]
   ];
   const judyPattern = [
     ["routine", "بداية لطيفة وترتيب صغير", 5, 10],
@@ -1060,7 +1122,7 @@ async function createOpenAIDailyCoachPlan(date, options = {}) {
             additionalProperties: false,
             properties: {
               encouragement: { type: "string" },
-              tasks: { type: "array", minItems: count, maxItems: count, items: { type: "object", additionalProperties: false, properties: { title: { type: "string" }, type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "other"] }, points: { type: "integer" }, note: { type: "string" }, suggestedTime: { type: "string" }, timerMinutes: { type: "integer" } }, required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"] } }
+              tasks: { type: "array", minItems: count, maxItems: count, items: { type: "object", additionalProperties: false, properties: { title: { type: "string" }, type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "breathing", "youtube", "other"] }, points: { type: "integer" }, note: { type: "string" }, suggestedTime: { type: "string" }, timerMinutes: { type: "integer" } }, required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"] } }
             },
             required: ["encouragement", "tasks"]
           },
@@ -1069,7 +1131,7 @@ async function createOpenAIDailyCoachPlan(date, options = {}) {
             additionalProperties: false,
             properties: {
               encouragement: { type: "string" },
-              tasks: { type: "array", minItems: count, maxItems: count, items: { type: "object", additionalProperties: false, properties: { title: { type: "string" }, type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "other"] }, points: { type: "integer" }, note: { type: "string" }, suggestedTime: { type: "string" }, timerMinutes: { type: "integer" } }, required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"] } }
+              tasks: { type: "array", minItems: count, maxItems: count, items: { type: "object", additionalProperties: false, properties: { title: { type: "string" }, type: { type: "string", enum: ["study", "home", "creative", "movement", "social", "routine", "breathing", "youtube", "other"] }, points: { type: "integer" }, note: { type: "string" }, suggestedTime: { type: "string" }, timerMinutes: { type: "integer" } }, required: ["title", "type", "points", "note", "suggestedTime", "timerMinutes"] } }
             },
             required: ["encouragement", "tasks"]
           }
@@ -1080,7 +1142,7 @@ async function createOpenAIDailyCoachPlan(date, options = {}) {
     required: ["familyMessage", "children"]
   };
 
-  const prompt = `أنت Hero، مدرب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة كاملة ليوم ${date} من الساعة ${startTime} حتى ${endTime}. المطلوب بالضبط ${count} مهام تعليمية/إثرائية/حياتية لكل طفل، موزعة على هذه الساعات بالترتيب: ${slots.join(", ")}. اجعل لكل ساعة مهمة واحدة صغيرة لكل طفل. لا تُدخل الصلاة داخل JSON؛ النظام سيضيف مواقيت الصلاة تلقائيًا لمدينة القدس. مواقيت الصلاة للوعي فقط: الفجر ${prayerTimes.fajr || "غير متاح"}، الظهر ${prayerTimes.dhuhr || "غير متاح"}، العصر ${prayerTimes.asr || "غير متاح"}، المغرب ${prayerTimes.maghrib || "غير متاح"}، العشاء ${prayerTimes.isha || "غير متاح"}. يَمان يحب الدبلجة والرسم والرياضيات ويحتاج خطوات قصيرة ومؤقتات. جودي تحتاج مهام لطيفة وواضحة ومتعلمة. نوّع بين دراسة، حركة، إبداع، مسؤولية بيت، مهارة اجتماعية وروتين. نقاط الصلاة لا تُحسب ولا ترتبط بمكافآت. اجعل timerMinutes بين 0 و60. استخدم timer للرياضيات، القراءة، الإبداع، الحركة والتركيز. أهداف الوالدين لهذا اليوم: ${parentGoals || "لا توجد أهداف إضافية"}. يجب احترام أهداف الوالدين طالما هي آمنة ومناسبة للأطفال. أعد JSON فقط حسب المخطط.`;
+  const prompt = `أنت Hero، مدرب يومي عربي دافئ لعائلة فيها يَمان وجودي. أنشئ خطة كاملة ليوم ${date} من الساعة ${startTime} حتى ${endTime}. المطلوب بالضبط ${count} مهام تعليمية/إثرائية/حياتية لكل طفل، موزعة على هذه الساعات بالترتيب: ${slots.join(", ")}. اجعل لكل ساعة مهمة واحدة صغيرة لكل طفل. لا تُدخل الصلاة داخل JSON؛ النظام سيضيف مواقيت الصلاة تلقائيًا من مصدر شو بدك/مواقيت فلسطين. مواقيت الصلاة للوعي فقط: الفجر ${prayerTimes.fajr || "غير متاح"}، الظهر ${prayerTimes.dhuhr || "غير متاح"}، العصر ${prayerTimes.asr || "غير متاح"}، المغرب ${prayerTimes.maghrib || "غير متاح"}، العشاء ${prayerTimes.isha || "غير متاح"}. يَمان يحب الدبلجة والرسم والرياضيات وبناء قناة شخصية آمنة، ويحتاج خطوات قصيرة ومؤقتات وتمارين تهدئة بسيطة ولغة محترمة بلا أي تصنيفات أو تسميات حساسة. اجعل تمارين التنفس قصيرة جدًا، اختيارية، بلا إجبار وبلا حبس نفس. جودي تحتاج مهام لطيفة وواضحة ومتعلمة. نوّع بين دراسة، حركة، إبداع، مسؤولية بيت، مهارة تواصل، روتين، تنفس/تهدئة ذاتية، وتدريب قناة شخصية آمنة ليَمان: فكرة حلقة، سيناريو قصير، دبلجة/تسجيل، مراجعة خصوصية، ثم موافقة الأهل قبل أي نشر. نقاط الصلاة لا تُحسب ولا ترتبط بمكافآت. اجعل timerMinutes بين 0 و60. استخدم timer للرياضيات، القراءة، الإبداع، الحركة والتركيز. أهداف الوالدين لهذا اليوم: ${parentGoals || "لا توجد أهداف إضافية"}. يجب احترام أهداف الوالدين طالما هي آمنة ومناسبة للأطفال. أعد JSON فقط حسب المخطط.`;
   const body = await openAIResponsesRequest({
     model: OPENAI_IDEA_MODEL,
     input: prompt,
@@ -1168,8 +1230,11 @@ app.get("/api/health", (req, res) => {
     openaiModel: OPENAI_IDEA_MODEL,
     openaiTimeoutMs: OPENAI_TIMEOUT_MS,
     prayerSource: PRAYER_SOURCE_NAME,
+    prayerSourceMode: PRAYER_SOURCE_MODE,
+    prayerSourceUrl: PRAYER_SHOBIDDAK_URL,
+    prayerAppReference: PRAYER_APP_REFERENCE,
     prayerLocation: PRAYER_LOCATION_NAME,
-    prayerApiConfigured: Boolean(PRAYER_API_BASE)
+    prayerApiConfigured: Boolean(PRAYER_SHOBIDDAK_URL)
   });
 });
 
@@ -1614,16 +1679,19 @@ function localTaskHelp(task, question = "", mode = "full") {
   const type = safeTaskType(task?.type);
   const title = safeText(task?.title, 180) || "المهمة";
   const note = safeText(task?.note, 500);
-  const cleanQuestion = safeText(question, 700);
+  const cleanQuestion = safeText(question, 1100);
   const helpMode = safeText(mode, 40) || "full";
   const timer = safeTimerMinutes(task?.timerMinutes);
   const time = safeTime(task?.suggestedTime);
   const taskText = `${title} ${note} ${cleanQuestion}`.toLowerCase();
+  const hasTypedUserText = Boolean(cleanQuestion) && !/^(أعطني|حضّر|ما أول|اسألني|checklist|Checklist|قائمة)$/i.test(cleanQuestion.trim());
 
   const isMath = /رياض|حساب|جمع|طرح|ضرب|قسمة|مسائل|معادلة|كسور|نسبة|math|שבר|חשבון|מתמט/.test(taskText);
   const isReading = /قراءة|اقرأ|نص|قصة|فقرة|تلخيص|מקריאה|קריאה|read/.test(taskText);
-  const isDubbing = /دبلجة|صوت|تسجيل|فيديو|يوتيوب|تمثيل|dub|record/.test(taskText);
+  const isDubbing = /دبلجة|صوت|تسجيل|فيديو|تمثيل|dub|record/.test(taskText);
+  const isYouTube = type === "youtube" || /يوتيوب|youtube|قناة|channel|محتوى|حلقة|فيديو|shorts|نشر|مونتاج|سيناريو|سكريبت|thumbnail|عنوان|وصف/.test(taskText);
   const isDrawing = /رسم|ارسم|لون|تصميم|צייר|ציור|draw/.test(taskText);
+  const isBreathingTask = type === "breathing" || /تنفس|نفس|هدوء|تهدئة|استرخاء|قلق|غضب|ضغط|breath|calm|relax|נשימ|רגיעה|וויסות|הרגעה/.test(taskText);
 
   const stepsByType = {
     study: isMath
@@ -1638,17 +1706,25 @@ function localTaskHelp(task, question = "", mode = "full") {
         : ["اختر فكرة واحدة فقط.", "جرّب نسخة أولى قصيرة دون محاولة الكمال.", "سجّل أو ارسم أو اكتب لمدة قصيرة.", "اختر شيئًا واحدًا أعجبك واحتفظ به."],
     home: ["افهم المطلوب بالضبط.", "حضّر المكان أو الأداة المطلوبة.", "أنجز جزءًا صغيرًا وآمنًا.", "أعد الشيء إلى مكانه إذا احتجت.", "أخبر أحد الوالدين عندما تنتهي."],
     movement: ["اشرب قليلًا من الماء.", "ابدأ بحركة خفيفة.", "استمر حتى نهاية المؤقت دون مبالغة.", "توقف إذا شعرت بتعب غير عادي.", "خذ نفسًا هادئًا في النهاية."],
+    breathing: ["اختر نوع تنفس واحد فقط: وردة وشمعة، الأصابع الخمسة، أو 2 داخل و4 خارج.", "اجلس أو قف بوضعية مريحة دون إجبار.", "خذ شهيقًا قصيرًا من الأنف كأنك تشم وردة.", "أخرج النفس ببطء كأنك تطفئ شمعة أو تنفخ فقاعة.", "كرر 3 إلى 5 مرات فقط، وتوقف إذا شعرت بدوخة أو ضيق."],
+    youtube: ["اختر فكرة فيديو واحدة قصيرة وآمنة.", "اكتب هدف الفيديو في جملة واحدة: ماذا سيستفيد المشاهد؟", "اكتب سيناريو من 3 مشاهد أو 5 جمل فقط.", "سجل تجربة خاصة غير منشورة، ثم راجعها بهدوء.", "افحص الخصوصية: لا اسم مدرسة، لا عنوان، لا رقم هاتف، لا موقع، ولا نشر قبل موافقة الوالدين."],
     social: ["اختر جملة واحدة.", "قلها بصوت هادئ.", "جرّبها مع شخص تثق به.", "استمع للرد دون مقاطعة.", "لاحظ ما نجح بدون ضغط."],
     routine: ["اختر خطوة واحدة فقط.", "ضع الشيء المطلوب في مكان واضح.", "أنجزها بهدوء.", "راجع المكان بسرعة.", "انتقل لشيء آخر فقط إذا بقيت طاقة."],
     prayer: ["تأكد من دخول الوقت.", "استعد للوضوء بهدوء.", "صلِّ بخشوع دون استعجال.", "اذكر دعاءً قصيرًا بعد الصلاة.", "ارجع إلى جدولك التالي بهدوء."],
     other: ["اقرأ اسم المهمة.", "حوّلها إلى أول خطوة صغيرة.", "ابدأ لخمس دقائق.", "اطلب مساعدة إذا احتجت.", "اضغط إنهاء فقط بعد إنجاز الجزء المطلوب."]
   };
 
-  const steps = stepsByType[type] || stepsByType.other;
+  const steps = (isBreathingTask ? stepsByType.breathing : (isYouTube ? stepsByType.youtube : (stepsByType[type] || stepsByType.other)));
+  const breathingAnswer = "اختَر تمرينًا واحدًا قصيرًا: 1) وردة وشمعة: أشم وردة 2–3 ثوانٍ ثم أطفئ شمعة 4 ثوانٍ. 2) الأصابع الخمسة: أتتبع الإصبع صعودًا مع الشهيق ونزولًا مع الزفير. 3) 2 داخل و4 خارج: شهيق قصير وزفير أطول. نكرر 3–5 مرات فقط، بلا حبس نفس وبلا إجبار. إذا شعر يَمان بدوخة أو انزعاج نتوقف فورًا.";
+  const youtubeAnswer = "مدرب القناة يقسّم العمل إلى خطوة آمنة: فكرة واحدة، سيناريو قصير، تسجيل تجربة خاصة، مراجعة جودة وخصوصية، ثم عرضها على الوالدين قبل أي نشر. لا نذكر معلومات شخصية ولا مكان ولا مدرسة، ولا نفتح تعليقات أو نشرًا مباشرًا بدون موافقة.";
   const answer = type === "prayer"
     ? "هذه ليست مهمة نقاط. المطلوب فقط تذكير هادئ: الاستعداد، الوضوء، الصلاة بخشوع، ثم العودة لليوم بهدوء."
-    : cleanQuestion && !/^اسألني|^حضّر|^ابدأ/.test(cleanQuestion)
-      ? `سؤالك عن «${title}». بحسب تفاصيل المهمة المتوفرة، أفضل إجابة الآن هي أن تبدأ بتحديد المطلوب ثم تنفذ أول خطوة صغيرة. إذا كان السؤال يحتاج تمرينًا أو نصًا غير ظاهر، اكتب نص السؤال كاملًا وسأجيب عليه بدقة أكبر.`
+    : isYouTube
+      ? youtubeAnswer
+      : isBreathingTask
+      ? breathingAnswer
+      : hasTypedUserText
+        ? `قرأت النص المكتوب وربطته بعنوان المهمة «${title}». الإجابة الآن: ابدأ بما طلبته في النص نفسه، وحدد المطلوب بدقة، ثم نفّذ أول خطوة عملية من القائمة. إذا كان النص تمرينًا أو سؤالًا ويحتاج أرقامًا/صورة/فقرة غير موجودة، فالمعلومة الناقصة هي نص السؤال الكامل أو الصورة الواضحة؛ لا أستطيع اختراعها.`
       : `المطلوب في «${title}» هو تنفيذها بخطوات صغيرة وواضحة. ابدأ بالخطوة الأولى في القائمة، ولا تنتظر أن تكون جاهزًا 100%.`;
 
   const checklist = [
@@ -1663,7 +1739,11 @@ function localTaskHelp(task, question = "", mode = "full") {
 
   const questions = type === "prayer"
     ? ["هل دخل وقت الصلاة؟", "هل أحتاج وضوءًا؟", "ما الشيء الذي يساعدني على الخشوع الآن؟"]
-    : [
+    : isBreathingTask
+      ? ["أي تمرين أريد الآن: وردة وشمعة، الأصابع الخمسة، أم 2 داخل و4 خارج؟", "هل جسمي مرتاح أم أحتاج أن أقف؟", "هل أريد أن يعدّ معي أحد الوالدين بصوت هادئ؟", "هل أوقف التمرين إذا شعرت بدوخة أو انزعاج؟"]
+      : isYouTube
+        ? ["ما فكرة الفيديو في جملة واحدة؟", "من الجمهور: العائلة فقط أم قناة عامة لاحقًا؟", "هل الفيديو دبلجة، شرح، رسم، أم قصة قصيرة؟", "ما الشيء الشخصي الذي يجب ألا يظهر؟", "هل أحتاج موافقة الوالدين قبل الحفظ أو النشر؟"]
+        : [
         "ما المطلوب بالضبط في هذه المهمة؟",
         "ما أول خطوة صغيرة أستطيع تنفيذها الآن؟",
         "ما الشيء الذي أحتاجه قبل أن أبدأ؟",
@@ -1688,6 +1768,11 @@ function localTaskHelp(task, question = "", mode = "full") {
     modeAnswer = "قبل أن أجيب بدقة كاملة، هذه الأسئلة تساعدنا نعرف ما الناقص. إذا أرسلت نص التمرين أو الصورة أو المطلوب الكامل، أستطيع إعطاء جواب أدق.";
     modeSteps = ["أجب عن سؤال واحد فقط من القائمة.", "أرسل النص أو المعلومة الناقصة إن وجدت.", "ابدأ بأصغر خطوة لا تحتاج معلومات إضافية."];
     modeChecklist = ["حددت ما لا أفهمه بعد.", "كتبت أو صورت نص السؤال إذا كان مطلوبًا.", "اخترت أول خطوة آمنة للبدء."];
+  } else if (helpMode === "youtube") {
+    modeAnswer = youtubeAnswer;
+    modeQuestions = ["ما فكرة الحلقة؟", "هل الجمهور عائلة فقط أم نشر لاحق بعد موافقة؟", "هل أريد دبلجة، رسم، شرح، أم قصة؟", "ما الشيء الخاص الذي يجب ألا يظهر؟"];
+    modeSteps = stepsByType.youtube;
+    modeChecklist = ["اخترت فكرة واحدة مناسبة.", "كتبت 5 جمل أو 3 مشاهد فقط.", "سجلت تجربة خاصة غير منشورة.", "راجعت الصوت والصورة بهدوء.", "حذفت أي معلومة شخصية: مدرسة، عنوان، رقم، موقع.", "عرضت الفيديو على الوالدين قبل أي نشر."];
   }
 
   const help = {
@@ -1731,7 +1816,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
   };
 
   const question = safeText(req.body?.question, 700) || "اسألني أسئلة قصيرة، ثم حضّر checklist، ثم اشرح كيف أنفذ المهمة.";
-  const mode = ["full", "first_step", "checklist", "clarify"].includes(String(req.body?.mode || "")) ? String(req.body.mode) : "full";
+  const mode = ["full", "first_step", "checklist", "clarify", "youtube"].includes(String(req.body?.mode || "")) ? String(req.body.mode) : "full";
   if (!task.title) throw new PublicError(400, "لم تصل تفاصيل المهمة.");
 
   const fallback = localTaskHelp(task, question, mode);
@@ -1758,7 +1843,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
     const prompt = `أنت Hero، مساعد عربي دافئ وعملي لطفل/طفلة داخل صفحة مهمة واحدة. الهدف: جواب دقيق، ثم خطة تنفيذ واضحة، ثم checklist ملائم للمهمة نفسها.
 
 قواعد مهمة جدًا:
-1) ابدأ بحقل answer كإجابة مباشرة على سؤال الطفل/الأهل. لا تتهرب ولا تكتب كلامًا عامًا.
+1) ابدأ بحقل answer كإجابة مباشرة على سؤال الطفل/الأهل المكتوب فعليًا في حقل السؤال، مع ربط الإجابة بعنوان المهمة. لا تجعل الإجابة عامة.
 2) إذا كان السؤال يحتاج نص تمرين أو معلومة غير موجودة، قل بالضبط ما المعلومة الناقصة، ثم أعطِ طريقة البدء بما هو متاح. لا تخترع أرقامًا أو حقائق.
 3) اجعل checklist خاصًا بالمهمة، لا checklist عام. كل بند يجب أن يكون قابلًا للتعليم بعلامة ✓.
 4) الخطوات يجب أن تكون مرتبة زمنيًا ومنطقية: فهم المطلوب → تجهيز → أول خطوة → تنفيذ → مراجعة → إنهاء.
@@ -1777,6 +1862,8 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 - creative/دبلجة/رسم: أعطِ خطوات عملية قصيرة وممتعة.
 - home/routine: checklist بسيط وواضح.
 - social: جملة تدريب واحدة وسيناريو قصير.
+- breathing/تنفس/تهدئة: اختر تمرينًا واحدًا مناسبًا ليَمان، قصيرًا وواضحًا، بلا إجبار، بلا حبس نفس، بلا مؤثرات مزعجة، ودون استخدام أي تشخيص أو تسمية حساسة. اقترح واحدًا من: وردة وشمعة، الأصابع الخمسة، 2 داخل و4 خارج، فقاعة بطيئة، إنزال الكتفين مع زفير طويل. اذكر أن التوقف مطلوب عند الدوخة أو الانزعاج.
+- youtube/قناة شخصية: كن مدرب قناة آمن ومحترم. ساعده في فكرة فيديو، اسم سلسلة، سيناريو قصير، تدريب صوت/دبلجة، قائمة تصوير، مراجعة الخصوصية، وعرض المادة على الوالدين. لا تقترح نشر معلومات شخصية أو مدرسة أو موقع أو صورة وجه إذا لم يوافق الوالدان. لا تطلب فتح بث مباشر أو تعليقات مفتوحة.
 - prayer: تذكير هادئ بلا نقاط ولا مكافآت.
 
 الطفل: ${FAMILY_MEMBERS[assignee].name}
@@ -1787,7 +1874,10 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 النقاط: ${task.points}
 الحالة: ${task.status || "مفتوحة"}
 ملاحظة المهمة: ${task.note || "لا توجد"}
-سؤال الطفل/الأهل: ${question}
+سؤال/نص الطفل أو الأهل المكتوب في الصفحة: ${question}
+تعليمات إضافية: إذا احتوى السؤال على عبارة "النص الذي كتبه المستخدم" فاجعل هذا النص هو الأولوية الأولى، واعتبر "طلب الزر" مجرد طريقة عرض. أجب حسب النص المكتوب وعنوان المهمة معًا.
+
+إذا كان وضع المساعدة youtube فاجعل answer عمليًا: فكرة الحلقة، سيناريو قصير، checklist أمان، وخطوة إنتاج واحدة اليوم.
 
 أعد JSON فقط حسب المخطط. لا تستخدم Markdown داخل القيم.`;
 
