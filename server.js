@@ -73,7 +73,17 @@ function isOpenAIQuotaOrBillingError(status, body, message = "") {
   );
 }
 
+const OPENAI_FALLBACK_MODEL = process.env.OPENAI_FALLBACK_MODEL || "gpt-4o-mini";
+const unusableModels = new Set();
+
+function isModelAccessError(status, message = "") {
+  return (status === 404 || status === 400 || status === 403) && /model|does not exist|do not have access|not found/i.test(String(message));
+}
+
 async function openAIResponsesRequest(payload, timeoutMs = OPENAI_TIMEOUT_MS) {
+  if (payload?.model && payload.model !== OPENAI_FALLBACK_MODEL && unusableModels.has(payload.model)) {
+    payload = { ...payload, model: OPENAI_FALLBACK_MODEL };
+  }
   if (!isOpenAIConfigured()) {
     throw new OpenAISkipError("OpenAI is not configured; using local fallback.");
   }
@@ -95,6 +105,12 @@ async function openAIResponsesRequest(payload, timeoutMs = OPENAI_TIMEOUT_MS) {
 
     if (isOpenAIQuotaOrBillingError(response.status, body, message)) {
       markOpenAISkipped("OpenAI quota/billing unavailable. Hero will skip ChatGPT and use local fallback.");
+    }
+
+    if (payload?.model && payload.model !== OPENAI_FALLBACK_MODEL && isModelAccessError(response.status, message)) {
+      unusableModels.add(payload.model);
+      console.warn(`OpenAI model "${payload.model}" is unavailable (${message}); retrying with ${OPENAI_FALLBACK_MODEL}.`);
+      return openAIResponsesRequest({ ...payload, model: OPENAI_FALLBACK_MODEL }, timeoutMs);
     }
 
     const error = new Error(message);
@@ -2000,7 +2016,8 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 7) اجعل answer من جملتين إلى ثلاث جمل كحد أقصى. كل خطوة جملة واحدة قصيرة (حتى 12 كلمة) تبدأ بفعل. كل بند في checklist حتى 8 كلمات. لا تكرر المعنى نفسه في الخطوات والـchecklist.
 8) إذا وُجدت "الإجابة السابقة" فالسؤال الحالي متابعة لها: أجب عنه بالتحديد، ولا تعد نفس الخطوات ولا نفس الأمثلة، وابنِ على ما سبق. إذا قال الطفل إنه لا يفهم فاشرح بطريقة مختلفة وأبسط مع مثال صغير من حياته اليومية.
 9) لا تدّعِ أنك رأيت دفتر الطفل أو كتابه. إذا احتجت نص التمرين فاطلبه بجملة واحدة.
-10) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
+10) استخدم لغة حرفية ومباشرة بلا مجاز أو أمثال أو سخرية، بجمل قصيرة ومتوقعة البنية. رقّم الخطوات، واذكر المدة التقريبية لكل جزء عندما يمكن، وقل بوضوح متى تنتهي المهمة. عند الحاجة لاختيار قدّم خيارين فقط. لا تُكثر من التعجب أو الإطراء، واستخدم تشجيعًا هادئًا ومحددًا (مثل: "أنهيت الخطوة الأولى").
+11) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
 
 وضع المساعدة المطلوب: ${mode}
 - full: إجابة مباشرة + خطوات + checklist.

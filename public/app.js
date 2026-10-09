@@ -71,6 +71,8 @@
   function buzz(ms=25){try{navigator.vibrate&&navigator.vibrate(ms)}catch{}}
   /* ---- completion sound (soft two-note chime, no audio files) ---- */
   let soundOn=true;try{soundOn=localStorage.getItem("hero-sound")!=="off"}catch{}
+  /* calm mode: no confetti/animation, one soft tone, fewer numbers, neutral wording */
+  let calm=true;try{calm=localStorage.getItem("hero-calm")!=="off"}catch{}
   let actx=null;
   function tone(freq,at,len,vol){
     const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime+at;
@@ -83,13 +85,13 @@
     try{
       actx=actx||new (window.AudioContext||window.webkitAudioContext)();
       if(actx.state==="suspended")actx.resume();
-      if(kind==="soft"){tone(784,0,.45,.12);return}
+      if(kind==="soft"||calm){tone(660,0,.55,.1);return}
       if(kind==="all"){[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.11,.5,.16));return}
       tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2);
     }catch{}
   }
   function confetti(x,y,n=30){
-    if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    if(calm||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
     const cols=["#f5b301","#12a37a","#d6246e","#3b6ff0","#9a4de0","#e8710a"];
     for(let i=0;i<n;i++){
       const p=document.createElement("i");p.className="confetti";p.style.background=cols[i%cols.length];p.style.left=x+"px";p.style.top=y+"px";
@@ -140,7 +142,7 @@
     const parentIn=family.parentAuthenticated;
     const lockable=area==="parent"?parentIn:(area!=="home"&&!parentIn&&family[`${area}Authenticated`]);
     const back=(area!=="parent"&&parentIn&&area!=="home")?`<button class="pill" data-area="parent">→ لوحة الوالدين</button>`:`<button class="pill" data-area="home">👥 من أنا؟</button>`;
-    return `<div class="topbar">${back}<button class="pill pill-sm" data-action="sound" aria-label="${soundOn?"كتم الصوت":"تشغيل الصوت"}" aria-pressed="${soundOn}">${soundOn?"🔔":"🔕"}</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
+    return `<div class="topbar">${back}${(area!=="parent"&&area!=="home")?`<button class="pill pill-sm" data-action="calm" aria-pressed="${calm}">${calm?"🌿 هادئ":"عادي"}</button>`:""}<button class="pill pill-sm" data-action="sound" aria-label="${soundOn?"كتم الصوت":"تشغيل الصوت"}" aria-pressed="${soundOn}">${soundOn?"🔔":"🔕"}</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
   }
   const timeChip=t=>t.suggestedTime?`<span class="tchip">⏰ ${esc(t.suggestedTime)}</span>`:"";
   const timerChip=t=>t.timerMinutes?`<span class="tchip timer">⏱ ${t.timerMinutes} د</span>`:"";
@@ -231,19 +233,19 @@
     let focus="";
     if(cur){
       const ty=typeOf(cur.type),started=cur.status==="in_progress"||cur.startedAt;
-      focus=`<article class="card focus pop" style="--tc:${ty.c}"><span class="kicker">${rest.length||done.length?"مهمتك الآن":"مهمتك اليوم"}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2><div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>${cur.note?`<p class="note">${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><b>--:--</b></div>`:""}<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p><button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button><div class="actions" style="margin-top:12px">${started?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn btn-line btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن ↩</button>`:""}</div></article>`;
+      focus=`<article class="card focus pop" style="--tc:${ty.c}"><span class="kicker">${calm?"الآن":(rest.length||done.length?"مهمتك الآن":"مهمتك اليوم")}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2><div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>${cur.note?`<p class="note">${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><b>--:--</b>${cur.timerMinutes?`<div class="tbar" aria-hidden="true"><i></i></div>`:""}</div>`:""}${calm?(cur.timerMinutes&&!started?`<p class="reward">المدة: ${cur.timerMinutes} دقيقة</p>`:""):`<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p>`}<button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button><div class="actions" style="margin-top:12px">${started?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn btn-line btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن ↩</button>`:""}</div></article>`;
     }else if(tasks.length)focus=`<article class="card celebrate pop"><div class="trophy" aria-hidden="true">🏆</div><h2>أحسنت يا ${p.name}!</h2><p class="muted">ربحت ${pts} نقطة اليوم. استرح، فقد استحققت ذلك.</p><button class="btn btn-soft" style="margin-top:14px" data-action="endday" data-member="${m}">🌙 تقرير يومي</button></article>`;
     const events=(d.events||[]);
     const prevN=d.previousIncomplete?.incomplete||0;
     const row=t=>{const ty=typeOf(t.type);return `<button class="task" style="--tc:${ty.c}" data-action="focus" data-member="${m}" data-id="${t.id}" aria-label="ابدأ: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${timeChip(t)}${timerChip(t)}<span>⭐ ${t.points}</span></span></span><span aria-hidden="true">←</span></button>`};
     return `${topbar()}${hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
     <div class="stack">
-      <article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>
+      ${calm?`<div class="slim" role="status"><b>${done.length?`أنجزت ${done.length}`:"لم نبدأ بعد"}</b><span>بقي ${open.length}</span></div>`:`<article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>`}
       ${prevN&&!done.length?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
       ${focus}
       ${prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
       ${events.length?`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`:""}
-      ${rest.length?`<article class="card"><div class="card-title"><h2>بعدها</h2><span class="count">${rest.length}</span></div><div class="list">${listOrDetails(rest,3,row,"عرض الباقي")}</div></article>`:""}
+      ${rest.length?`<article class="card"><div class="card-title"><h2>بعدها</h2>${calm?"":`<span class="count">${rest.length}</span>`}</div><div class="list">${listOrDetails(rest,calm?1:3,row,calm?"باقي اليوم":"عرض الباقي")}</div></article>`:""}
       ${done.length?`<article class="card"><details class="fold" ${open.length?"":"open"}><summary>أنجزت اليوم (${done.length})</summary><div class="list">${done.map(t=>{const ty=typeOf(t.type);return `<div class="task done" style="--tc:${ty.c}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${gain(t)}</span></span>${(t.badges||[]).length?`<span class="badges">${t.badges.map(b=>`<span>${esc(b.icon)} ${esc(b.label)}</span>`).join("")}</span>`:""}</span><span class="check on" aria-hidden="true">✓</span></div>`}).join("")}</div></details></article>`:""}
       ${tasks.length&&(open.length===0||new Date().getHours()>=17)?`<button class="btn btn-line" data-action="endday" data-member="${m}">🌙 تقرير يومي</button>`:""}
     </div>`;
@@ -252,7 +254,7 @@
   /* ======================= render ======================= */
   function render(){
     const a=area==="home"?"parent":area;
-    document.body.dataset.area=a;
+    document.body.dataset.area=a;document.body.classList.toggle("calm",calm);
     $("themeColor").content=PEOPLE[a].color;
     const y=scrollY;
     $("root").innerHTML=loading?skeleton():(area==="home"?homeView():area==="parent"?parentView():childView(area));
@@ -268,7 +270,7 @@
       const start=Date.parse(el.dataset.start)||Date.now(),min=Number(el.dataset.min)||0,b=el.querySelector("b");
       const el_s=Math.floor((Date.now()-start)/1000);
       const fmt=s=>{s=Math.abs(s);return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`};
-      if(min){const left=min*60-el_s;b.textContent=left>=0?fmt(left):"انتهى الوقت 🎉";if(left<0)el.querySelector("small").textContent="لا مشكلة، أنهِ بهدوء عندما تكون جاهزاً"}
+      if(min){const left=min*60-el_s;b.textContent=left>=0?fmt(left):"انتهى الوقت المحدد";if(left<0)el.querySelector("small").textContent="لا مشكلة، أنهِ بهدوء عندما تكون جاهزاً";const bar=el.querySelector(".tbar i");if(bar)bar.style.width=Math.max(0,Math.min(100,left/(min*60)*100))+"%"}
       else b.textContent=fmt(el_s);
     });
   }
@@ -416,6 +418,7 @@
     const all=!left&&stats(m).total;
     if(all)setTimeout(()=>{confetti(innerWidth/2,innerHeight/3,70);playDone("all")},250);
     const est=task.points+(task.startedAt?2:0);
+    if(calm){toast(all?"انتهت مهام اليوم ✓":`تم ✓ +${est}`,"ok",undo,4000);return}
     toast(all?`أنجزت كل المهام! +${est} ⭐`:`أحسنت! +${est} نقطة ⭐`,all?"ok":"gold",undo,5000);
   }
   window.addEventListener("pagehide",()=>{
@@ -488,8 +491,9 @@
       case "start":return guard(b,async()=>{
         const t=findTask(b.dataset.id);if(!t)return;
         const r=await api(`/api/family/tasks/${t.id}/start`,{method:"PATCH",body:JSON.stringify({assignee:b.dataset.member})});
-        Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();toast("بدأت! مكافأة البداية +2 ⭐","gold");
+        Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();calm?toast("بدأنا ✓","ok",null,2500):toast("بدأت! مكافأة البداية +2 ⭐","gold");
       });
+      case "calm":{calm=!calm;try{localStorage.setItem("hero-calm",calm?"on":"off")}catch{}return render()}
       case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
