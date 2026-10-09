@@ -475,3 +475,4 @@ body.calm .focus .kicker{font-size:.9rem}
 .timerbox .more[hidden]{display:none}
 .focus .meta{margin-top:10px}
 .focus .btn-big{margin-top:6px}
+body.calm .timerbox{max-width:none;margin:14px 0 16px}
