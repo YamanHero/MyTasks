@@ -498,3 +498,6 @@ body.calm .timerbox{max-width:none;margin:14px 0 16px}
 .twrap b{font-size:1.35rem}
 body.calm .timerbox{margin:10px 0 12px;padding:8px 12px}
 .stp{min-height:42px;padding:6px 12px}.steps{gap:6px;margin:10px 0 2px}
+body.calm .focus .btn-big{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;box-shadow:0 8px 20px rgba(15,60,80,.22)}
+body.calm .focus{overflow:visible}
+body{overflow-x:clip}
