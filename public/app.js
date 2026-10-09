@@ -213,7 +213,7 @@
     if(pview==="today"){
       body=`<div class="actions"><button class="btn btn-primary" data-action="add-task">＋ مهمة جديدة</button><button class="btn btn-soft" data-action="plan">✨ خطة اليوم الذكية</button></div>
       ${prev?.total?`<div class="soft-note">🌙 بقيت ${prev.total} ${prev.total===1?"مهمة":"مهام"} من أمس (يَمان ${prev.summary?.yaman||0}، جودي ${prev.summary?.judy||0}). لا نرحّلها كلها، اختاروا مهمة واحدة سهلة للبداية.</div>`:""}
-      ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}<div class="grid2">${KIDS.map(kidCard).join("")}</div>`;
+      ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}<div class="grid2">${KIDS.map(kidCard).join("")}</div><button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
     else body=prayerCard()+tickView();
     const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":"الإعدادات",pview==="events"?"جدول العائلة القادم":"الصلاة والمزامنة","🏠",false);
@@ -319,6 +319,27 @@
   function prefsSheet(){
     const row=(k,on,t,s)=>`<button type="button" class="pick ${on?"on":""}" data-action="pref" data-v="${k}" aria-pressed="${on}"><span class="box">${on?"✓":""}</span><span><b>${t}</b><div class="muted small">${s}</div></span></button>`;
     modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"صوت الإنجاز","نغمة قصيرة عند إنهاء مهمة")}</div>`);
+  }
+  /* ---- bedtime message via WhatsApp (opens WhatsApp with the text ready; the parent presses send) ---- */
+  const WA_DEFAULT="0515800799";
+  const bedMsgs=n=>[
+    `مساء الخير يا ${n} 🌙\nأنا فخور بك اليوم. قبل النوم: اذكر الله قليلاً، واقرأ ما تيسّر من القرآن، ثم نم مرتاحاً. أحبك ❤️`,
+    `يا ${n}، يوم جميل وأنت بذلت جهدك ⭐\nحان وقت الراحة. سبّح واحمد الله، واقرأ صفحة من القرآن. تصبح على خير 🤍`,
+    `تصبح على خير يا ${n} 🌟\nقبل أن تنام: أذكار النوم، وقليل من القرآن، وتنفّس هادئ. غداً يوم جديد وأنت قادر عليه 💪`,
+    `${n} الغالي، أحسنت اليوم 🌙\nاقرأ آية الكرسي وبعض القرآن، واذكر الله، ثم نم بسلام. الله يحفظك 🤲`
+  ];
+  const waNumber=()=>{let v=WA_DEFAULT;try{v=localStorage.getItem("hero-wa")||WA_DEFAULT}catch{}return v};
+  const waIntl=v=>{let d=String(v).replace(/\D/g,"");if(d.startsWith("00"))d=d.slice(2);if(d.startsWith("0"))d="972"+d.slice(1);return d};
+  function bedtimeModal(){
+    const msgs=bedMsgs("يَمان"),i=new Date().getDate()%msgs.length;
+    modal("🌙 رسالة قبل النوم",`<div class="form">
+      <label class="field"><span>رقم الواتساب</span><input id="waNum" type="tel" inputmode="tel" dir="ltr" value="${esc(waNumber())}" autocomplete="off"></label>
+      <label class="field"><span>الرسالة</span><textarea id="waMsg" rows="5">${esc(msgs[i])}</textarea></label>
+      <button type="button" class="btn btn-soft" data-action="wa-other">🔄 رسالة أخرى</button>
+      <button type="button" class="btn btn-primary btn-big" data-action="wa-send">إرسال عبر واتساب</button>
+      <p class="muted small">يفتح واتساب والرسالة جاهزة، وعليك فقط الضغط على إرسال.</p>
+    </div>`);
+    window.__waIdx=i;
   }
   function eventModal(){
     modal("موعد جديد",`<form class="form" id="eventForm">
@@ -506,6 +527,9 @@
         Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();calm?toast("بدأنا ✓","ok",null,2500):toast("بدأت! مكافأة البداية +2 ⭐","gold");
       });
       case "prefs":return prefsSheet();
+      case "bedtime":return bedtimeModal();
+      case "wa-other":{const m=bedMsgs("يَمان");window.__waIdx=((window.__waIdx||0)+1)%m.length;const t=$("waMsg");if(t)t.value=m[window.__waIdx];return}
+      case "wa-send":{const num=$("waNum")?.value||waNumber(),txt=($("waMsg")?.value||"").trim();if(!txt)return;try{localStorage.setItem("hero-wa",num)}catch{}window.open("https://wa.me/"+waIntl(num)+"?text="+encodeURIComponent(txt),"_blank","noopener");return}
       case "pref":{
         if(b.dataset.v==="calm"){calm=!calm;try{localStorage.setItem("hero-calm",calm?"on":"off")}catch{}}
         else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
