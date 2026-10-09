@@ -72,6 +72,7 @@
   /* ---- completion sound (soft two-note chime, no audio files) ---- */
   let soundOn=true;try{soundOn=localStorage.getItem("hero-sound")!=="off"}catch{}
   /* calm mode: no confetti/animation, one soft tone, fewer numbers, neutral wording */
+  let lastFocus="";
   let calm=true;try{calm=localStorage.getItem("hero-calm")!=="off"}catch{}
   let actx=null;
   function tone(freq,at,len,vol){
@@ -142,7 +143,7 @@
     const parentIn=family.parentAuthenticated;
     const lockable=area==="parent"?parentIn:(area!=="home"&&!parentIn&&family[`${area}Authenticated`]);
     const back=(area!=="parent"&&parentIn&&area!=="home")?`<button class="pill" data-area="parent">→ لوحة الوالدين</button>`:`<button class="pill" data-area="home">👥 من أنا؟</button>`;
-    return `<div class="topbar">${back}${(area!=="parent"&&area!=="home")?`<button class="pill pill-sm" data-action="calm" aria-pressed="${calm}">${calm?"🌿 هادئ":"عادي"}</button>`:""}<button class="pill pill-sm" data-action="sound" aria-label="${soundOn?"كتم الصوت":"تشغيل الصوت"}" aria-pressed="${soundOn}">${soundOn?"🔔":"🔕"}</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
+    return `<div class="topbar">${back}<button class="pill pill-sm" data-action="prefs" aria-label="الإعدادات">⚙️</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
   }
   const timeChip=t=>t.suggestedTime?`<span class="tchip">⏰ ${esc(t.suggestedTime)}</span>`:"";
   const timerChip=t=>t.timerMinutes?`<span class="tchip timer">⏱ ${t.timerMinutes} د</span>`:"";
@@ -232,18 +233,18 @@
     else msg=`رائع! بقي ${open.length===1?"مهمة واحدة":open.length+" مهام"}`;
     let focus="";
     if(cur){
-      const ty=typeOf(cur.type),started=cur.status==="in_progress"||cur.startedAt;
-      focus=`<article class="card focus pop" style="--tc:${ty.c}"><span class="kicker">${calm?"الآن":(rest.length||done.length?"مهمتك الآن":"مهمتك اليوم")}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2><div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>${cur.note?`<p class="note">${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><b>--:--</b>${cur.timerMinutes?`<div class="tbar" aria-hidden="true"><i></i></div>`:""}</div>`:""}${calm?(cur.timerMinutes&&!started?`<p class="reward">المدة: ${cur.timerMinutes} دقيقة</p>`:""):`<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p>`}<button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button><div class="actions" style="margin-top:12px">${started?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn btn-line btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن ↩</button>`:""}</div></article>`;
+      const ty=typeOf(cur.type),started=cur.status==="in_progress"||cur.startedAt;const needStart=calm&&cur.timerMinutes&&!started;
+      focus=`<article class="card focus pop" data-fid="${cur.id}" style="--tc:${ty.c}"><span class="kicker">${calm?"الآن":(rest.length||done.length?"مهمتك الآن":"مهمتك اليوم")}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2><div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>${cur.note?`<p class="note">${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><b>--:--</b>${cur.timerMinutes?`<div class="tbar" aria-hidden="true"><i></i></div>`:""}</div>`:""}${calm?(cur.timerMinutes&&!started?`<p class="reward">المدة: ${cur.timerMinutes} دقيقة</p>`:""):`<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p>`}${needStart?`<button class="btn btn-primary btn-big" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ</button>`:`<button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button>`}<div class="actions" style="margin-top:12px">${(started||calm)?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn btn-line btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن ↩</button>`:""}</div></article>`;
     }else if(tasks.length)focus=`<article class="card celebrate pop"><div class="trophy" aria-hidden="true">🏆</div><h2>أحسنت يا ${p.name}!</h2><p class="muted">ربحت ${pts} نقطة اليوم. استرح، فقد استحققت ذلك.</p><button class="btn btn-soft" style="margin-top:14px" data-action="endday" data-member="${m}">🌙 تقرير يومي</button></article>`;
     const events=(d.events||[]);
     const prevN=d.previousIncomplete?.incomplete||0;
     const row=t=>{const ty=typeOf(t.type);return `<button class="task" style="--tc:${ty.c}" data-action="focus" data-member="${m}" data-id="${t.id}" aria-label="ابدأ: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${timeChip(t)}${timerChip(t)}<span>⭐ ${t.points}</span></span></span><span aria-hidden="true">←</span></button>`};
-    return `${topbar()}${hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
+    return `${topbar()}${calm?`<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>${greeting()} ${p.name}</b></div>`:hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
     <div class="stack">
       ${calm?`<div class="slim" role="status"><b>${done.length?`أنجزت ${done.length}`:"لم نبدأ بعد"}</b><span>بقي ${open.length}</span></div>`:`<article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>`}
-      ${prevN&&!done.length?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
+      ${prevN&&!done.length&&!calm?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
       ${focus}
-      ${prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
+      ${prayers.length&&calm?`<article class="card"><details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="prayers" style="margin-top:10px">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></details></article>`:prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
       ${events.length?`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`:""}
       ${rest.length?`<article class="card"><div class="card-title"><h2>بعدها</h2>${calm?"":`<span class="count">${rest.length}</span>`}</div><div class="list">${listOrDetails(rest,calm?1:3,row,calm?"باقي اليوم":"عرض الباقي")}</div></article>`:""}
       ${done.length?`<article class="card"><details class="fold" ${open.length?"":"open"}><summary>أنجزت اليوم (${done.length})</summary><div class="list">${done.map(t=>{const ty=typeOf(t.type);return `<div class="task done" style="--tc:${ty.c}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${gain(t)}</span></span>${(t.badges||[]).length?`<span class="badges">${t.badges.map(b=>`<span>${esc(b.icon)} ${esc(b.label)}</span>`).join("")}</span>`:""}</span><span class="check on" aria-hidden="true">✓</span></div>`}).join("")}</div></details></article>`:""}
@@ -263,6 +264,9 @@
     nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
     $("fabRoot").innerHTML="";
     scrollTo(0,y);
+    const fc=document.querySelector(".focus[data-fid]"),fid=fc?fc.dataset.fid:"";
+    if(calm&&fc&&lastFocus&&fid!==lastFocus){fc.style.opacity="0";requestAnimationFrame(()=>requestAnimationFrame(()=>{fc.style.transition="opacity .45s ease";fc.style.opacity="1"}))}
+    lastFocus=fid;
     tickTimers();
   }
   function tickTimers(){
@@ -307,6 +311,10 @@
       <div class="actions"><button class="btn btn-primary" type="submit">${edit?"حفظ التعديل":"حفظ المهمة"}</button><button class="btn btn-line" type="button" data-action="d-back">→ رجوع</button></div>
       ${edit?`<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${esc(draft.editId)}" data-title="${esc(draft.title)}">🗑 حذف المهمة</button>`:""}
     </form>`);
+  }
+  function prefsSheet(){
+    const row=(k,on,t,s)=>`<button type="button" class="pick ${on?"on":""}" data-action="pref" data-v="${k}" aria-pressed="${on}"><span class="box">${on?"✓":""}</span><span><b>${t}</b><div class="muted small">${s}</div></span></button>`;
+    modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"صوت الإنجاز","نغمة قصيرة عند إنهاء مهمة")}</div>`);
   }
   function eventModal(){
     modal("موعد جديد",`<form class="form" id="eventForm">
@@ -493,7 +501,12 @@
         const r=await api(`/api/family/tasks/${t.id}/start`,{method:"PATCH",body:JSON.stringify({assignee:b.dataset.member})});
         Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();calm?toast("بدأنا ✓","ok",null,2500):toast("بدأت! مكافأة البداية +2 ⭐","gold");
       });
-      case "calm":{calm=!calm;try{localStorage.setItem("hero-calm",calm?"on":"off")}catch{}return render()}
+      case "prefs":return prefsSheet();
+      case "pref":{
+        if(b.dataset.v==="calm"){calm=!calm;try{localStorage.setItem("hero-calm",calm?"on":"off")}catch{}}
+        else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
+        render();return prefsSheet();
+      }
       case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;

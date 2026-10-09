@@ -456,5 +456,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);outline:none;b
 body.calm *:not(.spin):not(.orb){animation:none!important}
 body.calm .focus{padding:24px 18px}
 body.calm .focus .kicker{font-size:.9rem}
+.greet{display:flex;align-items:center;gap:12px;margin:6px 2px 14px}
+.greet b{font-size:1.35rem;font-weight:800}
+.g-ico{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--brand);font-size:1.5rem}
+.pick .muted.small{font-size:.82rem;font-weight:500}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
   
