@@ -69,6 +69,25 @@
   const findTask=id=>allTasks().find(t=>t.id===id);
   const stats=m=>{const l=(child[m]?.tasks||[]).filter(t=>!isPrayer(t));const done=l.filter(t=>t.done).length;return{total:l.length,done,open:l.length-done}};
   function buzz(ms=25){try{navigator.vibrate&&navigator.vibrate(ms)}catch{}}
+  /* ---- completion sound (soft two-note chime, no audio files) ---- */
+  let soundOn=true;try{soundOn=localStorage.getItem("hero-sound")!=="off"}catch{}
+  let actx=null;
+  function tone(freq,at,len,vol){
+    const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime+at;
+    o.type="sine";o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+len+0.05);
+  }
+  function playDone(kind="task"){
+    if(!soundOn)return;
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==="suspended")actx.resume();
+      if(kind==="soft"){tone(784,0,.45,.12);return}
+      if(kind==="all"){[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.11,.5,.16));return}
+      tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2);
+    }catch{}
+  }
   function confetti(x,y,n=30){
     if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
     const cols=["#f5b301","#12a37a","#d6246e","#3b6ff0","#9a4de0","#e8710a"];
@@ -121,7 +140,7 @@
     const parentIn=family.parentAuthenticated;
     const lockable=area==="parent"?parentIn:(area!=="home"&&!parentIn&&family[`${area}Authenticated`]);
     const back=(area!=="parent"&&parentIn&&area!=="home")?`<button class="pill" data-area="parent">→ لوحة الوالدين</button>`:`<button class="pill" data-area="home">👥 من أنا؟</button>`;
-    return `<div class="topbar">${back}${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
+    return `<div class="topbar">${back}<button class="pill pill-sm" data-action="sound" aria-label="${soundOn?"كتم الصوت":"تشغيل الصوت"}" aria-pressed="${soundOn}">${soundOn?"🔔":"🔕"}</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
   }
   const timeChip=t=>t.suggestedTime?`<span class="tchip">⏰ ${esc(t.suggestedTime)}</span>`:"";
   const timerChip=t=>t.timerMinutes?`<span class="tchip timer">⏱ ${t.timerMinutes} د</span>`:"";
@@ -386,7 +405,7 @@
     const m=btn.dataset.member,id=btn.dataset.id,task=child[m]?.tasks?.find(t=>t.id===id);
     if(!task||task.done||pending.has(id))return;
     const r=btn.getBoundingClientRect(),prayerTask=isPrayer(task);
-    task.done=true;buzz();render();
+    task.done=true;buzz();playDone(prayerTask?"soft":"task");render();
     pending.set(id,{member:m,timer:setTimeout(()=>commitTask(id),5000)});
     $("toasts").innerHTML="";
     const undo={label:"تراجع",fn:()=>{const p=pending.get(id);if(!p)return;clearTimeout(p.timer);pending.delete(id);task.done=false;render()}};
@@ -394,7 +413,7 @@
     confetti(r.left+r.width/2,r.top+r.height/2,24);
     const left=(child[m].tasks||[]).filter(t=>!t.done&&!isPrayer(t)).length;
     const all=!left&&stats(m).total;
-    if(all)setTimeout(()=>confetti(innerWidth/2,innerHeight/3,70),250);
+    if(all)setTimeout(()=>{confetti(innerWidth/2,innerHeight/3,70);playDone("all")},250);
     const est=task.points+(task.startedAt?2:0);
     toast(all?`أنجزت كل المهام! +${est} ⭐`:`أحسنت! +${est} نقطة ⭐`,all?"ok":"gold",undo,5000);
   }
@@ -470,6 +489,7 @@
         const r=await api(`/api/family/tasks/${t.id}/start`,{method:"PATCH",body:JSON.stringify({assignee:b.dataset.member})});
         Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();toast("بدأت! مكافأة البداية +2 ⭐","gold");
       });
+      case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
       case "projects":return guard(b,projectsModal);
