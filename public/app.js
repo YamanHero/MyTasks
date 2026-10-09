@@ -157,7 +157,8 @@
   /* ---- parent ---- */
   function parentTaskRow(t,m){
     const ty=typeOf(t.type);
-    return `<div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><div class="t-ico" aria-hidden="true">${ty.i}</div><div class="t-body"><div class="t-title">${esc(t.title)}</div><div class="t-meta">${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}${t.note?`<span>${esc(t.note)}</span>`:""}</div></div><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}<button class="icon-btn" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}">✏️</button><button class="icon-btn" data-action="delete-task" data-id="${t.id}" data-title="${esc(t.title)}" aria-label="حذف: ${esc(t.title)}">🗑</button></div></div>`;
+    const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}${t.note?`<span>${esc(t.note)}</span>`:""}`;
+    return `<div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span></span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>`;
   }
   function kidCard(m){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
@@ -169,7 +170,7 @@
       +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
       +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
       :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">✨ جهّز يوماً هادئاً تلقائياً</button></div></div>`;
-    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></article>`;
+    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span><button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -239,7 +240,7 @@
     const pm=!loading&&area==="parent"&&family.parentAuthenticated&&dashboard;
     const nav=$("nav");nav.hidden=!pm;
     nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
-    $("fabRoot").innerHTML=(pm&&pview==="today")?`<button class="fab" data-action="add-task" aria-label="مهمة جديدة">＋ مهمة</button>`:"";
+    $("fabRoot").innerHTML="";
     scrollTo(0,y);
     tickTimers();
   }
@@ -283,6 +284,7 @@
       ${draft.type==="prayer"?`<p class="hint">مهام الصلاة بلا نقاط ولا مكافآت.</p>`:`<div><span class="label">النقاط</span><div class="stepper"><button type="button" data-action="d-pts" data-v="-5" aria-label="أقل">−</button><output>⭐ ${draft.points}</output><button type="button" data-action="d-pts" data-v="5" aria-label="أكثر">＋</button></div></div>`}
       <label class="field"><span>ملاحظة للطفل (اختياري)</span><input id="taskNote" type="text" maxlength="500" placeholder="مثال: بعد الغداء مباشرة" value="${esc(draft.note)}" autocomplete="off"></label>
       <div class="actions"><button class="btn btn-primary" type="submit">${edit?"حفظ التعديل":"حفظ المهمة"}</button><button class="btn btn-line" type="button" data-action="d-back">→ رجوع</button></div>
+      ${edit?`<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${esc(draft.editId)}" data-title="${esc(draft.title)}">🗑 حذف المهمة</button>`:""}
     </form>`);
   }
   function eventModal(){

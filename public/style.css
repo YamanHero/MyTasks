@@ -441,5 +441,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);outline:none;b
   .focus h2{font-size:1.35rem}
   .btn-big{font-size:1.05rem}
 }
+.t-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:right;border-radius:12px}
+.t-main:active{background:var(--tint)}
+.t-main .t-body{display:block}
+.t-main .t-title,.t-main .t-meta{display:block}
+.t-main .t-meta{display:flex}
+.pill-sm{min-height:36px;padding:0 12px;font-size:.85rem}
+.sheet .btn-danger{margin-top:4px;width:100%}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
   
