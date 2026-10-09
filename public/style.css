@@ -476,3 +476,25 @@ body.calm .focus .kicker{font-size:.9rem}
 .focus .meta{margin-top:10px}
 .focus .btn-big{margin-top:6px}
 body.calm .timerbox{max-width:none;margin:14px 0 16px}
+
+/* ring timer, steps, quiet skip */
+.timerbox{position:relative}
+.tring{display:block;width:96px;height:96px;margin:8px auto 0;transform:rotate(-90deg) scaleX(-1)}
+.tring circle{fill:none;stroke-width:9;stroke-linecap:round}
+.tring .bg{stroke:#fff}
+.tring .fg{stroke:var(--brand);stroke-dasharray:326.7;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+.timerbox.over .tring{display:none}
+.steps{display:grid;gap:8px;margin:14px 0 4px;text-align:right}
+.stp{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 14px;border-radius:14px;background:var(--tint);border:0;font:inherit;font-weight:700;color:var(--ink,inherit);text-align:right;cursor:pointer}
+.stp i{flex:none;width:26px;height:26px;border-radius:50%;background:#fff;color:transparent;display:grid;place-items:center;font-style:normal;font-size:.9rem;border:2px solid color-mix(in srgb,var(--brand) 40%,#fff)}
+.stp.on{opacity:.65}.stp.on span{text-decoration:line-through}
+.stp.on i{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn-quiet{background:transparent;border:0;color:var(--muted);font-weight:600;box-shadow:none}
+.twrap{position:relative;display:grid;place-items:center;margin-top:6px}
+.twrap .tring{grid-area:1/1;margin:0;width:132px;height:132px}
+.twrap b{grid-area:1/1;font-size:1.6rem}
+.timerbox.over .twrap b{font-size:1.25rem}
+.twrap .tring{width:104px;height:104px}
+.twrap b{font-size:1.35rem}
+body.calm .timerbox{margin:10px 0 12px;padding:8px 12px}
+.stp{min-height:42px;padding:6px 12px}.steps{gap:6px;margin:10px 0 2px}
