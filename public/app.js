@@ -349,7 +349,8 @@
     modal("🤝 ساعدني",`<div class="form"><div class="chips" style="margin:0"><span class="chip">${typeOf(t.type).i} ${esc(t.title)}</span></div>
       <div class="seg wrap" style="grid-template-columns:repeat(2,1fr)" role="group">${modes.map(([k,l])=>`<button type="button" class="${help.mode===k?"on":""}" data-action="h-mode" data-v="${k}">${l}</button>`).join("")}</div>
       <label class="field"><span>سؤالك (اختياري)</span><textarea id="helpQ" class="helpq" placeholder="اكتب ما لا تفهمه أو انسخ نص التمرين هنا">${esc(help.question)}</textarea></label>
-      <button class="btn btn-primary btn-big ${help.loading?"busy":""}" data-action="h-ask">${help.loading?`<span class="spin"></span>أفكر معك…`:"اسأل Hero"}</button>
+      <div class="sugg" style="margin-top:-6px">${(r?["لا أفهم، اشرح بطريقة أبسط","أعطني مثالاً صغيراً","ما الخطوة التالية؟","أنهيت، كيف أتأكد؟"]:["من أين أبدأ؟","لا أفهم المطلوب","أعطني مثالاً صغيراً","كيف أعرف أنني أنهيت؟"]).map(q=>`<button type="button" data-action="h-quick" data-v="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <button class="btn btn-primary btn-big ${help.loading?"busy":""}" data-action="h-ask">${help.loading?`<span class="spin"></span>أفكر معك…`:(r?"اسأل سؤالاً آخر":"اسأل Hero")}</button>
       ${r?`<div>${r.intro?`<p><b>${esc(r.intro)}</b></p>`:""}${r.answer?`<div class="hsec"><h3>الجواب</h3><p style="margin:0">${esc(r.answer)}</p></div>`:""}${(r.questions||[]).length?`<div class="hsec"><h3>أسئلة تساعدك</h3><ul>${r.questions.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}${(r.steps||[]).length?`<div class="hsec"><h3>الخطوات</h3>${list(r.steps)}</div>`:""}${(r.checklist||[]).length?`<div class="hsec"><h3>قائمة التحقق</h3>${r.checklist.map((x,i)=>`<button class="ck ${help.checked.has(i)?"on":""}" data-action="h-check" data-i="${i}"><i>✓</i><span>${esc(x)}</span></button>`).join("")}</div>`:""}${r.encouragement?`<p class="soft-note" style="margin-top:12px">${esc(r.encouragement)}</p>`:""}${r.warning?`<p class="quiet">${esc(r.warning)}</p>`:""}</div>`:""}</div>`);
   }
 
@@ -518,11 +519,12 @@
       case "help":{const t=findTask(b.dataset.id);if(!t)return;help={task:t,member:b.dataset.member,mode:t.type==="youtube"?"youtube":"full",question:"",loading:false,result:null,checked:new Set()};return helpModal()}
       case "h-mode":help.question=$("helpQ")?.value||help.question;help.mode=b.dataset.v;return helpModal();
       case "h-check":{const i=Number(b.dataset.i);help.checked.has(i)?help.checked.delete(i):help.checked.add(i);help.question=$("helpQ")?.value||help.question;return helpModal()}
+      case "h-quick":{const q=$("helpQ");if(q)q.value=b.dataset.v;help.question=b.dataset.v;return document.querySelector('[data-action="h-ask"]')?.click()}
       case "h-ask":{
         help.question=$("helpQ")?.value||"";help.loading=true;helpModal();
         try{
           const t=help.task;
-          help.result=await api("/api/ai/task-help",{method:"POST",body:JSON.stringify({assignee:help.member,mode:help.mode,question:help.question,task:{title:t.title,type:t.type,note:t.note,suggestedTime:t.suggestedTime,timerMinutes:t.timerMinutes,points:t.points,done:t.done,status:t.status}})});
+          help.result=await api("/api/ai/task-help",{method:"POST",body:JSON.stringify({assignee:help.member,mode:help.mode,question:help.question,context:help.result?[help.result.answer,...(help.result.steps||[]).slice(0,4)].filter(Boolean).join(" | ").slice(0,850):"",task:{title:t.title,type:t.type,note:t.note,suggestedTime:t.suggestedTime,timerMinutes:t.timerMinutes,points:t.points,done:t.done,status:t.status}})});
           help.checked=new Set();
         }catch(err){help.loading=false;helpModal();return onErr(err)}
         help.loading=false;if($("modalRoot").firstChild)helpModal();return;

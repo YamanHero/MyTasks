@@ -1349,7 +1349,7 @@ app.get("/api/health", (req, res) => {
     openaiAvailable: openAIAvailable(),
     openaiSkipped: isOpenAISkipped(),
     openaiSkipReason: openAISkipMessage(),
-    openaiSkipUntil: openAISkipped() ? new Date(openAISkipUntil).toISOString() : null,
+    openaiSkipUntil: isOpenAISkipped() ? new Date(openAISkipUntil).toISOString() : null,
     openaiModel: OPENAI_IDEA_MODEL,
     openaiTimeoutMs: OPENAI_TIMEOUT_MS,
     prayerSource: PRAYER_SOURCE_NAME,
@@ -1963,6 +1963,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
   };
 
   const question = safeText(req.body?.question, 700) || "اسألني أسئلة قصيرة، ثم حضّر checklist، ثم اشرح كيف أنفذ المهمة.";
+  const previousContext = safeText(req.body?.context, 900);
   const mode = ["full", "first_step", "checklist", "clarify", "youtube"].includes(String(req.body?.mode || "")) ? String(req.body.mode) : "full";
   if (!task.title) throw new PublicError(400, "لم تصل تفاصيل المهمة.");
 
@@ -1996,7 +1997,10 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 4) الخطوات يجب أن تكون مرتبة زمنيًا ومنطقية: فهم المطلوب → تجهيز → أول خطوة → تنفيذ → مراجعة → إنهاء.
 5) اللغة عربية بسيطة، قصيرة، مشجعة، مناسبة لطفل.
 6) لا تضغط، لا تقارن بين الأطفال، لا تستخدم لغة مخيفة.
-7) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
+7) اجعل answer من جملتين إلى ثلاث جمل كحد أقصى. كل خطوة جملة واحدة قصيرة (حتى 12 كلمة) تبدأ بفعل. كل بند في checklist حتى 8 كلمات. لا تكرر المعنى نفسه في الخطوات والـchecklist.
+8) إذا وُجدت "الإجابة السابقة" فالسؤال الحالي متابعة لها: أجب عنه بالتحديد، ولا تعد نفس الخطوات ولا نفس الأمثلة، وابنِ على ما سبق. إذا قال الطفل إنه لا يفهم فاشرح بطريقة مختلفة وأبسط مع مثال صغير من حياته اليومية.
+9) لا تدّعِ أنك رأيت دفتر الطفل أو كتابه. إذا احتجت نص التمرين فاطلبه بجملة واحدة.
+10) لا تربط الصلاة بالنقاط أو المكافآت. إذا كانت المهمة صلاة فاجعلها استعدادًا هادئًا: دخول الوقت، وضوء، نية، خشوع، هدوء، بدون نقاط.
 
 وضع المساعدة المطلوب: ${mode}
 - full: إجابة مباشرة + خطوات + checklist.
@@ -2022,6 +2026,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 الحالة: ${task.status || "مفتوحة"}
 ملاحظة المهمة: ${task.note || "لا توجد"}
 سؤال/نص الطفل أو الأهل المكتوب في الصفحة: ${question}
+الإجابة السابقة (للمتابعة فقط): ${previousContext || "لا توجد، هذا أول سؤال"}
 تعليمات إضافية: إذا احتوى السؤال على عبارة "النص الذي كتبه المستخدم" فاجعل هذا النص هو الأولوية الأولى، واعتبر "طلب الزر" مجرد طريقة عرض. أجب حسب النص المكتوب وعنوان المهمة معًا.
 
 إذا كان وضع المساعدة youtube فاجعل answer عمليًا: فكرة الحلقة، سيناريو قصير، checklist أمان، وخطوة إنتاج واحدة اليوم.
