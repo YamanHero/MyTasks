@@ -462,3 +462,16 @@ body.calm .focus .kicker{font-size:.9rem}
 .pick .muted.small{font-size:.82rem;font-weight:500}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
   
+
+/* ---------- focus screen refinements ---------- */
+.focus .note{display:flex;align-items:flex-start;gap:8px;margin:12px auto 0;max-width:30rem;padding:2px 12px 2px 0;border:0;border-inline-start:3px solid color-mix(in srgb,var(--tc,var(--brand)) 55%,#fff);border-radius:0;background:transparent;color:var(--muted);font-weight:600;text-align:right}
+.slim{flex-wrap:wrap;gap:8px 12px}
+.slim .slim-bar{flex-basis:100%;order:3;height:6px;border-radius:99px;background:#fff;overflow:hidden}
+.slim .slim-bar u{display:block;height:100%;border-radius:99px;background:var(--brand);transition:width .5s}
+.timerbox.over{background:var(--tint)}
+.timerbox.over b{font-size:1.5rem;font-weight:800;color:var(--muted)}
+.timerbox.over .tbar{display:none}
+.timerbox .more{margin-top:10px;min-height:44px;padding:0 18px;border-radius:99px;background:#fff;border:1px solid var(--hair);color:var(--brand-d);font-weight:800}
+.timerbox .more[hidden]{display:none}
+.focus .meta{margin-top:10px}
+.focus .btn-big{margin-top:6px}
