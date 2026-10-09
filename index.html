@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" id="themeColor" />
+  <meta name="color-scheme" content="light" />
+  <title>Hero Family</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#f5f6ff;--surface:#fff;--ink:#1b1d3a;--muted:#646a8a;--line:#e3e5f5;
+      --brand:#4f46e5;--brand-d:#3730a3;--tint:#eceeff;--on-brand:#fff;
+      --ok:#12a37a;--ok-d:#0b7a5b;--ok-tint:#e2f8f0;--danger:#c93a5f;--danger-tint:#fdecf0;--gold:#f5b301;--gold-tint:#fff5d6;
+      --r:22px;--shadow:0 10px 30px rgba(40,38,110,.10);--shadow-s:0 2px 8px rgba(40,38,110,.07);
+      --font:"Cairo","Segoe UI",Tahoma,Arial,sans-serif;
+    }
+    body[data-area="yaman"]{--bg:#effbfd;--brand:#0891b2;--brand-d:#0b5f78;--tint:#d9f4fa;--line:#cfeaf1;--ink:#0f2a35;--muted:#52707c}
+    body[data-area="judy"]{--bg:#fff4f9;--brand:#d6246e;--brand-d:#92174d;--tint:#fde3ef;--line:#f6d3e3;--ink:#34132a;--muted:#8a5a74}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html{direction:rtl;scroll-behavior:smooth}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.6;text-align:right;transition:background .3s}
+    body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(60rem 28rem at 100% -5%,color-mix(in srgb,var(--brand) 16%,transparent),transparent 70%),radial-gradient(40rem 22rem at 0% 105%,color-mix(in srgb,var(--gold) 14%,transparent),transparent 70%)}
+    h1,h2,h3,p{margin:0}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button{cursor:pointer;border:0;background:none;padding:0}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    :focus-visible{outline:3px solid color-mix(in srgb,var(--brand) 55%,white);outline-offset:3px;border-radius:12px}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    .app{width:min(100% - 28px,860px);margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 0 150px}
+
+    /* ---------- hero header ---------- */
+    .hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:22px 20px;border-radius:30px;color:#fff;background:linear-gradient(135deg,var(--brand-d),var(--brand));box-shadow:var(--shadow)}
+    .hero::before,.hero::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.12)}
+    .hero::before{width:190px;height:190px;inset-inline-start:-50px;top:-80px}
+    .hero::after{width:120px;height:120px;inset-inline-end:30%;bottom:-70px}
+    .avatar{position:relative;z-index:1;flex:none;display:grid;place-items:center;width:72px;height:72px;border-radius:24px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.35);font-size:2.3rem;line-height:1}
+    .hero-text{position:relative;z-index:1;min-width:0}
+    .hero h1{font-size:1.55rem;font-weight:900;line-height:1.25}
+    .hero p{opacity:.92;font-size:.98rem;margin-top:2px}
+    .hero-date{position:relative;z-index:1;margin-inline-start:auto;text-align:center;padding:8px 14px;border-radius:16px;background:rgba(255,255,255,.16);font-weight:700;font-size:.85rem;white-space:nowrap}
+    .hero-date b{display:block;font-size:1.5rem;line-height:1.1}
+
+    .stack{display:grid;gap:16px;margin-top:16px}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-s);padding:18px}
+    .card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .card-title h2{font-size:1.15rem;font-weight:900}
+    .count{display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 8px;border-radius:99px;background:var(--tint);color:var(--brand-d);font-weight:900;font-size:.85rem}
+    .muted{color:var(--muted)}
+    .eyebrow{color:var(--brand);font-weight:900;font-size:.85rem}
+
+    /* ---------- buttons ---------- */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:10px 20px;border-radius:16px;font-weight:900;text-align:center;text-decoration:none;transition:transform .08s,box-shadow .08s,filter .15s}
+    .btn:active:not(:disabled){transform:translateY(3px)}
+    .btn-primary{background:var(--brand);color:var(--on-brand);box-shadow:0 4px 0 var(--brand-d)}
+    .btn-primary:active:not(:disabled){box-shadow:0 1px 0 var(--brand-d)}
+    .btn-ok{background:var(--ok);color:#fff;box-shadow:0 4px 0 var(--ok-d)}
+    .btn-ok:active:not(:disabled){box-shadow:0 1px 0 var(--ok-d)}
+    .btn-soft{background:var(--tint);color:var(--brand-d)}
+    .btn-line{background:var(--surface);border:1.5px solid var(--line);color:var(--ink)}
+    .btn-danger{background:var(--danger-tint);color:var(--danger)}
+    .btn-big{min-height:64px;font-size:1.25rem;border-radius:20px;width:100%}
+    .btn-sm{min-height:44px;padding:6px 14px;font-size:.92rem;border-radius:13px}
+    .icon-btn{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:transparent;color:var(--muted);font-size:1.1rem}
+    .icon-btn:hover{background:var(--danger-tint);color:var(--danger)}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .busy{pointer-events:none;opacity:.7}
+
+    /* ---------- progress ---------- */
+    .progress{display:flex;align-items:center;gap:18px}
+    .ring{position:relative;flex:none;width:104px;height:104px}
+    .ring svg{width:100%;height:100%;transform:rotate(90deg) scaleX(-1)}
+    .ring circle{fill:none;stroke-width:11;stroke-linecap:round}
+    .ring .bg{stroke:var(--tint)}
+    .ring .fg{stroke:var(--brand);transition:stroke-dashoffset .7s cubic-bezier(.3,1.3,.5,1)}
+    .ring-num{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-weight:900;font-size:1.35rem;line-height:1.1}
+    .ring-num small{display:block;font-size:.72rem;font-weight:700;color:var(--muted)}
+    .progress-msg{font-size:1.2rem;font-weight:900;line-height:1.4}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;background:var(--tint);color:var(--brand-d);font-weight:700;font-size:.88rem}
+    .chip.gold{background:var(--gold-tint);color:#8a6100}
+    .chip.ok{background:var(--ok-tint);color:var(--ok-d)}
+
+    /* ---------- child focus task ---------- */
+    .focus{position:relative;overflow:hidden;text-align:center;padding:26px 20px 22px;border:2px solid color-mix(in srgb,var(--tc,var(--brand)) 40%,white);background:linear-gradient(180deg,color-mix(in srgb,var(--tc,var(--brand)) 12%,white),#fff 70%)}
+    .focus .kicker{display:inline-block;padding:4px 14px;border-radius:99px;background:var(--tc,var(--brand));color:#fff;font-weight:900;font-size:.82rem}
+    .focus .big-icon{display:grid;place-items:center;width:92px;height:92px;margin:14px auto 8px;border-radius:30px;background:color-mix(in srgb,var(--tc,var(--brand)) 18%,white);font-size:3rem;animation:float 3s ease-in-out infinite}
+    .focus h2{font-size:1.65rem;font-weight:900;line-height:1.35}
+    .focus .note{margin:8px auto 0;max-width:30rem;padding:10px 14px;border-radius:14px;background:#fff;border:1px dashed var(--line);color:var(--muted)}
+    .focus .reward{margin:14px 0 16px;font-weight:900;color:#8a6100}
+    .pop{animation:pop .45s cubic-bezier(.3,1.4,.5,1)}
+
+    .task{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:10px 12px;border-radius:18px;background:var(--surface);border:1.5px solid var(--line);text-align:right}
+    button.task:hover{border-color:var(--tc,var(--brand))}
+    .t-ico{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:color-mix(in srgb,var(--tc,var(--brand)) 16%,white);font-size:1.5rem}
+    .t-body{min-width:0;flex:1}
+    .t-title{font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+    .t-meta{display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font-size:.82rem}
+    .task.done .t-title{text-decoration:line-through;color:var(--muted)}
+    .task.done{background:var(--ok-tint);border-color:transparent}
+    .task.done .t-ico{background:#fff}
+    .list{display:grid;gap:10px}
+    .check{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:2.5px solid var(--line);background:#fff;color:transparent;font-size:1.4rem;font-weight:900;transition:all .15s}
+    .check:hover{border-color:var(--ok);color:var(--ok)}
+    .check.on{background:var(--ok);border-color:var(--ok);color:#fff}
+    details.fold summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:44px;font-weight:900}
+    details.fold summary::-webkit-details-marker{display:none}
+    details.fold summary::after{content:"⌄";font-size:1.3rem;transition:transform .2s}
+    details.fold[open] summary::after{transform:rotate(180deg)}
+    details.fold .list{margin-top:10px}
+
+    .events{display:flex;flex-wrap:wrap;gap:10px}
+    .event{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:16px;background:var(--gold-tint);color:#6d4d00;font-weight:700}
+    .event time{padding:2px 10px;border-radius:99px;background:#fff;font-size:.85rem}
+    .ev-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+    .ev-row:last-child{border-bottom:0}
+    .ev-day{flex:none;width:76px;text-align:center;padding:6px 4px;border-radius:14px;background:var(--gold-tint);color:#6d4d00;font-weight:900;font-size:.85rem;line-height:1.3}
+
+    .celebrate{text-align:center;padding:30px 20px;background:linear-gradient(180deg,var(--gold-tint),#fff)}
+    .celebrate .trophy{font-size:4.5rem;line-height:1.1;animation:float 2.5s ease-in-out infinite}
+    .celebrate h2{font-size:1.6rem;font-weight:900;margin-top:6px}
+
+    /* ---------- parent ---------- */
+    .kid-card{display:grid;gap:12px}
+    .kid-head{display:flex;align-items:center;gap:12px}
+    .kid-head .av{display:grid;place-items:center;width:52px;height:52px;border-radius:18px;background:var(--kc);color:#fff;font-size:1.7rem}
+    .kid-head h3{font-size:1.15rem;font-weight:900}
+    .bar{height:12px;border-radius:99px;background:var(--tint);overflow:hidden}
+    .bar i{display:block;height:100%;width:var(--w,0%);border-radius:99px;background:linear-gradient(90deg,var(--kc),color-mix(in srgb,var(--kc) 60%,white));transition:width .6s}
+    .kid-card[data-kid="yaman"]{--kc:#0891b2}
+    .kid-card[data-kid="judy"]{--kc:#d6246e}
+    .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .tt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .dot{width:10px;height:10px;border-radius:50%;background:#b7bbd3}
+    .dot.on{background:var(--ok);box-shadow:0 0 0 4px var(--ok-tint)}
+    .empty{padding:18px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:18px}
+    .empty b{display:block;font-size:2rem;line-height:1.2}
+
+    /* ---------- login / keypad ---------- */
+    .login{max-width:380px;margin:0 auto;text-align:center}
+    .login .avatar{margin:0 auto 10px;background:var(--tint);border-color:var(--line)}
+    .login h2{font-size:1.4rem;font-weight:900}
+    .dots{display:flex;justify-content:center;gap:12px;margin:18px 0 6px;min-height:22px}
+    .dots i{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--brand);transition:all .15s}
+    .dots i.f{background:var(--brand);transform:scale(1.12)}
+    .dots.shake{animation:shake .4s}
+    .err{min-height:26px;color:var(--danger);font-weight:700}
+    .pad{direction:ltr;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+    .key{min-height:62px;border-radius:18px;background:var(--surface);border:1.5px solid var(--line);font-size:1.5rem;font-weight:900;box-shadow:0 3px 0 var(--line);transition:transform .06s,box-shadow .06s}
+    .key:active{transform:translateY(3px);box-shadow:none;background:var(--tint)}
+    .key-fn{color:var(--muted)}
+    .key-go{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 3px 0 var(--brand-d)}
+
+    /* ---------- nav ---------- */
+    .nav{position:fixed;z-index:20;inset-inline:0;bottom:max(12px,env(safe-area-inset-bottom));display:flex;justify-content:center;padding:0 14px;pointer-events:none}
+    .nav-in{pointer-events:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(100%,460px);padding:6px;border-radius:26px;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border:1px solid var(--line);box-shadow:0 12px 36px rgba(30,30,90,.2)}
+    .tab{display:grid;justify-items:center;gap:0;min-height:62px;border-radius:20px;color:var(--muted);font-weight:900;font-size:.92rem;transition:background .2s,color .2s}
+    .tab span{font-size:1.5rem;line-height:1.3}
+    .tab.active{background:var(--brand);color:#fff;box-shadow:0 3px 0 var(--brand-d)}
+    .fab{position:fixed;z-index:19;inset-inline-end:max(16px,calc(50% - 414px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 84px);display:flex;align-items:center;gap:8px;min-height:58px;padding:0 22px;border-radius:99px;background:var(--brand);color:#fff;font-weight:900;font-size:1.05rem;box-shadow:0 5px 0 var(--brand-d),0 14px 28px rgba(40,38,110,.28)}
+    .fab:active{transform:translateY(3px)}
+
+    /* ---------- modal / sheet ---------- */
+    .modal-root:empty{display:none}
+    .modal-root{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center;background:rgba(20,18,50,.55);animation:fade .2s}
+    .sheet{width:min(100%,640px);max-height:92vh;overflow:auto;background:var(--surface);border-radius:28px 28px 0 0;padding:8px 20px max(22px,env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(0,0,0,.25);animation:rise .28s cubic-bezier(.2,.9,.3,1)}
+    .grab{width:44px;height:5px;border-radius:9px;background:var(--line);margin:6px auto 12px}
+    .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .sheet-head h2{font-size:1.35rem;font-weight:900}
+    .x{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--tint);font-size:1.1rem;color:var(--brand-d)}
+    .form{display:grid;gap:16px}
+    .field>span,.label{display:block;margin-bottom:6px;font-weight:900;font-size:.95rem}
+    input,select,textarea{width:100%;min-height:54px;padding:12px 14px;border-radius:16px;border:1.5px solid var(--line);background:#fff;text-align:right;direction:rtl}
+    input[type=time],input[type=date]{text-align:center;direction:ltr}
+    .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+    .seg button{min-height:54px;border-radius:16px;border:1.5px solid var(--line);background:#fff;font-weight:900}
+    .seg button.on{background:var(--tint);border-color:var(--brand);color:var(--brand-d);box-shadow:inset 0 0 0 1px var(--brand)}
+    .types{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .types button{display:grid;justify-items:center;gap:2px;padding:10px 4px;border-radius:16px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:.8rem;line-height:1.25}
+    .types button span{font-size:1.6rem;line-height:1.2}
+    .types button.on{background:color-mix(in srgb,var(--tc) 14%,white);border-color:var(--tc);box-shadow:inset 0 0 0 1px var(--tc)}
+    .stepper{display:flex;align-items:center;gap:10px}
+    .stepper button{width:50px;height:50px;border-radius:16px;background:var(--tint);color:var(--brand-d);font-size:1.5rem;font-weight:900}
+    .stepper output{min-width:90px;text-align:center;font-weight:900;font-size:1.2rem}
+    .sugg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .sugg button{padding:6px 12px;border-radius:99px;background:var(--tint);color:var(--brand-d);font-weight:700;font-size:.85rem}
+    .pick{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:10px 14px;margin-bottom:8px;border-radius:16px;border:1.5px solid var(--line);background:#fff;text-align:right}
+    .pick.on{background:var(--tint);border-color:var(--brand)}
+    .pick .box{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;border:2px solid var(--line);color:#fff;font-weight:900}
+    .pick.on .box{background:var(--brand);border-color:var(--brand)}
+
+    .toasts{position:fixed;z-index:60;inset-inline:0;top:max(12px,env(safe-area-inset-top));display:grid;justify-items:center;gap:8px;pointer-events:none}
+    .toast{max-width:min(92%,420px);padding:12px 18px;border-radius:16px;background:var(--ink);color:#fff;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:drop .3s}
+    .toast.ok{background:var(--ok-d)}
+    .toast.err{background:var(--danger)}
+    .toast.gold{background:#8a6100}
+    .confetti{position:fixed;z-index:70;width:10px;height:14px;border-radius:3px;pointer-events:none}
+
+    .skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--tint) 25%,#fff 50%,var(--tint) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
+    .foot{margin-top:26px;text-align:center;font-size:.8rem;color:var(--muted)}
+
+    @keyframes float{50%{transform:translateY(-6px)}}
+    @keyframes pop{0%{transform:scale(.92);opacity:.4}100%{transform:scale(1);opacity:1}}
+    @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+    @keyframes fade{from{opacity:0}}
+    @keyframes rise{from{transform:translateY(40px);opacity:0}}
+    @keyframes drop{from{transform:translateY(-14px);opacity:0}}
+    @keyframes sh{to{background-position:-200% 0}}
+
+    @media(min-width:720px){
+      .modal-root{align-items:center}
+      .sheet{border-radius:28px;padding-top:20px}
+      .grab{display:none}
+    }
+    @media(max-width:640px){
+      .grid2{grid-template-columns:1fr}
+      .hero{padding:18px 16px;border-radius:26px}
+      .hero-date{display:none}
+      .avatar{width:62px;height:62px;font-size:2rem}
+      .hero h1{font-size:1.35rem}
+      .progress{gap:14px}
+      .ring{width:92px;height:92px}
+      .focus h2{font-size:1.4rem}
+      .types{grid-template-columns:repeat(4,1fr)}
+    }
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
+  </style>
+</head>
+<body data-area="parent">
+  <main class="app">
+    <section id="root" aria-live="polite"></section>
+    <p class="foot">Hero Family · مهام العائلة محفوظة بأمان · TickTick اتصال اختياري</p>
+  </main>
+  <nav class="nav" aria-label="اختيار المنطقة">
+    <div class="nav-in">
+      <button class="tab" data-area="parent" type="button"><span>🏠</span>الوالدان</button>
+      <button class="tab" data-area="yaman" type="button"><span>🦸‍♂️</span>يَمان</button>
+      <button class="tab" data-area="judy" type="button"><span>🦸‍♀️</span>جودي</button>
+    </div>
+  </nav>
+  <div id="fabRoot"></div>
+  <div id="modalRoot" class="modal-root"></div>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+  <noscript><p style="padding:20px;text-align:center">يلزم تفعيل JavaScript لتشغيل Hero Family.</p></noscript>
+
+  <script>
+  (()=>{
+    "use strict";
+
+    /* ======================= data ======================= */
+    const TYPES={
+      study:   {l:"دراسة",         p:15,i:"📚",c:"#3b6ff0",s:["قراءة 15 دقيقة","حل واجب الرياضيات","مراجعة كلمات جديدة"]},
+      home:    {l:"مسؤولية منزلية",p:10,i:"🏠",c:"#e8710a",s:["ترتيب الغرفة","مساعدة في تحضير الطاولة","إخراج القمامة"]},
+      creative:{l:"إبداع",         p:15,i:"🎨",c:"#9a4de0",s:["الرسم 15 دقيقة","بناء شيء من المكعبات","كتابة قصة قصيرة"]},
+      movement:{l:"حركة",          p:10,i:"🏃",c:"#12a37a",s:["المشي 15 دقيقة","تمارين تمدد","اللعب في الخارج"]},
+      social:  {l:"مهارة اجتماعية",p:10,i:"🤝",c:"#d6246e",s:["الاتصال بالجدة","مشاركة لعبة مع الأخ أو الأخت","قول شكراً لشخص ما"]},
+      routine: {l:"روتين",         p:5, i:"⏰",c:"#0891b2",s:["تنظيف الأسنان","تحضير الحقيبة","تحضير ملابس الغد"]},
+      other:   {l:"مهمة أخرى",     p:5, i:"⭐",c:"#7b6cf6",s:[]}
+    };
+    const PEOPLE={
+      parent:{name:"الوالدان",icon:"🏠",color:"#4f46e5",sub:"نظرة واحدة على يوم العائلة كلها."},
+      yaman:{name:"يَمان",icon:"🦸‍♂️",color:"#0891b2",sub:"خطوة واحدة واضحة في كل مرة."},
+      judy:{name:"جودي",icon:"🦸‍♀️",color:"#d6246e",sub:"مهام قصيرة وواضحة."}
+    };
+    const KIDS=["yaman","judy"];
+
+    /* ======================= state ======================= */
+    const qs=new URLSearchParams(location.search);
+    let area=PEOPLE[qs.get("area")]?qs.get("area"):(PEOPLE[localStorage.getItem("hero-area")]?localStorage.getItem("hero-area"):"parent");
+    let family={},tick={},dashboard=null,child={yaman:null,judy:null};
+    let loading=true,pin="",pinBusy=false,pinError="";
+    let focusId={yaman:null,judy:null};
+    let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
+    let draft={who:"yaman",type:"study",points:15,title:"",note:""};
+
+    /* ======================= helpers ======================= */
+    const $=id=>document.getElementById(id);
+    const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+    const today=()=>iso(new Date());
+    const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    const typeOf=t=>TYPES[t]||TYPES.other;
+    const pointsOf=list=>(list||[]).filter(t=>t.done).reduce((a,t)=>a+t.points,0);
+    function dayLabel(d){const t=today();if(d===t)return "اليوم";const n=new Date();n.setDate(n.getDate()+1);if(d===iso(n))return "غداً";return new Date(d+"T12:00:00").toLocaleDateString("ar",{weekday:"short",day:"numeric",month:"short"})}
+    function greeting(){const h=new Date().getHours();return h<12?"صباح الخير":h<18?"نهارك سعيد":"مساء الخير"}
+    async function api(url,opts={}){
+      const r=await fetch(url,{...opts,credentials:"include",cache:"no-store",headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+      const text=await r.text();let body=null;try{body=text?JSON.parse(text):null}catch{}
+      if(!r.ok)throw new Error(body?.error||"تعذر تنفيذ العملية. حاول مرة أخرى.");
+      return body;
+    }
+    function toast(msg,kind=""){const el=document.createElement("div");el.className="toast "+kind;el.textContent=msg;$("toasts").appendChild(el);setTimeout(()=>el.remove(),3200)}
+    function buzz(ms=25){try{navigator.vibrate&&navigator.vibrate(ms)}catch{}}
+    function confetti(x,y,n=30){
+      if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+      const cols=["#f5b301","#12a37a","#d6246e","#3b6ff0","#9a4de0","#e8710a"];
+      for(let i=0;i<n;i++){
+        const p=document.createElement("i");p.className="confetti";p.style.background=cols[i%cols.length];p.style.left=x+"px";p.style.top=y+"px";
+        document.body.appendChild(p);
+        const a=Math.random()*Math.PI*2,d=90+Math.random()*190;
+        p.animate([{transform:"translate(0,0) rotate(0)",opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d+160}px) rotate(${Math.random()*720}deg)`,opacity:0}],{duration:1000+Math.random()*700,easing:"cubic-bezier(.2,.7,.4,1)"}).onfinish=()=>p.remove();
+      }
+    }
+    async function guard(btn,fn){
+      if(btn){if(btn.classList.contains("busy"))return;btn.classList.add("busy")}
+      try{return await fn()}catch(err){toast(err.message,"err")}finally{btn?.classList.remove("busy")}
+    }
+
+    /* ======================= data loading ======================= */
+    async function load(){
+      const [f,t]=await Promise.all([api("/api/family/status").catch(()=>({})),api("/api/ticktick/status").catch(()=>({configured:false,connected:false}))]);
+      family=f;tick=t;dashboard=null;child={yaman:null,judy:null};
+      const jobs=[];
+      if(f.parentAuthenticated)jobs.push(api(`/api/family/dashboard?date=${today()}`).then(d=>dashboard=d).catch(()=>null));
+      for(const m of KIDS)if(f.parentAuthenticated||f[`${m}Authenticated`])jobs.push(api(`/api/family/child/${m}?date=${today()}`).then(d=>child[m]=d).catch(()=>null));
+      await Promise.all(jobs);
+    }
+    async function refresh(){await load();loading=false;render()}
+
+    /* ======================= components ======================= */
+    function ring(done,total){
+      const C=2*Math.PI*45,pct=total?done/total:0;
+      return `<div class="ring" role="img" aria-label="أنجزت ${done} من ${total}"><svg viewBox="0 0 104 104"><circle class="bg" cx="52" cy="52" r="45"/><circle class="fg" cx="52" cy="52" r="45" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"/></svg><div class="ring-num"><div>${done}/${total}<small>مهام</small></div></div></div>`;
+    }
+    function hero(title,sub,icon,withDate=true){
+      const d=new Date();
+      return `<header class="hero"><div class="avatar" aria-hidden="true">${icon}</div><div class="hero-text"><h1>${title}</h1><p>${sub}</p></div>${withDate?`<div class="hero-date" aria-label="تاريخ اليوم">${d.toLocaleDateString("ar",{weekday:"long"})}<b>${d.toLocaleDateString("ar",{day:"numeric"})}</b>${d.toLocaleDateString("ar",{month:"long"})}</div>`:""}</header>`;
+    }
+    function keypad(){
+      return `<div class="pad" role="group" aria-label="لوحة الأرقام">${[1,2,3,4,5,6,7,8,9].map(n=>`<button type="button" class="key" data-key="${n}">${n}</button>`).join("")}<button type="button" class="key key-fn" data-key="back" aria-label="مسح رقم">⌫</button><button type="button" class="key" data-key="0">0</button><button type="button" class="key key-go ${pinBusy?"busy":""}" data-key="go" aria-label="دخول">✓</button></div>`;
+    }
+    function loginCard(who){
+      const p=PEOPLE[who];
+      if(who==="parent"&&family.parentPinConfigured===false)return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>رمز الوالدين غير مهيأ</h2><p class="muted">أضف المتغير PARENT_PIN في Railway ثم أعد تحميل الصفحة.</p></article>`;
+      if(who!=="parent"&&!family[`${who}PinConfigured`])return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>رمز الدخول غير مهيأ</h2><p class="muted">أضف ${who.toUpperCase()}_PIN في Railway أولاً.</p></article>`;
+      const n=Math.max(4,pin.length);
+      return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>${who==="parent"?"منطقة الوالدين":`أهلاً ${p.name}!`}</h2><p class="muted">${who==="parent"?"اكتب رمز الوالدين لإدارة مهام العائلة.":"اكتب رمزك السري لتفتح مهامك."}</p><div class="dots" id="dots" aria-label="عدد الأرقام: ${pin.length}">${Array.from({length:n},(_,i)=>`<i class="${i<pin.length?"f":""}"></i>`).join("")}</div><p class="err" id="pinErr" role="alert">${esc(pinError)}</p>${keypad()}</article>`;
+    }
+    function skeleton(){return `<div class="stack"><div class="skel" style="height:110px"></div><div class="skel"></div><div class="skel" style="height:80px"></div></div>`}
+
+    /* ---- TickTick ---- */
+    function tickCard(){
+      if(!tick.configured)return `<article class="card"><div class="tt"><span class="dot"></span><div><b>TickTick غير مهيأ</b><div class="muted small">التطبيق يعمل بشكل طبيعي. أكمل متغيرات TickTick في Railway لتفعيل المزامنة.</div></div></div></article>`;
+      if(!tick.connected)return `<article class="card"><div class="tt"><span class="dot"></span><div style="flex:1"><b>TickTick غير متصل</b><div class="muted">اربطه لاستيراد مهام اليوم وإرسال مهام Hero إليه.</div></div><a class="btn btn-soft btn-sm" href="/auth/ticktick">ربط TickTick</a></div></article>`;
+      return `<article class="card"><div class="tt"><span class="dot on"></span><div style="flex:1"><b>TickTick متصل</b><div class="muted">مهمة جديدة هنا تصل إلى TickTick، وإنجازها هنا يُكمّلها هناك.</div></div></div><div class="actions" style="margin-top:12px"><button class="btn btn-soft btn-sm" data-action="import">⬇️ استيراد مهام اليوم</button><button class="btn btn-line btn-sm" data-action="projects">📋 اختيار القوائم</button></div></article>`;
+    }
+
+    /* ---- parent ---- */
+    function parentTaskRow(t,m){
+      const ty=typeOf(t.type);
+      return `<div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><div class="t-ico" aria-hidden="true">${ty.i}</div><div class="t-body"><div class="t-title">${esc(t.title)}</div><div class="t-meta"><span>${ty.l}</span><span>⭐ ${t.points}</span>${t.ticktickTaskId?"<span>TickTick</span>":""}${t.note?`<span>${esc(t.note)}</span>`:""}</div></div>${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}<button class="icon-btn" data-action="delete-task" data-id="${t.id}" data-title="${esc(t.title)}" aria-label="حذف: ${esc(t.title)}">🗑</button></div>`;
+    }
+    function kidCard(m){
+      const s=dashboard.summary[m],tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
+      const pct=s.total?Math.round(s.done/s.total*100):0;
+      const open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done);
+      return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${tasks.length?(open.length?open.map(t=>parentTaskRow(t,m)).join(""):`<div class="empty"><b>🏆</b>أنجز ${p.name} كل المهام</div>`)+(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:""):`<div class="empty"><b>🌱</b>أضف أول مهمة لـ${p.name}</div>`}</div><button class="btn btn-line btn-sm" data-area="${m}">فتح منطقة ${p.name} ←</button></article>`;
+    }
+    function parentView(){
+      if(!family.parentAuthenticated)return `<div class="stack">${loginCard("parent")}</div>`;
+      if(!dashboard)return `<div class="stack"><article class="card login"><h2>تعذر تحميل لوحة العائلة</h2><p class="muted">تحقق من الاتصال بقاعدة البيانات ثم أعد المحاولة.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`;
+      const openAll=dashboard.summary.yaman.open+dashboard.summary.judy.open;
+      const events=dashboard.events||[];
+      return `${hero(`${greeting()}`,openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:"لا توجد مهام مفتوحة. يوم هادئ!","🏠")}
+      <div class="stack">
+        <div class="actions"><button class="btn btn-primary" data-action="add-task">＋ مهمة جديدة</button><button class="btn btn-soft" data-action="add-event">📅 موعد جديد</button></div>
+        <div class="grid2">${KIDS.map(kidCard).join("")}</div>
+        <article class="card"><div class="card-title"><h2>المواعيد القادمة</h2><span class="count">${events.length}</span></div>${events.length?events.map(e=>`<div class="ev-row"><div class="ev-day">${dayLabel(e.date)}${e.time?`<br>${esc(e.time)}`:""}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(e.title)}</div><div class="muted small">${e.assignee==="family"?"كل العائلة":PEOPLE[e.assignee]?.name||""}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`).join(""):`<div class="empty"><b>📅</b>لا توجد مواعيد قادمة</div>`}</article>
+        ${tickCard()}
+        <button class="btn btn-line" data-action="logout-parent">🔒 قفل منطقة الوالدين</button>
+      </div>`;
+    }
+
+    /* ---- child ---- */
+    function childView(m){
+      const p=PEOPLE[m];
+      if(!family.parentAuthenticated&&!family[`${m}Authenticated`])return `<div class="stack">${loginCard(m)}</div>`;
+      const d=child[m];
+      if(!d)return `<div class="stack"><article class="card login"><h2>تعذر تحميل مهامك</h2><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`;
+      const tasks=d.tasks||[],open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done),pts=pointsOf(tasks);
+      const cur=open.find(t=>t.id===focusId[m])||open[0];
+      const rest=open.filter(t=>t!==cur);
+      let msg;
+      if(!tasks.length)msg="لا توجد مهام اليوم. استمتع بوقتك!";
+      else if(!open.length)msg="أنجزت كل مهامك. أنت بطل!";
+      else if(!done.length)msg=`يلا نبدأ! عندك ${open.length===1?"مهمة واحدة":open.length+" مهام"} فقط`;
+      else msg=`رائع! بقي ${open.length===1?"مهمة واحدة":open.length+" مهام"}`;
+      let focus="";
+      if(cur){const ty=typeOf(cur.type);focus=`<article class="card focus pop" style="--tc:${ty.c}"><span class="kicker">${rest.length||done.length?"مهمتك الآن":"مهمتك اليوم"}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2>${cur.note?`<p class="note">${esc(cur.note)}</p>`:""}<p class="reward">⭐ تربح ${cur.points} نقطة · ${ty.l}</p><button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button></article>`}
+      else if(tasks.length)focus=`<article class="card celebrate pop"><div class="trophy" aria-hidden="true">🏆</div><h2>أحسنت يا ${p.name}!</h2><p class="muted">ربحت ${pts} نقطة اليوم. استرح، فقد استحققت ذلك.</p></article>`;
+      const events=(d.events||[]);
+      return `${hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
+      <div class="stack">
+        ${family.parentAuthenticated?`<div class="chip">👀 عرض الوالدين</div>`:""}
+        <article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>
+        ${events.length?`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`:""}
+        ${focus}
+        ${rest.length?`<article class="card"><div class="card-title"><h2>بعدها</h2><span class="count">${rest.length}</span></div><div class="list">${rest.map(t=>{const ty=typeOf(t.type);return `<button class="task" style="--tc:${ty.c}" data-action="focus" data-member="${m}" data-id="${t.id}" aria-label="ابدأ: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${t.points}</span></span></span><span aria-hidden="true">←</span></button>`}).join("")}</div></article>`:""}
+        ${done.length?`<article class="card"><details class="fold" ${open.length?"":"open"}><summary>أنجزت اليوم (${done.length})</summary><div class="list">${done.map(t=>{const ty=typeOf(t.type);return `<div class="task done" style="--tc:${ty.c}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${t.points}</span></span></span><span class="check on" aria-hidden="true">✓</span></div>`}).join("")}</div></details></article>`:""}
+        ${!family.parentAuthenticated?`<button class="btn btn-line" data-action="logout-child" data-member="${m}">🔒 قفل منطقتي</button>`:""}
+      </div>`;
+    }
+
+    /* ======================= render ======================= */
+    function render(){
+      document.body.dataset.area=area;
+      $("themeColor").content=PEOPLE[area].color;
+      document.querySelectorAll(".tab").forEach(b=>{const on=b.dataset.area===area;b.classList.toggle("active",on);b.setAttribute("aria-current",on?"page":"false")});
+      const y=scrollY;
+      $("root").innerHTML=loading?skeleton():(area==="parent"?parentView():childView(area));
+      $("fabRoot").innerHTML=(!loading&&area==="parent"&&family.parentAuthenticated&&dashboard)?`<button class="fab" data-action="add-task" aria-label="مهمة جديدة">＋ مهمة</button>`:"";
+      scrollTo(0,y);
+    }
+
+    /* ======================= modals ======================= */
+    function modal(title,html){
+      $("modalRoot").innerHTML=`<section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="x" data-action="close" aria-label="إغلاق">✕</button></div>${html}</section>`;
+      const f=$("modalRoot").querySelector("input[type=text],input:not([type]),select");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
+    }
+    function close(){$("modalRoot").innerHTML=""}
+    function syncDraft(){const t=$("taskTitle"),n=$("taskNote");if(t)draft.title=t.value;if(n)draft.note=n.value}
+
+    function taskModal(){
+      const ty=typeOf(draft.type);
+      modal("مهمة جديدة",`<form class="form" id="taskForm">
+        <div><span class="label">لمن؟</span><div class="seg" role="group">${[["yaman","🦸‍♂️ يَمان"],["judy","🦸‍♀️ جودي"],["both","👫 كلاهما"]].map(([k,l])=>`<button type="button" class="${draft.who===k?"on":""}" data-action="d-who" data-v="${k}">${l}</button>`).join("")}</div></div>
+        <div><span class="label">نوع المهمة</span><div class="types">${Object.entries(TYPES).map(([k,v])=>`<button type="button" class="${draft.type===k?"on":""}" style="--tc:${v.c}" data-action="d-type" data-v="${k}"><span>${v.i}</span>${v.l}</button>`).join("")}</div></div>
+        <label class="field"><span>ما المطلوب؟</span><input id="taskTitle" type="text" required maxlength="180" placeholder="جملة قصيرة وواضحة" value="${esc(draft.title)}" autocomplete="off">${ty.s.length?`<div class="sugg">${ty.s.map(s=>`<button type="button" data-action="d-sugg" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div>`:""}</label>
+        <div><span class="label">النقاط</span><div class="stepper"><button type="button" data-action="d-pts" data-v="-5" aria-label="أقل">−</button><output>⭐ ${draft.points}</output><button type="button" data-action="d-pts" data-v="5" aria-label="أكثر">＋</button></div></div>
+        <label class="field"><span>ملاحظة للطفل (اختياري)</span><input id="taskNote" type="text" maxlength="500" placeholder="مثال: بعد الغداء مباشرة" value="${esc(draft.note)}" autocomplete="off"></label>
+        <button class="btn btn-primary btn-big" type="submit">حفظ المهمة</button>
+      </form>`);
+    }
+    function eventModal(){
+      modal("موعد جديد",`<form class="form" id="eventForm">
+        <label class="field"><span>لمن؟</span><select id="eventMember"><option value="family">كل العائلة</option><option value="yaman">يَمان</option><option value="judy">جودي</option></select></label>
+        <label class="field"><span>العنوان</span><input id="eventTitle" type="text" required maxlength="140" placeholder="مثال: زيارة الجدة" autocomplete="off"></label>
+        <div class="grid2" style="gap:12px"><label class="field"><span>التاريخ</span><input id="eventDate" type="date" value="${today()}" required></label><label class="field"><span>الوقت (اختياري)</span><input id="eventTime" type="time"></label></div>
+        <button class="btn btn-primary btn-big" type="submit">حفظ الموعد</button>
+      </form>`);
+    }
+    function confirmModal(title,text,action,id){
+      modal(title,`<p class="muted" style="margin-bottom:16px">${esc(text)}</p><div class="actions"><button class="btn btn-danger" data-action="${action}" data-id="${esc(id)}">نعم، احذف</button><button class="btn btn-line" data-action="close">تراجع</button></div>`);
+    }
+    async function projectsModal(){
+      if(!tick.connected)return toast("اربط TickTick أولاً.","err");
+      projects=(await api("/api/ticktick/projects")).projects||[];
+      let saved=[];try{saved=JSON.parse(localStorage.getItem("hero-projects")||"[]")}catch{}
+      chosenProjects=new Set(saved);if(!chosenProjects.size)projects.forEach(p=>chosenProjects.add(p.id));
+      drawProjects();
+    }
+    function drawProjects(){
+      modal("قوائم TickTick للاستيراد",`<p class="muted" style="margin-bottom:12px">اختر القوائم التي تُستورد منها مهام اليوم.</p>${projects.map(p=>`<button class="pick ${chosenProjects.has(p.id)?"on":""}" data-action="toggle-project" data-id="${esc(p.id)}"><span class="box">${chosenProjects.has(p.id)?"✓":""}</span><span>${esc(p.name)}</span></button>`).join("")||`<div class="empty">لا توجد قوائم.</div>`}<button class="btn btn-primary btn-big" data-action="save-projects" style="margin-top:8px">حفظ الاختيار</button>`);
+    }
+    async function importModal(){
+      if(!tick.connected)return toast("اربط TickTick أولاً.","err");
+      let ids=[];try{ids=JSON.parse(localStorage.getItem("hero-projects")||"[]")}catch{}
+      const q=ids.length?`?projectIds=${encodeURIComponent(ids.join(","))}`:"";
+      importTasks=(await api(`/api/ticktick/today-tasks${q}`)).tasks||[];chosenTasks=new Set();drawImport();
+    }
+    function drawImport(){
+      const n=chosenTasks.size;
+      modal("استيراد من TickTick",`<p class="muted" style="margin-bottom:12px">مهام اليوم المفتوحة. اختر ما تريد ثم حدد لمن.</p>${importTasks.length?importTasks.map(t=>{const k=t.projectId+":"+t.id;return `<button class="pick ${chosenTasks.has(k)?"on":""}" data-action="toggle-import" data-key="${esc(k)}"><span class="box">${chosenTasks.has(k)?"✓":""}</span><span><b>${esc(t.title)}</b><br><small class="muted">${esc(t.projectName)}</small></span></button>`}).join(""):`<div class="empty"><b>🎉</b>لا توجد مهام بتاريخ اليوم</div>`}<div class="actions" style="margin-top:8px"><button class="btn btn-primary" data-action="assign-import" data-member="yaman" ${n?"":"disabled"}>إضافة ليَمان${n?` (${n})`:""}</button><button class="btn btn-primary" data-action="assign-import" data-member="judy" ${n?"":"disabled"}>إضافة لجودي${n?` (${n})`:""}</button></div>`);
+    }
+
+    /* ======================= actions ======================= */
+    async function completeTask(btn){
+      const m=btn.dataset.member,id=btn.dataset.id,task=child[m]?.tasks?.find(t=>t.id===id);
+      if(!task||task.done)return;
+      const r=btn.getBoundingClientRect();
+      task.done=true;buzz();render();
+      confetti(r.left+r.width/2,r.top+r.height/2,24);
+      const left=(child[m].tasks||[]).filter(t=>!t.done).length;
+      if(!left&&child[m].tasks.length){setTimeout(()=>confetti(innerWidth/2,innerHeight/3,70),250);toast(area!=="parent"?"أنجزت كل مهامك اليوم! 🏆":`+${task.points} نقطة ⭐ · كل المهام منجزة`,"ok")}
+      else toast(`+${task.points} نقطة ⭐`,"gold");
+      try{
+        await api(`/api/family/tasks/${id}/complete`,{method:"PATCH",body:JSON.stringify({assignee:m})});
+        await load();render();
+      }catch(err){task.done=false;render();toast(err.message,"err")}
+    }
+    async function pinKey(k){
+      if(pinBusy)return;
+      if(k==="back")pin=pin.slice(0,-1);
+      else if(k==="go"){if(pin.length<4){pinError="الرمز 4 أرقام على الأقل.";return paintPin(true)}return submitPin()}
+      else if(/^\d$/.test(k)&&pin.length<10)pin+=k;
+      pinError="";paintPin();
+    }
+    function paintPin(shake=false){
+      const dots=$("dots"),err=$("pinErr");if(!dots)return;
+      const n=Math.max(4,pin.length);
+      dots.innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<pin.length?"f":""}"></i>`).join("");
+      err.textContent=pinError;
+      if(shake){dots.classList.remove("shake");void dots.offsetWidth;dots.classList.add("shake");buzz(60)}
+    }
+    async function submitPin(){
+      pinBusy=true;const go=document.querySelector(".key-go");go?.classList.add("busy");
+      try{
+        const url=area==="parent"?"/api/family/parent/login":`/api/family/child/${area}/login`;
+        await api(url,{method:"POST",body:JSON.stringify({pin})});
+        pin="";pinError="";await refresh();
+      }catch(err){pinError=err.message;pin="";paintPin(true)}
+      finally{pinBusy=false;go?.classList.remove("busy")}
+    }
+
+    /* ======================= events ======================= */
+    document.addEventListener("click",async e=>{
+      const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
+      const b=e.target.closest("[data-area],[data-action]");
+      if(!b){if(e.target.id==="modalRoot")close();return}
+      if(b.dataset.area&&!b.dataset.action){
+        area=b.dataset.area;pin="";pinError="";localStorage.setItem("hero-area",area);history.replaceState(null,"",`?area=${area}`);render();scrollTo(0,0);return;
+      }
+      const a=b.dataset.action;
+      switch(a){
+        case "close":return close();
+        case "reload":return guard(b,()=>refresh());
+        case "add-task":draft={who:"yaman",type:"study",points:15,title:"",note:""};return taskModal();
+        case "add-event":return eventModal();
+        case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
+        case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
+        case "d-sugg":syncDraft();draft.title=b.dataset.v;taskModal();return;
+        case "d-pts":syncDraft();draft.points=Math.min(50,Math.max(0,draft.points+Number(b.dataset.v)));return taskModal();
+        case "projects":return guard(b,projectsModal);
+        case "import":return guard(b,importModal);
+        case "toggle-project":chosenProjects.has(b.dataset.id)?chosenProjects.delete(b.dataset.id):chosenProjects.add(b.dataset.id);return drawProjects();
+        case "save-projects":localStorage.setItem("hero-projects",JSON.stringify([...chosenProjects]));close();return toast("تم حفظ القوائم ✓","ok");
+        case "toggle-import":chosenTasks.has(b.dataset.key)?chosenTasks.delete(b.dataset.key):chosenTasks.add(b.dataset.key);return drawImport();
+        case "assign-import":return guard(b,async()=>{
+          let ok=0;
+          for(const k of chosenTasks){const t=importTasks.find(x=>`${x.projectId}:${x.id}`===k);if(!t)continue;
+            await api("/api/family/tasks",{method:"POST",body:JSON.stringify({assignee:b.dataset.member,title:t.title,type:"other",points:5,date:today(),note:t.content||"مستورد من TickTick",source:"ticktick",ticktickTaskId:t.id,ticktickProjectId:t.projectId,ticktickProjectName:t.projectName})});ok++}
+          close();await refresh();toast(`تمت إضافة ${ok} ${ok===1?"مهمة":"مهام"} ✓`,"ok");
+        });
+        case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
+        case "complete":return completeTask(b);
+        case "delete-task":return confirmModal("حذف المهمة؟",`«${b.dataset.title}» ستُحذف نهائياً.`,"do-delete-task",b.dataset.id);
+        case "do-delete-task":return guard(b,async()=>{await api(`/api/family/tasks/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
+        case "delete-event":return confirmModal("حذف الموعد؟","سيُحذف هذا الموعد من جدول العائلة.","do-delete-event",b.dataset.id);
+        case "do-delete-event":return guard(b,async()=>{await api(`/api/family/events/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
+        case "logout-parent":return guard(b,async()=>{await api("/api/family/parent/logout",{method:"POST"});await refresh()});
+        case "logout-child":return guard(b,async()=>{await api(`/api/family/child/${b.dataset.member}/logout`,{method:"POST"});await refresh()});
+      }
+    });
+
+    document.addEventListener("submit",async e=>{
+      const id=e.target.id;if(id!=="taskForm"&&id!=="eventForm")return;
+      e.preventDefault();const btn=e.target.querySelector("[type=submit]");
+      if(id==="taskForm")return guard(btn,async()=>{
+        syncDraft();const title=draft.title.trim();if(!title)return toast("اكتب المهمة أولاً.","err");
+        const who=draft.who==="both"?KIDS:[draft.who];
+        for(const w of who)await api("/api/family/tasks",{method:"POST",body:JSON.stringify({assignee:w,title,type:draft.type,points:draft.points,date:today(),note:draft.note,source:"parent"})});
+        close();await refresh();toast("تمت إضافة المهمة ✓","ok");
+      });
+      return guard(btn,async()=>{
+        await api("/api/family/events",{method:"POST",body:JSON.stringify({assignee:$("eventMember").value,title:$("eventTitle").value,date:$("eventDate").value,time:$("eventTime").value})});
+        close();await refresh();toast("تمت إضافة الموعد ✓","ok");
+      });
+    });
+
+    document.addEventListener("keydown",e=>{
+      if(e.key==="Escape"&&$("modalRoot").firstChild)return close();
+      if($("dots")&&!$("modalRoot").firstChild&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){
+        if(/^\d$/.test(e.key))pinKey(e.key);else if(e.key==="Backspace")pinKey("back");else if(e.key==="Enter")pinKey("go");
+      }
+    });
+
+    /* ======================= boot ======================= */
+    const tt=qs.get("ticktick");
+    if(tt){
+      const m={connected:["تم ربط TickTick ✓","ok"],denied:["تم إلغاء ربط TickTick.","err"],state_error:["تعذر التحقق من ربط TickTick. حاول مرة أخرى.","err"]}[tt];
+      if(m)setTimeout(()=>toast(m[0],m[1]),300);
+      history.replaceState(null,"",`?area=${area}`);
+    }
+    render();
+    refresh().catch(err=>{loading=false;$("root").innerHTML=`<div class="stack"><article class="card login"><h2>تعذر تشغيل التطبيق</h2><p class="muted">${esc(err.message)}</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`});
+  })();
+  </script>
+</body>
+</html>
