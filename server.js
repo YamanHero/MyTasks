@@ -32,8 +32,54 @@ class OpenAISkipError extends Error {
   }
 }
 
+function isAnthropicConfigured() {
+  return Boolean(process.env.ANTHROPIC_API_KEY);
+}
+
 function isOpenAIConfigured() {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return isAnthropicConfigured() || Boolean(process.env.OPENAI_API_KEY);
+}
+
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+
+// Claude is used instead of ChatGPT whenever ANTHROPIC_API_KEY is set.
+// Same payload shape in, same {output_text} shape out, so callers don't change.
+async function anthropicRequest(payload, timeoutMs) {
+  let prompt = String(payload?.input || "");
+  const schema = payload?.text?.format?.schema;
+  if (schema) {
+    prompt += "\n\nأعد JSON صالحًا فقط (بدون Markdown وبدون أي نص خارجه) ويطابق هذا المخطط تمامًا:\n" + JSON.stringify(schema);
+  }
+  const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: Math.min(16000, Math.max(300, Number(payload?.max_output_tokens) || 1500)),
+      messages: [{ role: "user", content: prompt }]
+    })
+  }, timeoutMs);
+  const body = await readResponseBody(response);
+  if (!response.ok) {
+    const message = body?.error?.message || `Claude request failed with status ${response.status}`;
+    if (response.status === 429 || response.status === 402 || /credit|billing|quota/i.test(message)) {
+      markOpenAISkipped("Claude quota/billing unavailable; using local fallback.");
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  let text = (Array.isArray(body?.content) ? body.content : []).map((c) => c?.text || "").join("").trim();
+  if (schema) {
+    const a = text.indexOf("{");
+    const b = text.lastIndexOf("}");
+    if (a >= 0 && b > a) text = text.slice(a, b + 1);
+  }
+  return { output_text: text, provider: "anthropic" };
 }
 
 function isOpenAISkipped() {
@@ -81,6 +127,10 @@ function isModelAccessError(status, message = "") {
 }
 
 async function openAIResponsesRequest(payload, timeoutMs = OPENAI_TIMEOUT_MS) {
+  if (isAnthropicConfigured()) {
+    if (isOpenAISkipped()) throw new OpenAISkipError(openAISkipMessage());
+    return anthropicRequest(payload, timeoutMs);
+  }
   if (payload?.model && payload.model !== OPENAI_FALLBACK_MODEL && unusableModels.has(payload.model)) {
     payload = { ...payload, model: OPENAI_FALLBACK_MODEL };
   }
