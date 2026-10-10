@@ -446,10 +446,40 @@ async function completeTickTickTaskIfPossible(req, res, task) {
   }
 }
 
+const BUILTIN_MEMBER_IDS = ["yaman", "judy"];
 const FAMILY_MEMBERS = {
-  yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان" },
-  judy: { id: "judy", name: "جودي", label: "منطقة جودي" }
+  yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان", icon: "🦸‍♂️", age: 15, builtin: true },
+  judy: { id: "judy", name: "جودي", label: "منطقة جودي", icon: "🦸‍♀️", age: 8, builtin: true }
 };
+const memberPinHashes = new Map();
+const MAX_FAMILY_MEMBERS = 8;
+
+function hashMemberPin(pin) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${crypto.scryptSync(String(pin), salt, 32).toString("hex")}`;
+}
+
+function verifyMemberPin(pin, stored) {
+  const [salt, hash] = String(stored || "").split(":");
+  if (!salt || !hash) return false;
+  const expected = Buffer.from(hash, "hex");
+  const actual = crypto.scryptSync(String(pin), salt, expected.length);
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+function publicMember(member) {
+  return { id: member.id, name: member.name, label: member.label, icon: member.icon, age: member.age, builtin: Boolean(member.builtin) };
+}
+
+async function loadFamilyMembers() {
+  const { rows } = await pool.query(`SELECT id, name, icon, age, pin_hash FROM hero_family_members ORDER BY created_at ASC`);
+  for (const id of Object.keys(FAMILY_MEMBERS)) if (!BUILTIN_MEMBER_IDS.includes(id)) { delete FAMILY_MEMBERS[id]; memberPinHashes.delete(id); }
+  for (const row of rows) {
+    if (BUILTIN_MEMBER_IDS.includes(row.id)) continue;
+    FAMILY_MEMBERS[row.id] = { id: row.id, name: row.name, label: `منطقة ${row.name}`, icon: row.icon || "🌟", age: Number(row.age) || 10, builtin: false };
+    if (row.pin_hash) memberPinHashes.set(row.id, row.pin_hash);
+  }
+}
 
 const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false })
@@ -513,6 +543,25 @@ async function ensureFamilyDatabase() {
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS timer_minutes INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+        ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS checklist JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS checklist_done JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE hero_family_tasks DROP CONSTRAINT IF EXISTS hero_family_tasks_assignee_check;
+
+        CREATE TABLE IF NOT EXISTS hero_family_members (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          icon TEXT NOT NULL DEFAULT '',
+          age INTEGER NOT NULL DEFAULT 10,
+          pin_hash TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS hero_family_program_runs (
+          assignee TEXT NOT NULL,
+          run_date DATE NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (assignee, run_date)
+        );
 
         CREATE INDEX IF NOT EXISTS hero_family_tasks_assignee_date_idx
           ON hero_family_tasks (assignee, due_date, done);
@@ -528,6 +577,7 @@ async function ensureFamilyDatabase() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
+        ALTER TABLE hero_family_events DROP CONSTRAINT IF EXISTS hero_family_events_assignee_check;
         CREATE INDEX IF NOT EXISTS hero_family_events_date_idx ON hero_family_events (event_date, assignee);
 
         CREATE TABLE IF NOT EXISTS hero_family_prayer_times (
@@ -543,6 +593,7 @@ async function ensureFamilyDatabase() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      await loadFamilyMembers();
     })().catch((error) => {
       familyDatabaseReady = null;
       throw error;
@@ -567,7 +618,15 @@ function childPinVariableName(assignee) {
 }
 
 function childPinConfigured(assignee) {
+  if (memberPinHashes.has(assignee)) return true;
   return normalizePinText(process.env[childPinVariableName(assignee)]).length >= 4;
+}
+
+function checkChildPin(assignee, pin) {
+  const envName = childPinVariableName(assignee);
+  if (normalizePinText(process.env[envName]).length >= 4) return secureEqualText(pin, process.env[envName]);
+  if (memberPinHashes.has(assignee)) return verifyMemberPin(normalizePinText(pin), memberPinHashes.get(assignee));
+  return false;
 }
 
 function createParentSession() {
@@ -608,6 +667,31 @@ function writeChildSession(res, assignee) {
   appendSetCookie(res, makeCookie(childSessionCookieName(assignee), createChildSession(assignee), 60 * 60 * 12));
 }
 
+const DEFAULT_CHECKLISTS = {
+  study: ["جهّز الكتب والدفتر والقلم", "اقرأ المطلوب بهدوء", "ابدأ بالجزء الأول", "اكتب أو قل ما فهمته", "اطلب مساعدة إذا احتجت"],
+  prayer: ["توضأ بهدوء", "اتجه إلى القبلة", "صلِّ دون استعجال", "اذكر الله بعد الصلاة"],
+  routine: ["افعل الخطوة الأولى", "افعل الخطوة الثانية", "تأكد أنك أنهيت كل شيء"],
+  home: ["اعرف المطلوب بالضبط", "حضّر ما تحتاجه", "نفّذ المهمة", "أعد الأشياء إلى مكانها"],
+  movement: ["اشرب ماء", "ابدأ بحركة خفيفة", "استمر حتى ينتهي الوقت", "اجلس وخذ نفساً هادئاً"],
+  creative: ["اختر فكرة واحدة", "ابدأ بنسخة بسيطة", "أضف تفصيلاً واحداً", "احفظ ما أنجزته"],
+  breathing: ["اجلس بوضع مريح", "تنفّس ببطء أربع مرات", "لاحظ جسمك", "ارجع لمهامك"],
+  social: ["اختر جملة واحدة", "قلها بصوت هادئ", "استمع للرد", "انتهى"],
+  youtube: ["اختر فكرة واحدة", "اكتب الهدف في جملة", "جرّب تسجيلاً قصيراً", "راجع الخصوصية والجودة"],
+  other: ["اقرأ المطلوب", "ابدأ بخطوة صغيرة", "أكمل المهمة", "تأكد أنك انتهيت"]
+};
+
+function safeChecklist(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => safeText(typeof item === "string" ? item : item?.text, 90)).filter(Boolean).slice(0, 8);
+}
+
+function checklistFromRow(row) {
+  const own = Array.isArray(row.checklist) ? safeChecklist(row.checklist) : [];
+  const steps = own.length ? own : (DEFAULT_CHECKLISTS[row.task_type] || DEFAULT_CHECKLISTS.other);
+  const doneIdx = new Set((Array.isArray(row.checklist_done) ? row.checklist_done : []).map(Number));
+  return steps.map((text, index) => ({ text, done: doneIdx.has(index) }));
+}
+
 function mapFamilyTask(row) {
   const basePoints = Number(row.points || 0);
   const bonusPoints = taskBonusPointsFromRow(row);
@@ -636,7 +720,8 @@ function mapFamilyTask(row) {
     ticktickTaskId: row.ticktick_task_id || null,
     ticktickProjectId: row.ticktick_project_id || null,
     ticktickProjectName: row.ticktick_project_name || "",
-    ticktickCompleted: Boolean(row.ticktick_completed)
+    ticktickCompleted: Boolean(row.ticktick_completed),
+    checklist: checklistFromRow(row)
   };
 }
 function mapFamilyEvent(row) {
@@ -811,13 +896,13 @@ async function previousIncompleteSummary(date) {
       GROUP BY assignee`,
     [previousDate]
   );
-  const summary = { yaman: 0, judy: 0 };
+  const summary = Object.fromEntries(Object.keys(FAMILY_MEMBERS).map((id) => [id, 0]));
   for (const row of rows) {
     if (Object.prototype.hasOwnProperty.call(summary, row.assignee)) {
       summary[row.assignee] = Number(row.incomplete_count || 0);
     }
   }
-  return { previousDate, summary, total: summary.yaman + summary.judy };
+  return { previousDate, summary, total: Object.values(summary).reduce((sum, value) => sum + value, 0) };
 }
 
 async function previousIncompleteForMember(date, assignee) {
@@ -1290,28 +1375,132 @@ async function insertCoachPlanTasks(req, res, plan, date) {
   return inserted;
 }
 
-async function seedTodayTasksForMember(req, res, member, date) {
+
+/* ===================== Fixed weekly program (no AI needed) =====================
+   Study days: Mon, Tue, Wed, Thu, Sat. Fri and Sun are lighter (no study block).
+   Teens (13+) get a 2-hour review block; younger children get two short sessions with a break. */
+const STUDY_WEEKDAYS = new Set([1, 2, 3, 4, 6]);
+
+function weekdayOfDateKey(date) {
+  return new Date(`${familyDateKey(date)}T12:00:00Z`).getUTCDay();
+}
+
+function programTask(title, type, time, timer, note, checklist, points) {
+  return { title, type, suggestedTime: time, timerMinutes: timer, note, checklist, points: points ?? (type === "prayer" ? 0 : 10), source: "program" };
+}
+
+function buildProgramTasks(member, date) {
+  const info = FAMILY_MEMBERS[member];
+  const teen = (info?.age || 10) >= 13;
+  const day = weekdayOfDateKey(date);
+  const study = STUDY_WEEKDAYS.has(day);
+  const tasks = [];
+
+  tasks.push(programTask("نظافة شخصية صباحية", "routine", "07:00", 10,
+    "روتين ثابت كل صباح، بنفس الترتيب.",
+    ["اغسل وجهك بالماء والصابون", "نظّف أسنانك بالفرشاة لمدة دقيقتين", "رتّب شعرك", "البس ملابس نظيفة", "رتّب سريرك"]));
+
+  if (study && teen) {
+    tasks.push(programTask("مراجعة الدروس (ساعتان)", "study", "16:00", 120,
+      "ساعتان من المراجعة، في جلستين بينهما استراحة قصيرة.",
+      ["جهّز الكتب والدفتر والقلم وكوب ماء", "ضع هاتفك بعيداً عنك", "الجلسة الأولى: راجع 50 دقيقة", "استراحة 10 دقائق: قف وتحرّك واشرب", "الجلسة الثانية: راجع 50 دقيقة", "اكتب ما راجعته في ثلاثة أسطر", "اكتب سؤالاً واحداً لتسأل عنه غداً"], 20));
+  } else if (study) {
+    tasks.push(programTask("مراجعة الدروس: الجزء الأول", "study", "15:30", 30,
+      "ثلاثون دقيقة فقط، ثم استراحة.",
+      ["جهّز الكتاب والدفتر والقلم", "اقرأ الدرس الأول", "حلّ التمرين الأول", "ضع علامة على ما لم تفهمه"], 15));
+    tasks.push(programTask("استراحة حركة", "movement", "16:05", 10,
+      "حركة قصيرة بين جلستين.",
+      ["اشرب ماء", "تحرّك أو اقفز عشر مرات", "اجلس وخذ نفساً هادئاً"], 5));
+    tasks.push(programTask("مراجعة الدروس: الجزء الثاني", "study", "16:20", 30,
+      "الجلسة الأخيرة اليوم.",
+      ["اقرأ الدرس الثاني", "حلّ التمرين الثاني", "اقرأ ما كتبته مرة واحدة", "اطلب من أحد أن يسمع ما تعلمته"], 15));
+  } else {
+    tasks.push(programTask(teen ? "وقت هواية أو قراءة حرة" : "قراءة قصة أو رسم حر", "creative", "16:00", 30,
+      "ليس يوم مراجعة. وقت حر ومريح.",
+      ["اختر شيئاً تحبه: كتاب أو رسم أو هواية", "افعله لمدة نصف ساعة", "رتّب أدواتك بعد الانتهاء"], 10));
+  }
+
+  if (day === 5) {
+    tasks.push(programTask("الاستعداد لصلاة الجمعة", "prayer", "11:30", 0,
+      "الجمعة يوم مميز. اغتسل وتطيّب واذهب مع أهلك.",
+      ["اغتسل", "البس ملابس نظيفة", "تطيّب", "اذهب إلى الصلاة مع أهلك"]));
+  }
+
+  tasks.push(programTask(teen ? "رياضة أو مشي" : "لعب بالحركة", "movement", "17:15", 25,
+    "حركة يومية خفيفة.",
+    ["اشرب ماء", "ابدأ بتمدد خفيف", teen ? "امشِ أو مارس رياضتك 20 دقيقة" : "العب بالحركة 20 دقيقة", "اجلس وخذ نفساً هادئاً"], 10));
+
+  tasks.push(programTask(teen ? "ترتيب الغرفة وتجهيز الغد" : "ترتيب الألعاب وتجهيز الحقيبة", "home", "19:30", 15,
+    "تجهيز اليوم التالي يجعل الصباح أهدأ.",
+    teen
+      ? ["ضع الأشياء المبعثرة في أماكنها", "جهّز الحقيبة والكتب لغد", "حضّر ملابس الغد", "اشحن هاتفك خارج غرفة النوم"]
+      : ["ضع الألعاب في مكانها", "جهّز الحقيبة", "ضع ملابس الغد على الكرسي"]));
+
+  tasks.push(programTask("نظافة شخصية مسائية", "routine", "20:45", 10,
+    "روتين ثابت قبل النوم.",
+    ["نظّف أسنانك بالفرشاة", "اغسل وجهك ويديك", "البس ملابس النوم"]));
+
+  tasks.push(programTask("أذكار النوم وقراءة القرآن", "prayer", "21:00", 15,
+    teen ? "قبل النوم: أذكار، ثم قرآن، ثم نوم. بلا نقاط." : "قبل النوم: أذكار ثم سورة قصيرة. بلا نقاط.",
+    teen
+      ? ["اقرأ آية الكرسي", "اذكر الله: تسبيح وحمد وتكبير", "اقرأ ما تيسّر من القرآن", "أطفئ الشاشة ونم"]
+      : ["اقرأ آية الكرسي مع أحد أهلك", "اقرأ سورة قصيرة", "قل: الحمد لله", "نم"]));
+
+  return tasks;
+}
+
+const programLocks = new Map();
+
+function applyProgramForMember(member, date, options = {}) {
+  const key = `${member}:${familyDateKey(date)}`;
+  const previous = programLocks.get(key) || Promise.resolve();
+  const next = previous.catch(() => {}).then(() => applyProgramNow(member, date, options));
+  programLocks.set(key, next);
+  next.finally(() => { if (programLocks.get(key) === next) programLocks.delete(key); }).catch(() => {});
+  return next;
+}
+
+async function applyProgramNow(member, date, { force = false } = {}) {
   await ensureFamilyDatabase();
   if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
-  const existing = await getFamilyTasks(member, date);
-  if (existing.some((task) => task.type !== "prayer")) {
-    return { inserted: [], skipped: true, reason: "توجد مهام بالفعل لهذا الطفل اليوم." };
+  const day = familyDateKey(date);
+
+  const claimed = await pool.query(`INSERT INTO hero_family_program_runs (assignee, run_date) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING 1`, [member, day]);
+  if (!force) {
+    if (!claimed.rows[0]) return { inserted: [], skipped: true, reason: "ran" };
+    const existing = await pool.query(`SELECT 1 FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND task_type <> 'prayer' LIMIT 1`, [member, day]);
+    if (existing.rows[0]) return { inserted: [], skipped: true, reason: "has_tasks" };
   }
-  const options = { fullDay: true, startTime: "06:00", endTime: "21:00", slots: hourlySlots("06:00", "21:00"), taskCount: hourlySlots("06:00", "21:00").length, goals: "خطة إنقاذ هادئة لليوم لأن القائمة كانت فارغة." };
-  const fallbackPlan = localDailyCoachPlan(options);
-  const prayerResult = await getPrayerTimesSafely(date);
-  const oneChildPlan = {
-    familyMessage: "خطة اليوم تم إنشاؤها يدويًا للطفل المحدد.",
-    children: {
-      yaman: { encouragement: fallbackPlan.children.yaman.encouragement, tasks: [] },
-      judy: { encouragement: fallbackPlan.children.judy.encouragement, tasks: [] }
-    }
-  };
-  oneChildPlan.children[member].tasks = fallbackPlan.children[member].tasks.map(normalizePlanTask);
-  const planWithPrayers = addPrayerTasksToPlan(oneChildPlan, prayerResult.prayerTimes);
-  const inserted = await insertCoachPlanTasks(req, res, planWithPrayers, date);
-  await autoDistributeTasksForDate(date, member);
+
+  const prayerResult = await getPrayerTimesSafely(day);
+  const tasks = [...buildProgramTasks(member, day), ...buildPrayerTasks(prayerResult.prayerTimes)];
+  const inserted = [];
+  for (const task of tasks) {
+    const exists = await pool.query(`SELECT 1 FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND title = $3 LIMIT 1`, [member, day, task.title]);
+    if (exists.rows[0]) continue;
+    const { rows } = await pool.query(
+      `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, checklist)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) RETURNING *`,
+      [crypto.randomUUID(), member, task.title, task.type, task.type === "prayer" ? 0 : (task.points ?? 10), day, task.note || "", safeTime(task.suggestedTime), safeTimerMinutes(task.timerMinutes), task.source || "program", JSON.stringify(safeChecklist(task.checklist))]
+    );
+    inserted.push(mapFamilyTask(rows[0]));
+  }
+  await autoDistributeTasksForDate(day, member);
   return { inserted, warning: prayerResult.warning || "" };
+}
+
+async function ensureTodayProgram(member, date) {
+  if (process.env.PROGRAM_AUTO === "off") return;
+  if (familyDateKey(date) !== dateKeyInTimeZone(new Date())) return;
+  try {
+    await applyProgramForMember(member, date);
+  } catch (error) {
+    console.warn("Could not apply the daily program:", error.message);
+  }
+}
+
+async function seedTodayTasksForMember(req, res, member, date) {
+  return applyProgramForMember(member, date, { force: true });
 }
 
 function localEndDayMessage(member, tasks) {
@@ -1441,16 +1630,26 @@ app.get("/api/system/diagnostics", asyncRoute(async (req, res) => {
   });
 }));
 
+app.use((req, res, next) => {
+  if (pool && /^\/(api\/family|auth\/child)(\/|$)/.test(req.path)) {
+    ensureFamilyDatabase().then(() => next(), () => next());
+  } else {
+    next();
+  }
+});
+
 app.get("/api/family/status", (req, res) => {
+  const perMember = {};
+  for (const id of Object.keys(FAMILY_MEMBERS)) {
+    perMember[`${id}PinConfigured`] = childPinConfigured(id);
+    perMember[`${id}Authenticated`] = hasChildSession(req, id);
+  }
   res.json({
     databaseConfigured: Boolean(pool),
     parentPinConfigured: parentPinConfigured(),
     parentAuthenticated: hasParentSession(req),
-    yamanPinConfigured: childPinConfigured("yaman"),
-    judyPinConfigured: childPinConfigured("judy"),
-    yamanAuthenticated: hasChildSession(req, "yaman"),
-    judyAuthenticated: hasChildSession(req, "judy"),
-    members: Object.values(FAMILY_MEMBERS)
+    ...perMember,
+    members: Object.values(FAMILY_MEMBERS).map(publicMember)
   });
 });
 
@@ -1490,7 +1689,7 @@ app.post("/auth/child/:assignee/login", asyncRoute(async (req, res) => {
 
   const pin = normalizePinText(req.body?.pin);
 
-  if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) {
+  if (!checkChildPin(assignee, pin)) {
     return res.redirect(303, `/?area=${encodeURIComponent(assignee)}&childLogin=invalid`);
   }
 
@@ -1501,11 +1700,11 @@ app.post("/auth/child/:assignee/login", asyncRoute(async (req, res) => {
 app.post("/api/family/child/:assignee/login", asyncRoute(async (req, res) => {
   const assignee = String(req.params.assignee || "").toLowerCase();
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
-  if (!childPinConfigured(assignee)) throw new PublicError(503, `أضف ${childPinVariableName(assignee)} في Railway أولاً.`);
+  if (!childPinConfigured(assignee)) throw new PublicError(503, FAMILY_MEMBERS[assignee]?.builtin === false ? "لم يُحدَّد رمز دخول لهذا المستخدم." : `أضف ${childPinVariableName(assignee)} في Railway أولاً.`);
   const pin = normalizePinText(req.body?.pin);
-  if (!secureEqualText(pin, process.env[childPinVariableName(assignee)])) throw new PublicError(401, "رمز الدخول غير صحيح.");
+  if (!checkChildPin(assignee, pin)) throw new PublicError(401, "رمز الدخول غير صحيح.");
   writeChildSession(res, assignee);
-  res.json({ authenticated: true, member: FAMILY_MEMBERS[assignee] });
+  res.json({ authenticated: true, member: publicMember(FAMILY_MEMBERS[assignee]) });
 }));
 
 app.post("/api/family/child/:assignee/logout", (req, res) => {
@@ -1528,6 +1727,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
   const date = familyDateKey(req.query.date);
+  for (const memberId of Object.keys(FAMILY_MEMBERS)) await ensureTodayProgram(memberId, date);
   const distribution = await autoDistributeFamilyDate(date);
   const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -1540,7 +1740,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
       [date]
     )
   ]);
-  const summary = { yaman: { open: 0, done: 0, total: 0 }, judy: { open: 0, done: 0, total: 0 } };
+  const summary = Object.fromEntries(Object.keys(FAMILY_MEMBERS).map((id) => [id, { open: 0, done: 0, total: 0 }]));
   for (const row of tasks) {
     if (summary[row.assignee]) summary[row.assignee] = { open: Number(row.open_count || 0), done: Number(row.done_count || 0), total: Number(row.total_count || 0) };
   }
@@ -1550,6 +1750,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
     previousIncomplete,
     autoDistribution: distribution,
     summary,
+    members: Object.values(FAMILY_MEMBERS).map(publicMember),
     events: events.map(mapFamilyEvent)
   });
 }));
@@ -1559,8 +1760,9 @@ app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
   requireChildOrParent(req, assignee);
   const date = familyDateKey(req.query.date);
+  await ensureTodayProgram(assignee, date);
   const [tasks, events, previousIncomplete] = await Promise.all([getFamilyTasks(assignee, date), getFamilyEvents(assignee, date), previousIncompleteForMember(date, assignee)]);
-  res.json({ member: FAMILY_MEMBERS[assignee], date, todayStart: true, previousIncomplete, tasks, events, parentAuthenticated: hasParentSession(req) });
+  res.json({ member: publicMember(FAMILY_MEMBERS[assignee]), date, todayStart: true, previousIncomplete, tasks, events, parentAuthenticated: hasParentSession(req) });
 }));
 
 app.post("/api/family/tasks", asyncRoute(async (req, res) => {
@@ -1575,6 +1777,7 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   const suggestedTime = safeTime(req.body?.suggestedTime);
   const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
   const source = safeText(req.body?.source, 30) || "parent";
+  const checklist = safeChecklist(req.body?.checklist);
   if (!isFamilyMember(assignee) || !title) throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
 
   const id = crypto.randomUUID();
@@ -1594,8 +1797,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   let tick = initialTask.ticktickTaskId ? null : await createTickTickTaskIfPossible(req, res, initialTask);
 
   const { rows } = await pool.query(
-    `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name, checklist)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb) RETURNING *`,
     [
       id,
       assignee,
@@ -1609,7 +1812,8 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
       source,
       initialTask.ticktickTaskId || tick?.ticktickTaskId || null,
       initialTask.ticktickProjectId || tick?.ticktickProjectId || null,
-      initialTask.ticktickProjectName || tick?.ticktickProjectName || null
+      initialTask.ticktickProjectName || tick?.ticktickProjectName || null,
+      JSON.stringify(checklist)
     ]
   );
   await autoDistributeTasksForDate(dueDate, assignee);
@@ -1644,6 +1848,8 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
            note = $7,
            suggested_time = $8,
            timer_minutes = $9,
+           checklist = CASE WHEN $10::boolean THEN $11::jsonb ELSE checklist END,
+           checklist_done = CASE WHEN $10::boolean THEN '[]'::jsonb ELSE checklist_done END,
            updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -1656,7 +1862,9 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
       dueDate,
       note,
       suggestedTime,
-      timerMinutes
+      timerMinutes,
+      Array.isArray(req.body?.checklist),
+      JSON.stringify(safeChecklist(req.body?.checklist))
     ]
   );
 
@@ -1667,6 +1875,73 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
   await autoDistributeTasksForDate(dueDate, assignee);
   const updated = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [rows[0].id]);
   res.json({ task: mapFamilyTask(updated.rows[0] || rows[0]) });
+}));
+
+app.patch("/api/family/tasks/:id/check", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  const found = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [req.params.id]);
+  const row = found.rows[0];
+  if (!row) throw new PublicError(404, "لم نجد هذه المهمة.");
+  requireChildOrParent(req, row.assignee);
+  const steps = checklistFromRow(row);
+  const index = Number(req.body?.index);
+  if (!Number.isInteger(index) || index < 0 || index >= steps.length) throw new PublicError(400, "خطوة غير صحيحة.");
+  const doneSet = new Set(steps.map((step, i) => (step.done ? i : -1)).filter((i) => i >= 0));
+  if (req.body?.done === false) doneSet.delete(index); else doneSet.add(index);
+  const { rows } = await pool.query(
+    `UPDATE hero_family_tasks SET checklist_done = $2::jsonb, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    [row.id, JSON.stringify([...doneSet].sort((a, b) => a - b))]
+  );
+  res.json({ task: mapFamilyTask(rows[0]) });
+}));
+
+app.get("/api/family/members", (req, res) => {
+  res.json({ members: Object.values(FAMILY_MEMBERS).map(publicMember) });
+});
+
+app.post("/api/family/members", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const name = safeText(req.body?.name, 24);
+  const age = Math.round(Number(req.body?.age));
+  const pin = normalizePinText(req.body?.pin);
+  const icon = safeText(req.body?.icon, 8) || (age >= 13 ? "🦸" : "🌟");
+  if (!name) throw new PublicError(400, "اكتب اسم المستخدم.");
+  if (!Number.isFinite(age) || age < 3 || age > 30) throw new PublicError(400, "اكتب عمراً بين 3 و30.");
+  if (!/^\d{4,8}$/.test(pin)) throw new PublicError(400, "رمز الدخول من 4 إلى 8 أرقام.");
+  if (Object.keys(FAMILY_MEMBERS).length >= MAX_FAMILY_MEMBERS) throw new PublicError(400, "وصلتم للحد الأقصى من المستخدمين.");
+  if (Object.values(FAMILY_MEMBERS).some((member) => member.name === name)) throw new PublicError(400, "هذا الاسم موجود بالفعل.");
+  const id = `u${crypto.randomBytes(4).toString("hex")}`;
+  await pool.query(`INSERT INTO hero_family_members (id, name, icon, age, pin_hash) VALUES ($1,$2,$3,$4,$5)`, [id, name, icon, age, hashMemberPin(pin)]);
+  await loadFamilyMembers();
+  res.status(201).json({ member: publicMember(FAMILY_MEMBERS[id]) });
+}));
+
+app.post("/api/family/members/:id/pin", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const id = String(req.params.id || "");
+  const member = FAMILY_MEMBERS[id];
+  if (!member || member.builtin) throw new PublicError(400, "رمز هذا المستخدم يُضبط من إعدادات Railway.");
+  const pin = normalizePinText(req.body?.pin);
+  if (!/^\d{4,8}$/.test(pin)) throw new PublicError(400, "رمز الدخول من 4 إلى 8 أرقام.");
+  await pool.query(`UPDATE hero_family_members SET pin_hash = $2 WHERE id = $1`, [id, hashMemberPin(pin)]);
+  await loadFamilyMembers();
+  res.json({ ok: true });
+}));
+
+app.delete("/api/family/members/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const id = String(req.params.id || "");
+  const member = FAMILY_MEMBERS[id];
+  if (!member || member.builtin) throw new PublicError(400, "لا يمكن حذف هذا المستخدم.");
+  await pool.query(`DELETE FROM hero_family_tasks WHERE assignee = $1`, [id]);
+  await pool.query(`DELETE FROM hero_family_events WHERE assignee = $1`, [id]);
+  await pool.query(`DELETE FROM hero_family_program_runs WHERE assignee = $1`, [id]);
+  await pool.query(`DELETE FROM hero_family_members WHERE id = $1`, [id]);
+  await loadFamilyMembers();
+  res.status(204).end();
 }));
 
 app.patch("/api/family/tasks/:id/start", asyncRoute(async (req, res) => {
@@ -1751,7 +2026,16 @@ app.post("/api/family/child/:assignee/seed-today", asyncRoute(async (req, res) =
   const date = familyDateKey(req.body?.date || req.query?.date);
   const result = await seedTodayTasksForMember(req, res, assignee, date);
   const tasks = await getFamilyTasks(assignee, date);
-  res.json({ date, member: FAMILY_MEMBERS[assignee], tasks, ...result });
+  res.json({ date, member: publicMember(FAMILY_MEMBERS[assignee]), tasks, ...result });
+}));
+
+app.post("/api/family/child/:assignee/program", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const assignee = String(req.params.assignee || "").toLowerCase();
+  const date = familyDateKey(req.body?.date || req.query?.date);
+  const result = await applyProgramForMember(assignee, date, { force: true });
+  const tasks = await getFamilyTasks(assignee, date);
+  res.json({ date, member: publicMember(FAMILY_MEMBERS[assignee]), tasks, ...result });
 }));
 
 app.get("/api/prayer/today", asyncRoute(async (req, res) => {

@@ -19,24 +19,28 @@
     yaman:{name:"يَمان",icon:"🦸‍♂️",color:"#0891b2",sub:"خطوة واحدة واضحة في كل مرة."},
     judy:{name:"جودي",icon:"🦸‍♀️",color:"#d6246e",sub:"مهام قصيرة وواضحة."}
   };
-  const KIDS=["yaman","judy"];
+  let KIDS=["yaman","judy"];
+  const addPerson=(id,name,icon)=>{if(!PEOPLE[id])PEOPLE[id]={name:name||"…",icon:icon||"🌟",color:"#0f8a5f",sub:"خطوة واحدة واضحة في كل مرة."};else{PEOPLE[id].name=name||PEOPLE[id].name;PEOPLE[id].icon=icon||PEOPLE[id].icon}if(!KIDS.includes(id))KIDS.push(id)};
+  const syncMembers=list=>{(list||[]).forEach(m=>{if(m.id!=="yaman"&&m.id!=="judy")addPerson(m.id,m.name,m.icon)});KIDS=KIDS.filter(id=>id==="yaman"||id==="judy"||(list||[]).some(m=>m.id===id));Object.keys(PEOPLE).forEach(id=>{if(id!=="parent"&&!KIDS.includes(id))delete PEOPLE[id]});if(area!=="home"&&area!=="parent"&&!PEOPLE[area])area="home"};
   const TIMERS=[0,5,10,15,20,30,45,60];
   const PRAYER_KEYS=[["fajr","الفجر"],["sunrise","الشروق"],["dhuhr","الظهر"],["asr","العصر"],["maghrib","المغرب"],["isha","العشاء"]];
 
   /* ======================= state ======================= */
   const qs=new URLSearchParams(location.search);
   let stored="";try{stored=localStorage.getItem("hero-area")||""}catch{}
+  const isMid=v=>/^u[0-9a-f]{8}$/.test(v||"");
+  [qs.get("area"),stored].forEach(v=>{if(isMid(v))addPerson(v)});
   let area=(PEOPLE[qs.get("area")]||qs.get("area")==="home")?qs.get("area"):(PEOPLE[stored]?stored:"home");
   let pview="today";
   const pending=new Map();
-  let family={},tick={},dashboard=null,child={yaman:null,judy:null},prayer=null;
+  let family={},tick={},dashboard=null,child={},prayer=null;
   let loading=true,pin="",pinBusy=false,pinError="";
-  let focusId={yaman:null,judy:null};
+  let focusId={};
   let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
   let draft=newDraft();
   let help={task:null,member:"",mode:"full",question:"",loading:false,result:null,checked:new Set()};
   let breathTimer=null;
-  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,editId:null,...o}}
+  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,steps:"",editId:null,...o}}
 
   /* ======================= helpers ======================= */
   const $=id=>document.getElementById(id);
@@ -65,7 +69,7 @@
     if(err.status===401){toast("انتهت الجلسة. أدخل الرمز من جديد.","err");pin="";pinError="";return refresh().catch(()=>{})}
     toast(err.message,"err");
   }
-  const allTasks=()=>[...(child.yaman?.tasks||[]),...(child.judy?.tasks||[])];
+  const allTasks=()=>KIDS.flatMap(k=>child[k]?.tasks||[]);
   const findTask=id=>allTasks().find(t=>t.id===id);
   const stats=m=>{const l=(child[m]?.tasks||[]).filter(t=>!isPrayer(t));const done=l.filter(t=>t.done).length;return{total:l.length,done,open:l.length-done}};
   function buzz(ms=25){try{navigator.vibrate&&navigator.vibrate(ms)}catch{}}
@@ -73,9 +77,6 @@
   let soundOn=true;try{soundOn=localStorage.getItem("hero-sound")!=="off"}catch{}
   /* calm mode: no confetti/animation, one soft tone, fewer numbers, neutral wording */
   let lastFocus="";
-  const stepStore=(()=>{let o={};try{o=JSON.parse(localStorage.getItem("hero-steps")||"{}")}catch{}return o})();
-  const saveSteps=()=>{try{const k=Object.keys(stepStore);if(k.length>30)delete stepStore[k[0]];localStorage.setItem("hero-steps",JSON.stringify(stepStore))}catch{}};
-  const stepsHtml=id=>{const e=stepStore[id];if(!e||!e.steps.length)return"";return `<div class="steps" role="list">${e.steps.map((x,i)=>`<button type="button" role="listitem" class="stp ${e.done.includes(i)?"on":""}" data-action="step" data-id="${id}" data-i="${i}"><i>✓</i><span>${esc(x)}</span></button>`).join("")}</div>`};
   const extra={};
   let calm=true;try{calm=localStorage.getItem("hero-calm")!=="off"}catch{}
   let actx=null;
@@ -114,7 +115,7 @@
   /* ======================= data loading ======================= */
   async function load(){
     const [f,t]=await Promise.all([api("/api/family/status").catch(()=>({})),api("/api/ticktick/status").catch(()=>({configured:false,connected:false}))]);
-    family=f;tick=t;dashboard=null;child={yaman:null,judy:null};
+    family=f;tick=t;dashboard=null;child={};syncMembers(f.members);
     const jobs=[];
     if(f.parentAuthenticated)jobs.push(api(`/api/family/dashboard?date=${today()}`).then(d=>dashboard=d).catch(()=>null));
     for(const m of KIDS)if(f.parentAuthenticated||f[`${m}Authenticated`])jobs.push(api(`/api/family/child/${m}?date=${today()}`).then(d=>child[m]=d).catch(()=>null));
@@ -138,7 +139,7 @@
   function loginCard(who){
     const p=PEOPLE[who];
     if(who==="parent"&&family.parentPinConfigured===false)return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>رمز الوالدين غير مهيأ</h2><p class="muted">أضف المتغير PARENT_PIN في Railway ثم أعد تحميل الصفحة.</p></article>`;
-    if(who!=="parent"&&!family[`${who}PinConfigured`])return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>رمز الدخول غير مهيأ</h2><p class="muted">أضف ${who.toUpperCase()}_PIN في Railway أولاً.</p></article>`;
+    if(who!=="parent"&&!family[`${who}PinConfigured`])return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>رمز الدخول غير مهيأ</h2><p class="muted">${who==="yaman"||who==="judy"?`أضف ${who.toUpperCase()}_PIN في Railway أولاً.`:"لم يُحدَّد رمز دخول لهذا المستخدم. غيّره من الإعدادات في لوحة الوالدين."}</p></article>`;
     const n=Math.max(4,pin.length);
     return `<article class="card login"><div class="avatar" aria-hidden="true">${p.icon}</div><h2>${who==="parent"?"منطقة الوالدين":`أهلاً ${p.name}!`}</h2><p class="muted">${who==="parent"?"اكتب رمز الوالدين لإدارة مهام العائلة.":"اكتب رمزك السري لتفتح مهامك."}</p><div class="dots" id="dots" aria-label="عدد الأرقام: ${pin.length}">${Array.from({length:n},(_,i)=>`<i class="${i<pin.length?"f":""}"></i>`).join("")}</div><p class="err" id="pinErr" role="alert">${esc(pinError)}</p>${keypad()}</article>`;
   }
@@ -149,6 +150,7 @@
     const back=(area!=="parent"&&parentIn&&area!=="home")?`<button class="pill" data-area="parent">→ لوحة الوالدين</button>`:`<button class="pill" data-area="home">👥 من أنا؟</button>`;
     return `<div class="topbar">${back}<button class="pill pill-sm" data-action="prefs" aria-label="الإعدادات">⚙️</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
   }
+  const ckHtml=t=>{const l=t.checklist||[];if(!l.length||t.done)return"";const n=l.filter(x=>x.done).length;return `<div class="cklist" role="list" aria-label="خطوات المهمة"><div class="ck-h"><b>الخطوات</b><span>${n}/${l.length}</span></div>${l.map((x,i)=>`<button type="button" role="listitem" class="stp ${x.done?"on":""}" data-action="ck" data-id="${t.id}" data-i="${i}" aria-pressed="${x.done}"><i>✓</i><span>${esc(x.text)}</span></button>`).join("")}</div>`};
   const timeChip=t=>t.suggestedTime?`<span class="tchip">⏰ ${esc(t.suggestedTime)}</span>`:"";
   const timerChip=t=>t.timerMinutes?`<span class="tchip timer">⏱ ${t.timerMinutes} د</span>`:"";
 
@@ -159,7 +161,7 @@
       const st=!ok?"🔒 اضغط لتفتح مهامك":!s.total?"لا توجد مهام اليوم":s.open?`${s.open} ${s.open===1?"مهمة":"مهام"} بانتظارك`:"أنجزت كل شيء 🎉";
       return `<button class="tile" style="--kc:${p.color}" data-area="${m}"><span class="av" aria-hidden="true">${p.icon}</span><span><h2>${p.name}</h2><span class="st">${st}</span></span><span class="go" aria-hidden="true">←</span></button>`;
     };
-    const pOpen=family.parentAuthenticated&&dashboard?stats("yaman").open+stats("judy").open:null;
+    const pOpen=family.parentAuthenticated&&dashboard?KIDS.reduce((n,k)=>n+stats(k).open,0):null;
     return `${hero("أهلاً بكم في Hero","من يستخدم التطبيق الآن؟","🦸")}
     <div class="tiles" style="margin-top:16px">${KIDS.map(tile).join("")}
       <button class="tile parent" style="--kc:${PEOPLE.parent.color}" data-area="parent"><span class="av" aria-hidden="true">🏠</span><span><h2>الوالدان</h2><span class="st">${family.parentAuthenticated?(pOpen===null?"إدارة العائلة":`${pOpen} مهام مفتوحة اليوم`):"🔒 إدارة مهام العائلة"}</span></span><span class="go" aria-hidden="true">←</span></button>
@@ -171,6 +173,26 @@
     const pt=prayer?.prayerTimes||{};
     const has=PRAYER_KEYS.some(([k])=>pt[k]);
     return `<article class="card"><div class="card-title"><h2>🕌 مواقيت الصلاة</h2></div>${prayer===null?`<p class="muted"><span class="spin"></span>جاري تحميل المواقيت…</p>`:`${has?`<div class="stat3" style="grid-template-columns:repeat(3,1fr)">${PRAYER_KEYS.map(([k,l])=>`<div><b style="font-size:1.1rem">${esc(pt[k]||"—")}</b><span>${l}</span></div>`).join("")}</div>`:""}${prayer.warning?`<p class="soft-note" style="margin-top:12px">${esc(prayer.warning)}</p>`:""}<button class="btn btn-soft btn-big" style="margin-top:14px;min-height:54px;font-size:1rem" data-action="prayer-edit">✏️ إدخال المواقيت يدوياً</button>`}</article>`;
+  }
+  function membersCard(){
+    const ms=KIDS.map(id=>{const p=PEOPLE[id],dyn=id!=="yaman"&&id!=="judy";return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--tint);font-size:1.4rem">${p.icon}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(p.name)}</div><div class="muted small">${dyn?"مستخدم مضاف":"مستخدم أساسي"}</div></div>${dyn?`<button class="icon-btn" data-action="member-pin" data-id="${id}" aria-label="تغيير رمز ${esc(p.name)}">🔑</button><button class="icon-btn" data-action="member-del" data-id="${id}" aria-label="حذف ${esc(p.name)}">🗑</button>`:""}</div>`}).join("");
+    return `<article class="card"><div class="card-title"><h2>👥 المستخدمون</h2><span class="count">${KIDS.length}</span></div>${ms}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-member">＋ مستخدم جديد</button><p class="muted small" style="margin-top:8px">لكل مستخدم جديد برنامج يومي ثابت حسب عمره، ورمز دخول خاص به.</p></article>`;
+  }
+  function memberModal(){
+    const icons=["🦸","🦸‍♀️","🌟","🚀","🦁","🐼","🎨","📚"];
+    modal("مستخدم جديد",`<form class="form" id="memberForm">
+      <label class="field"><span>الاسم</span><input id="mName" type="text" required maxlength="24" autocomplete="off"></label>
+      <label class="field"><span>العمر</span><input id="mAge" type="number" inputmode="numeric" min="3" max="30" required placeholder="مثال: 11"></label>
+      <div><span class="label">الرمز التعبيري</span><div class="seg wrap" role="group" id="mIcons">${icons.map((x,i)=>`<button type="button" class="${i===2?"on":""}" data-action="m-icon" data-v="${x}">${x}</button>`).join("")}</div></div>
+      <label class="field"><span>رمز الدخول (4 إلى 8 أرقام)</span><input id="mPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autocomplete="new-password"></label>
+      <p class="hint">يحصل المستخدم على برنامج يومي ثابت يناسب عمره، فيه مراجعة ونظافة وصلوات وراحة، ولكل مهمة خطوات واضحة.</p>
+      <button class="btn btn-primary btn-big" type="submit">إضافة</button></form>`);
+    window.__mIcon="🌟";
+  }
+  function memberPinModal(id){
+    modal(`تغيير رمز ${PEOPLE[id]?.name||""}`,`<form class="form" id="memberPinForm" data-id="${id}">
+      <label class="field"><span>الرمز الجديد (4 إلى 8 أرقام)</span><input id="mNewPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autocomplete="new-password"></label>
+      <button class="btn btn-primary btn-big" type="submit">حفظ الرمز</button></form>`);
   }
   function tickView(){
     const status=!tick.configured?`<div class="tt"><span class="dot"></span><div><b>TickTick غير مهيأ</b><div class="muted">التطبيق يعمل بشكل طبيعي. أكمل متغيرات TickTick في Railway لتفعيل المزامنة.</div></div></div>`
@@ -195,8 +217,8 @@
       (open.length?listOrDetails(open,4,t=>parentTaskRow(t,m),"باقي المهام"):(rest.length?`<div class="empty"><b>🏆</b>أنجز ${p.name} كل المهام</div>`:""))
       +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
       +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
-      :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">✨ جهّز يوماً هادئاً تلقائياً</button></div></div>`;
-    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span><button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></article>`;
+      :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div></div>`;
+    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span><button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -205,17 +227,17 @@
   function parentView(){
     if(!family.parentAuthenticated)return `${topbar()}<div class="stack">${loginCard("parent")}</div>`;
     if(!dashboard)return `${topbar()}<div class="stack"><article class="card login"><h2>تعذر تحميل لوحة العائلة</h2><p class="muted">تحقق من الاتصال بقاعدة البيانات ثم أعد المحاولة.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`;
-    const sy=stats("yaman"),sj=stats("judy"),openAll=sy.open+sj.open,doneAll=sy.done+sj.done;
+    const openAll=KIDS.reduce((n,k)=>n+stats(k).open,0),doneAll=KIDS.reduce((n,k)=>n+stats(k).done,0);
     const events=dashboard.events||[];
     const nextEv=events.find(e=>e.date===today());
     const prev=dashboard.previousIncomplete;
     let body="";
     if(pview==="today"){
       body=`<div class="actions"><button class="btn btn-primary" data-action="add-task">＋ مهمة جديدة</button><button class="btn btn-soft" data-action="plan">✨ خطة اليوم الذكية</button></div>
-      ${prev?.total?`<div class="soft-note">🌙 بقيت ${prev.total} ${prev.total===1?"مهمة":"مهام"} من أمس (يَمان ${prev.summary?.yaman||0}، جودي ${prev.summary?.judy||0}). لا نرحّلها كلها، اختاروا مهمة واحدة سهلة للبداية.</div>`:""}
+      ${prev?.total?`<div class="soft-note">🌙 بقيت ${prev.total} ${prev.total===1?"مهمة":"مهام"} من أمس (${KIDS.map(k=>`${PEOPLE[k].name} ${prev.summary?.[k]||0}`).join("، ")}). لا نرحّلها كلها، اختاروا مهمة واحدة سهلة للبداية.</div>`:""}
       ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}<div class="grid2">${KIDS.map(kidCard).join("")}</div><button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
-    else body=prayerCard()+tickView();
+    else body=membersCard()+prayerCard()+tickView();
     const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":"الإعدادات",pview==="events"?"جدول العائلة القادم":"الصلاة والمزامنة","🏠",false);
     return `${topbar()}${head}<div class="stack">${body}</div>`;
   }
@@ -238,7 +260,7 @@
     let focus="";
     if(cur){
       const ty=typeOf(cur.type),started=cur.status==="in_progress"||cur.startedAt;const needStart=calm&&cur.timerMinutes&&!started;
-      focus=`<article class="card focus pop" data-fid="${cur.id}" style="--tc:${ty.c}"><span class="kicker">${calm?"الآن":(rest.length||done.length?"مهمتك الآن":"مهمتك اليوم")}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2>${calm&&started?"":`<div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>`}${cur.note?`<p class="note"><span aria-hidden="true">💡</span> ${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-tid="${cur.id}" data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><div class="twrap">${cur.timerMinutes?`<svg class="tring" viewBox="0 0 120 120" aria-hidden="true"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52"/></svg>`:""}<b>--:--</b></div>${cur.timerMinutes?`<button type="button" class="more" hidden data-action="more-time" data-id="${cur.id}">＋ 5 دقائق</button>`:""}</div>`:""}${stepsHtml(cur.id)}${calm?(cur.timerMinutes&&!started?`<p class="reward">المدة: ${cur.timerMinutes} دقيقة</p>`:""):`<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p>`}${needStart?`<button class="btn btn-primary btn-big" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ</button>`:`<button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button>`}<div class="actions" style="margin-top:12px">${(started||calm)?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn ${calm?"btn-quiet":"btn-line"} btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن</button>`:""}</div></article>`;
+      focus=`<article class="card focus pop" data-fid="${cur.id}" style="--tc:${ty.c}"><span class="kicker">${calm?"الآن":(rest.length||done.length?"مهمتك الآن":"مهمتك اليوم")}</span><div class="big-icon" aria-hidden="true">${ty.i}</div><h2>${esc(cur.title)}</h2>${calm&&started?"":`<div class="meta">${timeChip(cur)}${timerChip(cur)}<span class="tchip">${ty.l}</span></div>`}${cur.note?`<p class="note"><span aria-hidden="true">💡</span> ${esc(cur.note)}</p>`:""}${started?`<div class="timerbox" data-timer data-tid="${cur.id}" data-start="${esc(cur.startedAt||"")}" data-min="${cur.timerMinutes||0}"><small>${cur.timerMinutes?"الوقت المتبقي":"مرّ منذ البداية"}</small><div class="twrap">${cur.timerMinutes?`<svg class="tring" viewBox="0 0 120 120" aria-hidden="true"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52"/></svg>`:""}<b>--:--</b></div>${cur.timerMinutes?`<button type="button" class="more" hidden data-action="more-time" data-id="${cur.id}">＋ 5 دقائق</button>`:""}</div>`:""}${ckHtml(cur)}${calm?(cur.timerMinutes&&!started?`<p class="reward">المدة: ${cur.timerMinutes} دقيقة</p>`:""):`<p class="reward">⭐ تربح ${cur.points} نقطة${started?"":" · ابدأ الآن لتحصل على مكافأة البداية"}</p>`}${needStart?`<button class="btn btn-primary btn-big" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ</button>`:`<button class="btn btn-ok btn-big" data-action="complete" data-member="${m}" data-id="${cur.id}">✓ أنجزتها!</button>`}<div class="actions" style="margin-top:12px">${(started||calm)?"":`<button class="btn btn-soft btn-sm" data-action="start" data-member="${m}" data-id="${cur.id}">▶ ابدأ الآن</button>`}<button class="btn btn-soft btn-sm" data-action="help" data-member="${m}" data-id="${cur.id}">🤝 ساعدني</button>${cur.type==="breathing"?`<button class="btn btn-soft btn-sm" data-action="breathe">🌬️ نتنفس معاً</button>`:""}${rest.length?`<button class="btn ${calm?"btn-quiet":"btn-line"} btn-sm" data-action="later" data-member="${m}" data-id="${cur.id}">ليس الآن</button>`:""}</div></article>`;
     }else if(tasks.length)focus=`<article class="card celebrate pop"><div class="trophy" aria-hidden="true">🏆</div><h2>أحسنت يا ${p.name}!</h2><p class="muted">ربحت ${pts} نقطة اليوم. استرح، فقد استحققت ذلك.</p><button class="btn btn-soft" style="margin-top:14px" data-action="endday" data-member="${m}">🌙 تقرير يومي</button></article>`;
     const events=(d.events||[]);
     const prevN=d.previousIncomplete?.incomplete||0;
@@ -290,27 +312,28 @@
     const f=$("modalRoot").querySelector("input[type=text],textarea");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
   }
   function close(){$("modalRoot").innerHTML=""}
-  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime");if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
+  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=$("taskSteps");if(sp)draft.steps=sp.value;if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
 
   function taskModal(){
     const ty=typeOf(draft.type),two=draft.step===2,edit=!!draft.editId;
     const steps=`<div class="steps" aria-hidden="true"><i class="on"></i><i class="${two?"on":""}"></i></div>`;
     const ttl=edit?"تعديل المهمة":"مهمة جديدة";
     if(!two){
-      const whos=edit?[["yaman","🦸‍♂️ يَمان"],["judy","🦸‍♀️ جودي"]]:[["yaman","🦸‍♂️ يَمان"],["judy","🦸‍♀️ جودي"],["both","👫 كلاهما"]];
+      const whos=[...KIDS.map(k=>[k,`${PEOPLE[k].icon} ${PEOPLE[k].name}`]),...(edit||KIDS.length<2?[]:[["both","👫 الجميع"]])];
       modal(`${ttl} · 1 من 2`,`${steps}<div class="form" id="taskStep1">
         <div><span class="label">لمن؟</span><div class="seg" role="group">${whos.map(([k,l])=>`<button type="button" class="${draft.who===k?"on":""}" data-action="d-who" data-v="${k}">${l}</button>`).join("")}</div></div>
         <div><span class="label">نوع المهمة</span><div class="types">${Object.entries(TYPES).map(([k,v])=>`<button type="button" class="${draft.type===k?"on":""}" style="--tc:${v.c}" data-action="d-type" data-v="${k}"><span>${v.i}</span>${v.l}</button>`).join("")}</div></div>
         <button class="btn btn-primary btn-big" type="button" data-action="d-next">التالي ←</button></div>`);
       return;
     }
-    const whoLbl=draft.who==="both"?"يَمان وجودي":PEOPLE[draft.who].name;
+    const whoLbl=draft.who==="both"?"الجميع":PEOPLE[draft.who].name;
     modal(`${ttl} · 2 من 2`,`${steps}<form class="form" id="taskForm">
       <div class="chips" style="margin:0"><span class="chip">${ty.i} ${ty.l}</span><span class="chip">لـ${whoLbl}</span></div>
       <label class="field"><span>ما المطلوب؟</span><input id="taskTitle" type="text" required maxlength="180" placeholder="جملة قصيرة وواضحة" value="${esc(draft.title)}" autocomplete="off">${ty.s.length?`<div class="sugg">${ty.s.map(s=>`<button type="button" data-action="d-sugg" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div>`:""}</label>
       <label class="field"><span>الوقت المقترح (اختياري)</span><input id="taskTime" type="time" value="${esc(draft.time)}"></label>
       <div><span class="label">مؤقت (دقائق)</span><div class="seg wrap" role="group">${TIMERS.map(n=>`<button type="button" class="${draft.timer===n?"on":""}" data-action="d-timer" data-v="${n}">${n?n+" د":"بلا"}</button>`).join("")}</div></div>
       ${draft.type==="prayer"?`<p class="hint">مهام الصلاة بلا نقاط ولا مكافآت.</p>`:`<div><span class="label">النقاط</span><div class="stepper"><button type="button" data-action="d-pts" data-v="-5" aria-label="أقل">−</button><output>⭐ ${draft.points}</output><button type="button" data-action="d-pts" data-v="5" aria-label="أكثر">＋</button></div></div>`}
+      <label class="field"><span>الخطوات (سطر لكل خطوة، اختياري)</span><textarea id="taskSteps" rows="4" maxlength="700" placeholder="مثال:&#10;جهّز الكتب&#10;ابدأ بالجزء الأول">${esc(draft.steps)}</textarea></label>
       <label class="field"><span>ملاحظة للطفل (اختياري)</span><input id="taskNote" type="text" maxlength="500" placeholder="مثال: بعد الغداء مباشرة" value="${esc(draft.note)}" autocomplete="off"></label>
       <div class="actions"><button class="btn btn-primary" type="submit">${edit?"حفظ التعديل":"حفظ المهمة"}</button><button class="btn btn-line" type="button" data-action="d-back">→ رجوع</button></div>
       ${edit?`<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${esc(draft.editId)}" data-title="${esc(draft.title)}">🗑 حذف المهمة</button>`:""}
@@ -345,7 +368,7 @@
   }
   function eventModal(){
     modal("موعد جديد",`<form class="form" id="eventForm">
-      <label class="field"><span>لمن؟</span><select id="eventMember"><option value="family">كل العائلة</option><option value="yaman">يَمان</option><option value="judy">جودي</option></select></label>
+      <label class="field"><span>لمن؟</span><select id="eventMember"><option value="family">كل العائلة</option>${KIDS.map(k=>`<option value="${k}">${esc(PEOPLE[k].name)}</option>`).join("")}</select></label>
       <label class="field"><span>العنوان</span><input id="eventTitle" type="text" required maxlength="140" placeholder="مثال: زيارة الجدة" autocomplete="off"></label>
       <div class="grid2" style="gap:12px"><label class="field"><span>التاريخ</span><input id="eventDate" type="date" value="${today()}" required></label><label class="field"><span>الوقت (اختياري)</span><input id="eventTime" type="time"></label></div>
       <button class="btn btn-primary btn-big" type="submit">حفظ الموعد</button>
@@ -489,7 +512,7 @@
     if(pview==="settings"&&area==="parent")render();
   }
   function taskBody(){
-    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer};
+    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:draft.steps.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,8)};
   }
 
   /* ======================= events ======================= */
@@ -508,7 +531,7 @@
       case "close":return close();
       case "reload":return guard(b,()=>refresh());
       case "add-task":draft=newDraft({who:b.dataset.who||"yaman"});return taskModal();
-      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,editId:t.id});return taskModal()}
+      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,steps:(t.checklist||[]).map(x=>x.text).join("\n"),editId:t.id});return taskModal()}
       case "add-event":return eventModal();
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
@@ -557,14 +580,23 @@
       case "do-delete-event":return guard(b,async()=>{await api(`/api/family/events/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
       case "plan":return planModal();
       case "p-mode":planOpts.fullDay=b.dataset.v==="1";planOpts.goals=$("planGoals")?.value||planOpts.goals;return planModal();
+      case "program":return guard(b,async()=>{
+        const r=await api(`/api/family/child/${b.dataset.who}/program`,{method:"POST",body:JSON.stringify({date:today()})});
+        await refresh();toast(r.inserted?.length?`أُضيف برنامج اليوم لـ${PEOPLE[b.dataset.who].name} ✓`:"برنامج اليوم موجود بالفعل.",r.inserted?.length?"ok":"");
+      });
       case "seed":return guard(b,async()=>{
         const r=await api(`/api/family/child/${b.dataset.who}/seed-today`,{method:"POST",body:JSON.stringify({date:today()})});
         await refresh();toast(r.skipped?(r.reason||"توجد مهام بالفعل."):`جُهّز يوم ${PEOPLE[b.dataset.who].name} ✓`,r.skipped?"":"ok");
       });
+      case "add-member":return memberModal();
+      case "m-icon":{window.__mIcon=b.dataset.v;document.querySelectorAll("#mIcons button").forEach(x=>x.classList.toggle("on",x===b));return}
+      case "member-pin":return memberPinModal(b.dataset.id);
+      case "member-del":return confirmModal(`حذف ${PEOPLE[b.dataset.id]?.name||"المستخدم"}؟`,"ستُحذف كل مهامه ومواعيده ولا يمكن التراجع.","do-member-del",b.dataset.id);
+      case "do-member-del":return guard(b,async()=>{await api(`/api/family/members/${b.dataset.id}`,{method:"DELETE"});if(area===b.dataset.id)area="parent";close();await refresh();toast("تم حذف المستخدم")});
       case "prayer-edit":return prayerModal();
       case "endday":return guard(b,()=>endDayModal(b.dataset.member));
       case "help":{const t=findTask(b.dataset.id);if(!t)return;help={task:t,member:b.dataset.member,mode:t.type==="youtube"?"youtube":"full",question:"",loading:false,result:null,checked:new Set()};return helpModal()}
-      case "step":{const e=stepStore[b.dataset.id];if(!e)return;const i=Number(b.dataset.i);e.done=e.done.includes(i)?e.done.filter(x=>x!==i):[...e.done,i];saveSteps();if(soundOn&&e.done.includes(i)&&!calm)tone(660,0,.12,.05);return render()}
+      case "ck":{const t=findTask(b.dataset.id);if(!t||!t.checklist)return;const i=Number(b.dataset.i),it=t.checklist[i];if(!it)return;const nv=!it.done;it.done=nv;render();try{if(nv&&soundOn&&!calm)tone(660,0,.1,.04);await api(`/api/family/tasks/${t.id}/check`,{method:"PATCH",body:JSON.stringify({index:i,done:nv})})}catch(err){it.done=!nv;render();onErr(err)}return}
       case "h-mode":help.question=$("helpQ")?.value||help.question;help.mode=b.dataset.v;return helpModal();
       case "h-check":{const i=Number(b.dataset.i);help.checked.has(i)?help.checked.delete(i):help.checked.add(i);help.question=$("helpQ")?.value||help.question;return helpModal()}
       case "h-quick":{const q=$("helpQ");if(q)q.value=b.dataset.v;help.question=b.dataset.v;return document.querySelector('[data-action="h-ask"]')?.click()}
@@ -574,7 +606,6 @@
           const t=help.task;
           help.result=await api("/api/ai/task-help",{method:"POST",body:JSON.stringify({assignee:help.member,mode:help.mode,question:help.question,context:help.result?[help.result.answer,...(help.result.steps||[]).slice(0,4)].filter(Boolean).join(" | ").slice(0,850):"",task:{title:t.title,type:t.type,note:t.note,suggestedTime:t.suggestedTime,timerMinutes:t.timerMinutes,points:t.points,done:t.done,status:t.status}})});
           help.checked=new Set();
-          {const st=(help.result?.steps||[]).filter(Boolean).slice(0,5);if(st.length&&help.task){stepStore[help.task.id]={steps:st,done:[]};saveSteps();render();helpModal()}}
         }catch(err){help.loading=false;helpModal();return onErr(err)}
         help.loading=false;if($("modalRoot").firstChild)helpModal();return;
       }
@@ -585,7 +616,7 @@
   });
 
   document.addEventListener("submit",async e=>{
-    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm"].includes(id))return;
+    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm","memberForm","memberPinForm"].includes(id))return;
     e.preventDefault();const btn=e.target.querySelector("[type=submit]");
     if(id==="taskForm")return guard(btn,async()=>{
       syncDraft();if(!draft.title.trim())return toast("اكتب المهمة أولاً.","err");
@@ -596,6 +627,14 @@
       const who=draft.who==="both"?KIDS:[draft.who];
       for(const w of who)await api("/api/family/tasks",{method:"POST",body:JSON.stringify({...taskBody(),assignee:w,source:"parent"})});
       close();await refresh();toast("تمت إضافة المهمة ✓","ok");
+    });
+    if(id==="memberForm")return guard(btn,async()=>{
+      const r=await api("/api/family/members",{method:"POST",body:JSON.stringify({name:$("mName").value,age:Number($("mAge").value),icon:window.__mIcon||"🌟",pin:$("mPin").value})});
+      close();await refresh();toast(`أُضيف ${r.member.name} ✓`,"ok");
+    });
+    if(id==="memberPinForm")return guard(btn,async()=>{
+      await api(`/api/family/members/${e.target.dataset.id}/pin`,{method:"POST",body:JSON.stringify({pin:$("mNewPin").value})});
+      close();toast("تم تغيير الرمز ✓","ok");
     });
     if(id==="eventForm")return guard(btn,async()=>{
       await api("/api/family/events",{method:"POST",body:JSON.stringify({assignee:$("eventMember").value,title:$("eventTitle").value,date:$("eventDate").value,time:$("eventTime").value})});
