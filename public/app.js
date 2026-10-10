@@ -705,7 +705,13 @@
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
       case "d-next":draft.step=2;taskModal();return;
       case "step-add":{syncDraft();if((draft.sl||[]).length>=8)return toast("الحد الأقصى 8 خطوات");draft.sl=[...(draft.sl||[]),{t:"",d:false}];taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus();return}
-      case "step-tick":{syncDraft();const i=Number(b.dataset.i);if(draft.sl[i])draft.sl[i].d=!draft.sl[i].d;taskModal();return}
+      case "step-tick":{syncDraft();const i=Number(b.dataset.i),it=draft.sl[i];if(!it)return;it.d=!it.d;taskModal();
+        // an existing task saves the tick right away (no need to press save), as long as this row is unchanged
+        const t=draft.editId?findTask(draft.editId):null,saved=t&&t.checklist&&t.checklist[i];
+        if(saved&&saved.text===it.t.trim()){const nv=it.d,prev=Boolean(saved.done);saved.done=nv;
+          try{await api(`/api/family/tasks/${t.id}/check`,{method:"PATCH",body:JSON.stringify({index:i,done:nv})});refresh()}
+          catch(err){saved.done=prev;it.d=prev;taskModal();onErr(err)}}
+        return}
       case "step-del":{syncDraft();draft.sl.splice(Number(b.dataset.i),1);taskModal();return}
       case "d-back":syncDraft();draft.step=1;taskModal();return;
       case "d-sugg":syncDraft();draft.title=b.dataset.v;taskModal();return;

@@ -499,7 +499,7 @@ async function completeTickTickTaskIfPossible(req, res, task) {
 const BUILTIN_MEMBER_IDS = ["yaman", "judy"];
 const FAMILY_MEMBERS = {
   yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان", icon: "🦸‍♂️", age: 15, builtin: true },
-  judy: { id: "judy", name: "جودي", label: "منطقة جودي", icon: "🦸‍♀️", age: 15, builtin: true }
+  judy: { id: "judy", name: "جودي", label: "منطقة جودي", icon: "🦸‍♀️", age: 8, builtin: true }
 };
 const memberPinHashes = new Map();
 const MAX_FAMILY_MEMBERS = 8;
@@ -530,12 +530,24 @@ const WEEKLY_SEEDS = [
 ];
 
 async function seedWeeklyCommitments() {
+  // One-time corrections (user confirmed: Judy is 8; the Shefa-Amr visit is usually on Friday).
+  const marker = await pool.query(
+    `INSERT INTO hero_family_weekly (id, seed_key, assignee, title, task_type, days, enabled, note) VALUES ($1,'migr-judy8-friday','family','(migration)','other','[]'::jsonb,FALSE,'one-time') ON CONFLICT (seed_key) DO NOTHING RETURNING 1`,
+    [crypto.randomUUID()]
+  );
+  const firstRun = marker.rowCount > 0;
   for (const w of WEEKLY_SEEDS) {
     await pool.query(
       `INSERT INTO hero_family_weekly (id, seed_key, assignee, title, task_type, days, start_time, minutes, note, checklist)
        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb) ON CONFLICT (seed_key) DO NOTHING`,
       [crypto.randomUUID(), w.key, w.assignee, w.title, w.type, JSON.stringify(w.days), w.time, w.minutes, w.note, JSON.stringify(w.checklist || [])]
     );
+  }
+  if (firstRun) {
+    await pool.query(`UPDATE hero_family_weekly SET days = '[5]'::jsonb, start_time = '14:30', note = 'عادةً يوم الجمعة بعد الصلاة. يمكن تعديل الأيام من الإعدادات.' WHERE seed_key = 'shefaram' AND days = '[]'::jsonb`);
+    await pool.query(`DELETE FROM hero_family_member_age WHERE id = 'judy'`);
+    // rebuild the coming days once with the corrected age and visit day (after startup finishes)
+    setTimeout(() => { regenerateProgram().catch((e) => console.warn("migration regenerate:", e.message)); }, 4000).unref();
   }
 }
 
