@@ -46,6 +46,7 @@
   const $=id=>document.getElementById(id);
   const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
   const today=()=>iso(new Date());
+  let cal={month:today().slice(0,7),sel:today(),events:[]};
   const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   const typeOf=t=>TYPES[t]||TYPES.other;
   const isPrayer=t=>t.type==="prayer";
@@ -123,7 +124,7 @@
     await Promise.all(jobs);
     for(const id of pending.keys()){const t=findTask(id);if(t)t.done=true}
   }
-  async function refresh(){await load();loading=false;render()}
+  async function refresh(){await load();loading=false;render();if(pview==="events"&&family.parentAuthenticated)loadCal()}
 
   /* ======================= components ======================= */
   function ring(done,total){
@@ -231,9 +232,36 @@
       :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div></div>`;
     return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span><button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div></article>`;
   }
+  const EVC=id=>id==="yaman"?"#0891b2":id==="judy"?"#d6246e":id==="family"?"#e0a100":"#12a37a";
+  const evName=id=>id==="family"?"كل العائلة":(PEOPLE[id]?.name||"");
+  async function loadCal(){
+    const [y,m]=cal.month.split("-").map(Number);
+    const from=`${cal.month}-01`,to=`${cal.month}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
+    try{const d=await api(`/api/family/events?from=${from}&to=${to}`);cal.events=d.events||[]}catch{cal.events=[]}
+    render();
+  }
+  function calendarHtml(){
+    const [y,m]=cal.month.split("-").map(Number);
+    const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
+    const by={};for(const e of cal.events)(by[e.date]=by[e.date]||[]).push(e);
+    const names=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
+    let cells=names.map(n=>`<div class="cal-h">${n}</div>`).join("");
+    for(let i=0;i<lead;i++)cells+=`<div class="cal-c off"></div>`;
+    for(let d=1;d<=days;d++){
+      const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[];
+      const colors=[...new Set(ev.map(e=>e.assignee))].slice(0,4);
+      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${ev.length?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span></button>`;
+    }
+    const title=first.toLocaleDateString("ar",{month:"long",year:"numeric"});
+    const legend=[["family","كل العائلة"],...KIDS.map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
+    const day=(by[cal.sel]||[]);
+    const dayHtml=day.length?day.map(e=>`<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد في هذا اليوم</div>`;
+    return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}</div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${day.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
+  }
   function eventsView(){
     const events=dashboard.events||[];
-    return `<article class="card"><div class="card-title"><h2>المواعيد القادمة</h2><span class="count">${events.length}</span></div>${events.length?events.map(e=>`<div class="ev-row"><div class="ev-day">${dayLabel(e.date)}${e.time?`<br>${esc(e.time)}`:""}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(e.title)}</div><div class="muted small">${e.assignee==="family"?"كل العائلة":PEOPLE[e.assignee]?.name||""}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`).join(""):`<div class="empty"><b>📅</b>لا توجد مواعيد قادمة</div>`}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event">＋ موعد جديد</button></article>`;
+    const upcoming=events.length?`<article class="card"><details class="fold"><summary>القادمة (${events.length})</summary><div style="margin-top:8px">${events.map(e=>`<div class="ev-row"><div class="ev-day" style="background:${EVC(e.assignee)}22;color:inherit">${dayLabel(e.date)}${e.time?`<br>${esc(e.time)}`:""}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div></div>`).join("")}</div></details></article>`:"";
+    return calendarHtml()+upcoming;
   }
   function parentView(){
     if(!family.parentAuthenticated)return `${topbar()}<div class="stack">${loginCard("parent")}</div>`;
@@ -377,11 +405,11 @@
     </div>`);
     window.__waIdx=i;
   }
-  function eventModal(){
+  function eventModal(d){
     modal("موعد جديد",`<form class="form" id="eventForm">
       <label class="field"><span>لمن؟</span><select id="eventMember"><option value="family">كل العائلة</option>${KIDS.map(k=>`<option value="${k}">${esc(PEOPLE[k].name)}</option>`).join("")}</select></label>
       <label class="field"><span>العنوان</span><input id="eventTitle" type="text" required maxlength="140" placeholder="مثال: زيارة الجدة" autocomplete="off"></label>
-      <div class="grid2" style="gap:12px"><label class="field"><span>التاريخ</span><input id="eventDate" type="date" value="${today()}" required></label><label class="field"><span>الوقت (اختياري)</span><input id="eventTime" type="time"></label></div>
+      <div class="grid2" style="gap:12px"><label class="field"><span>التاريخ</span><input id="eventDate" type="date" value="${d||today()}" required></label><label class="field"><span>الوقت (اختياري)</span><input id="eventTime" type="time"></label></div>
       <button class="btn btn-primary btn-big" type="submit">حفظ الموعد</button>
     </form>`);
   }
@@ -531,7 +559,7 @@
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
     let b=e.target.closest("[data-area],[data-action],[data-pview]");if(b===document.body)b=null;
     if(!b){if(e.target.id==="modalRoot")close();return}
-    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();return}
+    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="events")loadCal();return}
     if(b.dataset.area&&!b.dataset.action){
       area=b.dataset.area;pin="";pinError="";
       if(area!=="home"){try{localStorage.setItem("hero-area",area)}catch{}}
@@ -543,7 +571,9 @@
       case "reload":return guard(b,()=>refresh());
       case "add-task":draft=newDraft({who:b.dataset.who||"yaman"});return taskModal();
       case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,steps:(t.checklist||[]).map(x=>x.text).join("\n"),editId:t.id});return taskModal()}
-      case "add-event":return eventModal();
+      case "add-event":return eventModal(b.dataset.d);
+      case "cal-day":cal.sel=b.dataset.d;return render();
+      case "cal-nav":{const [y,m]=cal.month.split("-").map(Number),dt=new Date(y,m-1+Number(b.dataset.n),1);cal.month=iso(dt).slice(0,7);cal.sel=cal.month===today().slice(0,7)?today():`${cal.month}-01`;return loadCal()}
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
       case "d-next":draft.step=2;taskModal();return;

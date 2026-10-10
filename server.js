@@ -781,8 +781,16 @@ function mapFamilyTask(row) {
     checklist: checklistFromRow(row)
   };
 }
+function pgDateKey(v) {
+  if (v instanceof Date) {
+    // pg parses DATE columns as local-midnight Dates; read local parts so the day never shifts.
+    return [v.getFullYear(), String(v.getMonth() + 1).padStart(2, "0"), String(v.getDate()).padStart(2, "0")].join("-");
+  }
+  return String(v || "").slice(0, 10);
+}
+
 function mapFamilyEvent(row) {
-  return { id: row.id, assignee: row.assignee, title: row.title, date: String(row.event_date).slice(0, 10), time: row.event_time || "", note: row.note || "" };
+  return { id: row.id, assignee: row.assignee, title: row.title, date: pgDateKey(row.event_date), time: row.event_time || "", note: row.note || "" };
 }
 
 function safeText(value, maxLength) {
@@ -2111,6 +2119,18 @@ app.post("/api/family/events", asyncRoute(async (req, res) => {
   if (!["yaman", "judy", "family"].includes(assignee) || !title) throw new PublicError(400, "اكتب اسم الموعد وحدد لمن يظهر.");
   const { rows } = await pool.query(`INSERT INTO hero_family_events (id, assignee, title, event_date, event_time, note) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [crypto.randomUUID(), assignee, title, date, time, note]);
   res.status(201).json({ event: mapFamilyEvent(rows[0]) });
+}));
+
+app.get("/api/family/events", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const from = familyDateKey(req.query.from);
+  const to = familyDateKey(req.query.to || req.query.from);
+  const { rows } = await pool.query(
+    `SELECT * FROM hero_family_events WHERE event_date BETWEEN $1 AND $2 ORDER BY event_date ASC, NULLIF(event_time, '') ASC NULLS LAST, created_at ASC LIMIT 400`,
+    [from, to]
+  );
+  res.json({ events: rows.map(mapFamilyEvent) });
 }));
 
 app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {
