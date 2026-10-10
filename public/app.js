@@ -346,10 +346,17 @@
       <label class="field"><span>الرمز الجديد (4 إلى 8 أرقام)</span><input id="mNewPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autocomplete="new-password"></label>
       <button class="btn btn-primary btn-big" type="submit">حفظ الرمز</button></form>`);
   }
+  function ttLastLine(){
+    const l=tick.sync?.last;if(!l||!l.at)return "المزامنة الأولى تبدأ خلال لحظات.";
+    const t=new Date(l.at).toLocaleTimeString("ar",{hour:"2-digit",minute:"2-digit",hour12:false});
+    return l.error?`آخر محاولة ${t} لم تنجح. سنعيد المحاولة تلقائياً.`:`آخر مزامنة: ${t}`;
+  }
   function tickView(){
     const status=!tick.configured?`<div class="tt"><span class="dot"></span><div><b>TickTick غير مهيأ</b><div class="muted">التطبيق يعمل بشكل طبيعي. أكمل متغيرات TickTick في Railway لتفعيل المزامنة.</div></div></div>`
       :!tick.connected?`<div class="tt"><span class="dot"></span><div style="flex:1"><b>TickTick غير متصل</b><div class="muted">اربطه لاستيراد مهام اليوم وإرسال مهام Hero إليه.</div></div></div><a class="btn btn-primary btn-big" style="margin-top:14px" href="/auth/ticktick">ربط TickTick</a>`
-      :`<div class="tt"><span class="dot on"></span><div style="flex:1"><b>TickTick متصل</b><div class="muted">مهمة جديدة هنا تصل إلى TickTick، وإنجازها هنا يُكمّلها هناك.</div></div></div>`;
+      :`<div class="tt"><span class="dot on"></span><div style="flex:1"><b>TickTick متصل · مزامنة بالاتجاهين</b><div class="muted">${ttLastLine()}</div></div></div>
+      <ul class="tt-rules muted small"><li>مهام اليوم وكل مهمة تضيفها أو تعدّلها هنا تظهر في قائمة «${esc(tick.projectName||"Hero")}» مع الوقت والخطوات واسم الطفل.</li><li>ما يُنجَز أو يُحذف أو يُعدَّل أو تُعلَّم خطواته في TickTick يتحدث هنا تلقائياً كل ${tick.sync?.everyMinutes||2} دقيقة.</li><li>مهمة جديدة تكتبها في قائمة Hero وفيها اسم الطفل (مثلاً «يمان: ترتيب الغرفة») تُضاف له هنا.</li></ul>
+      <button class="btn btn-soft btn-sm" style="margin-top:10px" data-action="tt-sync">🔄 زامن الآن</button>`;
     const steps=tick.connected?`<ol class="howto" style="margin-top:16px"><li><b>اختر القوائم</b><div class="muted">حدد القوائم التي تريد الاستيراد منها.</div><button class="btn btn-line btn-sm" style="margin-top:8px" data-action="projects">📋 اختيار القوائم</button></li><li><b>استورد مهام اليوم</b><div class="muted">اختر المهام وحدد لمن تُضاف.</div><button class="btn btn-soft btn-sm" style="margin-top:8px" data-action="import">⬇️ استيراد مهام اليوم</button></li></ol>`:"";
     return `<article class="card"><div class="card-title"><h2>🔗 TickTick</h2></div>${status}${steps}</article>`;
   }
@@ -955,6 +962,9 @@
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
       case "projects":return guard(b,projectsModal);
       case "import":return guard(b,importModal);
+      case "tt-sync":return guard(b,async()=>{const r=await api("/api/ticktick/sync",{method:"POST"});const x=r.result||{};const n=(x.pulled||0)+(x.completedHere||0)+(x.deletedHere||0)+(x.imported||0);const m=(x.pushed||0)+(x.linked||0)+(x.completedThere||0)+(x.deletedThere||0);
+        if(x.error)toast("تعذرت المزامنة الآن. سنعيد المحاولة تلقائياً.","err");else if(x.skipped)toast("المزامنة تعمل الآن، انتظر لحظة.");else toast(n||m?`تمت المزامنة ✓ ${n?`· ${n} من TickTick`:""}${m?` · ${m} إلى TickTick`:""}`:"كل شيء متطابق ✓","ok");
+        await refresh()});
       case "toggle-project":chosenProjects.has(b.dataset.id)?chosenProjects.delete(b.dataset.id):chosenProjects.add(b.dataset.id);return drawProjects();
       case "save-projects":localStorage.setItem("hero-projects",JSON.stringify([...chosenProjects]));close();return toast("تم حفظ القوائم ✓","ok");
       case "toggle-import":chosenTasks.has(b.dataset.key)?chosenTasks.delete(b.dataset.key):chosenTasks.add(b.dataset.key);return drawImport();

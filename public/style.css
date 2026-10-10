@@ -676,3 +676,5 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .ktck{display:flex;align-items:center;gap:12px;width:100%;text-align:right;padding:12px;border-radius:14px;border:1.5px solid var(--line,#e3e6ee);background:var(--surface);font:inherit;font-size:1.02rem;color:inherit;cursor:pointer}
 .ktck.on{background:var(--ok-tint,#e6f7f0)}.ktck.on span:last-child{text-decoration:line-through;opacity:.7}
 .ktck.on .edbox{background:var(--brand);color:#fff}
+
+.tt-rules{margin:10px 0 0;padding-inline-start:18px;display:grid;gap:4px;line-height:1.6}

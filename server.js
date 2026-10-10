@@ -240,7 +240,7 @@ function clearCookie(res, name) {
 }
 
 function readCookie(req, name) {
-  const rawCookies = req.headers.cookie || "";
+  const rawCookies = req?.headers?.cookie || "";
   for (const part of rawCookies.split(";")) {
     const [rawName, ...rawValue] = part.trim().split("=");
     if (rawName === name) {
@@ -333,12 +333,41 @@ function verifyOAuthState(value) {
   }
 }
 
+// TickTick tokens live on the server (encrypted in the DB) so children's devices and the
+// background two-way sync can use them. A parent cookie from before this change is adopted once.
+let serverTickTokens = null;
+let serverTickTokensLoaded = false;
+async function loadServerTickTokens() {
+  if (!pool || !process.env.SESSION_SECRET) return;
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS hero_kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT v FROM hero_kv WHERE k = 'ticktick_tokens'`);
+    serverTickTokens = rows[0] ? decryptJson(rows[0].v) : null;
+  } catch (error) {
+    console.warn("Could not load TickTick tokens:", error.message);
+  } finally {
+    serverTickTokensLoaded = true;
+  }
+}
+function persistServerTickTokens(tokens) {
+  serverTickTokens = tokens || null;
+  if (!pool) return;
+  const q = tokens
+    ? pool.query(`INSERT INTO hero_kv (k, v) VALUES ('ticktick_tokens', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v, updated_at = NOW()`, [encryptJson(tokens)])
+    : pool.query(`DELETE FROM hero_kv WHERE k = 'ticktick_tokens'`);
+  q.catch((error) => console.warn("Could not save TickTick tokens:", error.message));
+}
+
 function getStoredTokens(req) {
-  return decryptJson(readCookie(req, "hero_ticktick_tokens"));
+  if (serverTickTokens?.accessToken) return serverTickTokens;
+  const fromCookie = req ? decryptJson(readCookie(req, "hero_ticktick_tokens")) : null;
+  if (fromCookie?.accessToken && serverTickTokensLoaded) persistServerTickTokens(fromCookie);
+  return fromCookie;
 }
 
 function writeStoredTokens(res, tokens) {
-  appendSetCookie(res, makeCookie("hero_ticktick_tokens", encryptJson(tokens), 60 * 60 * 24 * 30));
+  if (res) appendSetCookie(res, makeCookie("hero_ticktick_tokens", encryptJson(tokens), 60 * 60 * 24 * 30));
+  persistServerTickTokens(tokens);
 }
 
 function normalizeTokens(payload, previousTokens = {}) {
@@ -415,9 +444,11 @@ async function tickTickRequest(req, res, endpoint, options = {}) {
   }
   const body = await readResponseBody(response);
   if (!response.ok) {
-    console.error("TickTick API request failed:", response.status, endpoint, body);
+    if (response.status !== 404) console.error("TickTick API request failed:", response.status, endpoint, body);
     if (response.status === 401) throw new PublicError(401, "חיבור TickTick הסתיים. יש ללחוץ שוב על רبط TickTick.");
-    throw new PublicError(502, "TickTick לא הצליח לבצע את הפעולה. נסה שוב בעוד רגע.");
+    const failure = new PublicError(502, response.status === 404 ? "TickTick 404" : "TickTick לא הצליח לבצע את הפעולה. נסה שוב בעוד רגע.");
+    failure.ttStatus = response.status;
+    throw failure;
   }
   return body;
 }
@@ -450,7 +481,9 @@ function selectedProjectIdsFromQuery(value) {
   return [...new Set(value.split(",").map((id) => id.trim()).filter((id) => id && id.length <= 200))];
 }
 
+let heroProjectCache = null;
 async function ensureHeroProject(req, res) {
+  if (heroProjectCache) return heroProjectCache;
   const projects = await tickTickRequest(req, res, "/project");
   if (!Array.isArray(projects)) throw new PublicError(502, "לא התקבלה רשימת פרויקטים תקינה מ-TickTick.");
   let project = projects.find((item) => item.name === HERO_PROJECT_NAME && item.closed !== true);
@@ -461,24 +494,23 @@ async function ensureHeroProject(req, res) {
     });
   }
   if (!project?.id) throw new PublicError(502, "לא ניתן ליצור את רשימת Hero ב-TickTick.");
-  return project;
+  heroProjectCache = { id: String(project.id), name: project.name };
+  return heroProjectCache;
 }
 
 async function createTickTickTaskIfPossible(req, res, task) {
   if (!isTickTickConfigured() || !getStoredTokens(req)?.accessToken) return null;
+  if (TT_SKIP_TYPES.has(task.type)) return null;
   try {
     const project = await ensureHeroProject(req, res);
-    const created = await tickTickRequest(req, res, "/task", {
-      method: "POST",
-      body: {
-        projectId: project.id,
-        title: task.title,
-        content: `Hero Family\nالطفل: ${task.assignee}\nالنوع: ${task.type}\nالنقاط: ${task.points}\nالوقت المقترح: ${task.suggestedTime || "بدون"}\nالمؤقت: ${task.timerMinutes ? `${task.timerMinutes} دقيقة` : "بدون"}\n${task.note || ""}`,
-        priority: 0
-      }
-    });
+    const pseudoRow = {
+      assignee: task.assignee, title: task.title, task_type: task.type, note: task.note || "",
+      due_date: task.dueDate || familyDateKey(), suggested_time: task.suggestedTime || "",
+      checklist: task.checklist || [], checklist_done: []
+    };
+    const created = await tickTickRequest(req, res, "/task", { method: "POST", body: tickTaskPayload(pseudoRow, project.id) });
     if (!created?.id) return null;
-    return { ticktickTaskId: String(created.id), ticktickProjectId: String(project.id), ticktickProjectName: project.name };
+    return { ticktickTaskId: String(created.id), ticktickProjectId: String(project.id), ticktickProjectName: project.name, ticktickSig: ttSig(ttRemoteState(created)) };
   } catch (error) {
     console.warn("Could not create TickTick task from Hero:", error.message);
     return null;
@@ -493,6 +525,295 @@ async function completeTickTickTaskIfPossible(req, res, task) {
   } catch (error) {
     console.warn("Could not complete TickTick task from Hero:", error.message);
     return false;
+  }
+}
+
+/* ===================== TickTick two-way sync =====================
+ * Hero → TickTick: new/edited tasks, step ticks, completion and deletion are pushed.
+ * TickTick → Hero: every 2 minutes (and when the parent dashboard opens) we read the
+ * lists that hold linked tasks. Completed there → done here; deleted there → removed here;
+ * title/date/time/steps edited there → updated here. New tasks in the Hero list that
+ * mention a child (tag or name in the title) are imported for that child.
+ * Conflicts: each linked task stores the last agreed state (ticktick_sig). Whichever side
+ * moved away from it wins; if both moved, TickTick wins.
+ */
+const TT_SKIP_TYPES = new Set(["prayer", "school"]);
+const TT_SYNC_MS = 2 * 60 * 1000;
+
+function ttOffsetMs(date, tz) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(date).filter((x) => x.type !== "literal").map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(date.getTime() / 1000) * 1000;
+}
+function ttZonedToUtc(dateKey, time, tz = APP_TIME_ZONE) {
+  const [y, m, d] = String(dateKey).split("-").map(Number);
+  const [hh, mm] = String(time || "00:00").split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh || 0, mm || 0);
+  let utc = guess - ttOffsetMs(new Date(guess), tz);
+  const second = guess - ttOffsetMs(new Date(utc), tz);
+  if (second !== utc) utc = second;
+  return new Date(utc);
+}
+const ttFormatDate = (date) => `${date.toISOString().slice(0, 19)}+0000`;
+function ttParseDate(value) {
+  if (!value) return null;
+  const fixed = String(value).replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+  const date = new Date(fixed);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+function ttTimeKey(date, tz = APP_TIME_ZONE) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", hour: "2-digit", minute: "2-digit" })
+    .formatToParts(date).filter((x) => x.type !== "literal").map((x) => [x.type, x.value]));
+  return `${String(+p.hour % 24).padStart(2, "0")}:${p.minute}`;
+}
+const ttClean = (v) => String(v || "").replace(/[ً-ْٰ]/g, "").trim().toLowerCase();
+
+function ttRemoteState(task) {
+  const at = ttParseDate(task?.dueDate || task?.startDate);
+  return {
+    t: String(task?.title || "").trim(),
+    d: at ? dateKeyInTimeZone(at) : "",
+    h: at && !task.isAllDay ? ttTimeKey(at) : "",
+    i: (Array.isArray(task?.items) ? task.items : []).map((x) => [String(x.title || "").trim(), Number(x.status) !== 0])
+  };
+}
+function ttLocalState(row) {
+  return {
+    t: String(row.title || "").trim(),
+    d: pgDateKey(row.due_date),
+    h: row.suggested_time || "",
+    i: ttRowSteps(row).map((x) => [x.text, Boolean(x.done)])
+  };
+}
+// Tasks that came from TickTick only carry the steps written there (not Hero's default steps).
+function ttRowSteps(row) {
+  const own = Array.isArray(row.checklist) ? row.checklist.length : 0;
+  return !own && row.source === "ticktick" ? [] : checklistFromRow(row);
+}
+const ttSig = (state) => JSON.stringify(state);
+
+function tickTaskPayload(row, projectId, remote) {
+  const name = FAMILY_MEMBERS[row.assignee]?.name || row.assignee;
+  const date = pgDateKey(row.due_date);
+  const time = row.suggested_time || "";
+  const at = ttFormatDate(ttZonedToUtc(date, time || "00:00"));
+  const oldItems = Array.isArray(remote?.items) ? remote.items : [];
+  const body = {
+    projectId,
+    title: row.title,
+    content: `Hero Family · ${name}${row.note ? `\n${row.note}` : ""}`,
+    isAllDay: !time,
+    startDate: at,
+    dueDate: at,
+    timeZone: APP_TIME_ZONE,
+    tags: [ttClean(name)],
+    items: ttRowSteps(row).map((x, i) => ({ ...(oldItems[i]?.id ? { id: oldItems[i].id } : {}), title: x.text, status: x.done ? 1 : 0, sortOrder: i }))
+  };
+  if (remote?.id) body.id = remote.id;
+  return body;
+}
+
+// Raw call that reports 404 instead of throwing, used to tell "completed" from "deleted".
+async function tickTickProbe(endpoint) {
+  try {
+    return { ok: true, body: await tickTickRequest(null, null, endpoint) };
+  } catch (error) {
+    if (/404|not.?found/i.test(String(error.message)) || error.ttStatus === 404) return { ok: false, notFound: true };
+    return { ok: false, error };
+  }
+}
+
+async function ttPushRow(row, remote) {
+  if (!row.ticktick_task_id || !row.ticktick_project_id) return null;
+  if (!remote) {
+    const probe = await tickTickProbe(`/project/${encodeURIComponent(row.ticktick_project_id)}/task/${encodeURIComponent(row.ticktick_task_id)}`);
+    remote = probe.ok ? probe.body : { id: row.ticktick_task_id };
+  }
+  const updated = await tickTickRequest(null, null, `/task/${encodeURIComponent(row.ticktick_task_id)}`, { method: "POST", body: tickTaskPayload(row, row.ticktick_project_id, remote) });
+  const sig = ttSig(ttRemoteState(updated && updated.id ? updated : { ...tickTaskPayload(row, row.ticktick_project_id), items: checklistFromRow(row).map((x) => ({ title: x.text, status: x.done ? 1 : 0 })) }));
+  await pool.query(`UPDATE hero_family_tasks SET ticktick_sig = $2 WHERE id = $1`, [row.id, sig]);
+  return sig;
+}
+
+function ttConnected() {
+  return isTickTickConfigured() && Boolean(getStoredTokens(null)?.accessToken);
+}
+
+// Fire-and-forget push after a change in Hero; the periodic sync retries anything that fails.
+function ttPushSoon(taskId) {
+  if (!pool || !ttConnected()) return;
+  setTimeout(async () => {
+    try {
+      const { rows } = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [taskId]);
+      const row = rows[0];
+      if (!row || TT_SKIP_TYPES.has(row.task_type)) return;
+      if (!row.ticktick_task_id) {
+        if (row.done) return;
+        const tick = await createTickTickTaskIfPossible(null, null, { assignee: row.assignee, title: row.title, type: row.task_type, note: row.note, dueDate: pgDateKey(row.due_date), suggestedTime: row.suggested_time, checklist: checklistFromRow(row).map((x) => x.text) });
+        if (tick) await pool.query(`UPDATE hero_family_tasks SET ticktick_task_id = $2, ticktick_project_id = $3, ticktick_project_name = $4, ticktick_sig = $5 WHERE id = $1`, [row.id, tick.ticktickTaskId, tick.ticktickProjectId, tick.ticktickProjectName, tick.ticktickSig]);
+        return;
+      }
+      if (!row.done) await ttPushRow(row);
+    } catch (error) {
+      console.warn("TickTick push failed (will retry on next sync):", error.message);
+    }
+  }, 50);
+}
+
+function ttDeleteSoon(projectId, taskId) {
+  if (!projectId || !taskId || !pool) return;
+  pool.query(`INSERT INTO hero_ticktick_tombstones (ticktick_task_id, ticktick_project_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [taskId, projectId]).catch(() => {});
+  if (!ttConnected()) return;
+  setTimeout(async () => {
+    try {
+      await tickTickRequest(null, null, `/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(taskId)}`, { method: "DELETE" });
+      await pool.query(`UPDATE hero_ticktick_tombstones SET removed = TRUE WHERE ticktick_task_id = $1`, [taskId]);
+    } catch (error) {
+      console.warn("TickTick delete failed (will retry on next sync):", error.message);
+    }
+  }, 50);
+}
+
+function ttGuessAssignee(task) {
+  const hay = [ttClean(task.title), ...(Array.isArray(task.tags) ? task.tags.map(ttClean) : [])].join(" ");
+  const hits = Object.values(FAMILY_MEMBERS).filter((m) => hay.includes(ttClean(m.name)) || hay.includes(ttClean(m.id)));
+  return hits.length === 1 ? hits[0].id : null;
+}
+
+let ttSyncRunning = false;
+let ttLastSync = { at: null, result: null, error: null };
+
+async function tickTickSync() {
+  if (ttSyncRunning || !pool || !ttConnected()) return { skipped: true };
+  ttSyncRunning = true;
+  const out = { pulled: 0, pushed: 0, completedHere: 0, completedThere: 0, deletedHere: 0, deletedThere: 0, imported: 0, linked: 0 };
+  try {
+    await ensureFamilyDatabase();
+    const today = familyDateKey();
+    const from = addDaysToDateKey(today, -3);
+    const to = addDaysToDateKey(today, 30);
+
+    // 1) Retry Hero → TickTick work that failed before: completions and deletions.
+    const pendingDone = await pool.query(`SELECT * FROM hero_family_tasks WHERE done = TRUE AND ticktick_completed = FALSE AND ticktick_task_id IS NOT NULL AND due_date >= $1 LIMIT 30`, [from]);
+    for (const row of pendingDone.rows) {
+      const r = await tickTickProbe(`/project/${encodeURIComponent(row.ticktick_project_id)}/task/${encodeURIComponent(row.ticktick_task_id)}`);
+      if (r.ok && Number(r.body?.status) !== 2) {
+        try { await tickTickRequest(null, null, `/project/${encodeURIComponent(row.ticktick_project_id)}/task/${encodeURIComponent(row.ticktick_task_id)}/complete`, { method: "POST" }); out.completedThere++; } catch { continue; }
+      } else if (!r.ok && !r.notFound) continue;
+      await pool.query(`UPDATE hero_family_tasks SET ticktick_completed = TRUE WHERE id = $1`, [row.id]);
+    }
+    const pendingDel = await pool.query(`SELECT * FROM hero_ticktick_tombstones WHERE removed = FALSE AND created_at > NOW() - INTERVAL '30 days' LIMIT 20`);
+    for (const t of pendingDel.rows) {
+      try { await tickTickRequest(null, null, `/project/${encodeURIComponent(t.ticktick_project_id)}/task/${encodeURIComponent(t.ticktick_task_id)}`, { method: "DELETE" }); out.deletedThere++; } catch (error) { if (!/404/.test(error.message)) continue; }
+      await pool.query(`UPDATE hero_ticktick_tombstones SET removed = TRUE WHERE ticktick_task_id = $1`, [t.ticktick_task_id]);
+    }
+
+    // 2) Make sure today's tasks exist in TickTick.
+    const unlinked = await pool.query(`SELECT * FROM hero_family_tasks WHERE done = FALSE AND ticktick_task_id IS NULL AND due_date = $1 AND task_type NOT IN ('prayer','school') ORDER BY suggested_time LIMIT 40`, [today]);
+    for (const row of unlinked.rows) {
+      const tick = await createTickTickTaskIfPossible(null, null, { assignee: row.assignee, title: row.title, type: row.task_type, note: row.note, dueDate: today, suggestedTime: row.suggested_time, checklist: checklistFromRow(row).map((x) => x.text) });
+      if (!tick) continue;
+      await pool.query(`UPDATE hero_family_tasks SET ticktick_task_id = $2, ticktick_project_id = $3, ticktick_project_name = $4, ticktick_sig = $5 WHERE id = $1`, [row.id, tick.ticktickTaskId, tick.ticktickProjectId, tick.ticktickProjectName, tick.ticktickSig]);
+      out.linked++;
+    }
+
+    // 3) Read every list that holds an open linked task, plus the Hero list.
+    const linked = (await pool.query(`SELECT * FROM hero_family_tasks WHERE done = FALSE AND ticktick_task_id IS NOT NULL AND ticktick_project_id IS NOT NULL AND due_date BETWEEN $1 AND $2`, [from, to])).rows;
+    const hero = await ensureHeroProject(null, null);
+    const projectIds = new Set([hero.id, ...linked.map((r) => r.ticktick_project_id)]);
+    const remoteByProject = new Map();
+    for (const pid of projectIds) {
+      try {
+        const data = await tickTickRequest(null, null, `/project/${encodeURIComponent(pid)}/data`);
+        remoteByProject.set(pid, new Map((Array.isArray(data?.tasks) ? data.tasks : []).map((t) => [String(t.id), t])));
+      } catch (error) {
+        console.warn("TickTick list read failed:", pid, error.message);
+      }
+    }
+
+    // 4) Reconcile each linked task.
+    for (const row of linked) {
+      const list = remoteByProject.get(row.ticktick_project_id);
+      if (!list) continue;
+      let remote = list.get(String(row.ticktick_task_id));
+      if (!remote) {
+        const r = await tickTickProbe(`/project/${encodeURIComponent(row.ticktick_project_id)}/task/${encodeURIComponent(row.ticktick_task_id)}`);
+        if (r.ok && r.body && (Number(r.body.status) === 2 || r.body.completedTime)) {
+          await pool.query(`UPDATE hero_family_tasks SET done = TRUE, ticktick_completed = TRUE, started_at = COALESCE(started_at, NOW()), finished_at = NOW(), updated_at = NOW() WHERE id = $1 AND done = FALSE`, [row.id]);
+          out.completedHere++;
+          continue;
+        }
+        if (r.notFound || (r.ok && (!r.body || !r.body.id || r.body.deleted))) {
+          await pool.query(`DELETE FROM hero_family_tasks WHERE id = $1 AND done = FALSE`, [row.id]);
+          out.deletedHere++;
+          continue;
+        }
+        if (!r.ok || !r.body?.id) continue;
+        remote = r.body;
+      }
+      const rs = ttRemoteState(remote);
+      const ls = ttLocalState(row);
+      if (remote.repeatFlag && rs.d && rs.d > ls.d) {
+        await pool.query(`UPDATE hero_family_tasks SET done = TRUE, ticktick_completed = TRUE, started_at = COALESCE(started_at, NOW()), finished_at = NOW(), updated_at = NOW() WHERE id = $1 AND done = FALSE`, [row.id]);
+        out.completedHere++;
+        continue;
+      }
+      const rSig = ttSig(rs), lSig = ttSig(ls);
+      if (rSig === lSig) {
+        if (row.ticktick_sig !== rSig) await pool.query(`UPDATE hero_family_tasks SET ticktick_sig = $2 WHERE id = $1`, [row.id, rSig]);
+        continue;
+      }
+      if ((row.ticktick_sig && rSig !== row.ticktick_sig) || (!row.ticktick_sig && row.source === "ticktick")) {
+        // Changed in TickTick → apply here.
+        const current = checklistFromRow(row).map((x) => x.text);
+        const remoteTexts = rs.i.map(([t]) => safeText(t, 90)).filter(Boolean).slice(0, 8);
+        const sameSteps = remoteTexts.length === current.length && remoteTexts.every((t, i) => t === current[i]);
+        const doneIdx = rs.i.map(([, d], i) => (d ? i : -1)).filter((i) => i >= 0 && i < (remoteTexts.length || current.length));
+        await pool.query(
+          `UPDATE hero_family_tasks SET title = $2, due_date = $3, suggested_time = $4,
+             checklist = CASE WHEN $5::boolean THEN $6::jsonb ELSE checklist END,
+             checklist_done = CASE WHEN $9::boolean THEN $7::jsonb ELSE checklist_done END, ticktick_sig = $8, updated_at = NOW() WHERE id = $1`,
+          [row.id, safeText(rs.t, 180) || row.title, rs.d || ls.d, rs.d ? rs.h : ls.h, Boolean(remoteTexts.length && !sameSteps), JSON.stringify(remoteTexts), JSON.stringify(doneIdx), rSig, rs.i.length > 0]
+        );
+        out.pulled++;
+      } else {
+        // Changed in Hero (or never synced) → push there.
+        try { await ttPushRow(row, remote); out.pushed++; } catch (error) { console.warn("TickTick push failed:", error.message); }
+      }
+    }
+
+    // 5) Import new tasks written in the Hero list that name a child.
+    const heroList = remoteByProject.get(hero.id);
+    if (heroList && heroList.size) {
+      const ids = [...heroList.keys()];
+      const known = new Set((await pool.query(`SELECT ticktick_task_id FROM hero_family_tasks WHERE ticktick_task_id = ANY($1::text[]) UNION SELECT ticktick_task_id FROM hero_ticktick_tombstones WHERE ticktick_task_id = ANY($1::text[])`, [ids])).rows.map((r) => String(r.ticktick_task_id)));
+      for (const [id, t] of heroList) {
+        if (known.has(id) || !isOpenTickTickTask(t) || t.repeatFlag) continue;
+        const assignee = ttGuessAssignee(t);
+        if (!assignee) continue;
+        const rs = ttRemoteState(t);
+        const date = rs.d || today;
+        if (date < today || date > addDaysToDateKey(today, 14)) continue;
+        const steps = rs.i.map(([x]) => safeText(x, 90)).filter(Boolean).slice(0, 8);
+        const doneIdx = rs.i.map(([, d], i) => (d ? i : -1)).filter((i) => i >= 0 && i < steps.length);
+        const memberName = FAMILY_MEMBERS[assignee].name;
+        const title = safeText(rs.t.replace(new RegExp(`\\s*[-–:·]?\\s*(${ttClean(memberName)}|${memberName}|${assignee})\\s*[-–:·]?\\s*`, "i"), " ").trim(), 180) || rs.t;
+        await pool.query(
+          `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name, checklist, checklist_done, ticktick_sig)
+           VALUES ($1,$2,$3,'other',5,$4,$5,$6,0,'ticktick',$7,$8,$9,$10::jsonb,$11::jsonb,NULL)`,
+          [crypto.randomUUID(), assignee, title, date, safeText(String(t.content || "").replace(/^Hero Family[^\n]*\n?/, ""), 500), rs.d ? rs.h : "", id, hero.id, hero.name, JSON.stringify(steps), JSON.stringify(doneIdx)]
+        );
+        out.imported++;
+      }
+    }
+    ttLastSync = { at: new Date().toISOString(), result: out, error: null };
+    return out;
+  } catch (error) {
+    console.warn("TickTick sync failed:", error.message);
+    ttLastSync = { at: new Date().toISOString(), result: out, error: error.message };
+    return { ...out, error: error.message };
+  } finally {
+    ttSyncRunning = false;
   }
 }
 
@@ -629,6 +950,8 @@ async function ensureFamilyDatabase() {
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS checklist JSONB NOT NULL DEFAULT '[]'::jsonb;
         ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS checklist_done JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS ticktick_sig TEXT;
+        CREATE TABLE IF NOT EXISTS hero_ticktick_tombstones (ticktick_task_id TEXT PRIMARY KEY, ticktick_project_id TEXT NOT NULL, removed BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
         ALTER TABLE hero_family_tasks DROP CONSTRAINT IF EXISTS hero_family_tasks_assignee_check;
 
         CREATE TABLE IF NOT EXISTS hero_family_members (
@@ -1562,7 +1885,7 @@ async function insertCoachPlanTasks(req, res, plan, date) {
       if (exists.rows[0]) continue;
       const planSlot = await resolveTimeSlot(member, date, task.suggestedTime, task.timerMinutes, { type: task.type });
       if (planSlot.moved) task.suggestedTime = planSlot.time;
-      const baseTask = { assignee: member, title: task.title, type: task.type, points: task.points, note: task.note, suggestedTime: task.suggestedTime, timerMinutes: task.timerMinutes, source: task.source || "chatgpt" };
+      const baseTask = { assignee: member, title: task.title, type: task.type, points: task.points, note: task.note, suggestedTime: task.suggestedTime, timerMinutes: task.timerMinutes, source: task.source || "chatgpt", dueDate: date };
       const tick = baseTask.source === "prayer" ? null : await createTickTickTaskIfPossible(req, res, baseTask);
       const { rows } = await pool.query(
         `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name)
@@ -1737,10 +2060,11 @@ async function applyProgramNow(member, date, { force = false, replace = false } 
   }
 
   if (replace) {
-    await pool.query(
-      `DELETE FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND done = FALSE AND task_type <> 'prayer' AND source NOT IN ('parent','ticktick') AND ticktick_task_id IS NULL`,
+    const removed = await pool.query(
+      `DELETE FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND done = FALSE AND task_type <> 'prayer' AND source NOT IN ('parent','ticktick') RETURNING ticktick_task_id, ticktick_project_id`,
       [member, day]
     );
+    for (const r of removed.rows) if (r.ticktick_task_id) ttDeleteSoon(r.ticktick_project_id, r.ticktick_task_id);
   }
   const prayerResult = await getPrayerTimesSafely(day);
   const school = await getSchoolSettings(member);
@@ -1830,7 +2154,8 @@ async function ensureProgramHorizon(days = 7) {
 async function regenerateProgram() {
   await ensureFamilyDatabase();
   const today = dateKeyInTimeZone(new Date());
-  await pool.query(`DELETE FROM hero_family_tasks WHERE due_date > $1 AND done = FALSE AND source IN ('program','weekly')`, [today]);
+  const dropped = await pool.query(`DELETE FROM hero_family_tasks WHERE due_date > $1 AND done = FALSE AND source IN ('program','weekly') RETURNING ticktick_task_id, ticktick_project_id`, [today]);
+  for (const r of dropped.rows) if (r.ticktick_task_id) ttDeleteSoon(r.ticktick_project_id, r.ticktick_task_id);
   await pool.query(`DELETE FROM hero_family_program_runs WHERE run_date > $1`, [today]);
   for (const member of Object.keys(FAMILY_MEMBERS)) {
     await applyProgramForMember(member, today, { force: true, replace: true }).catch((e) => console.warn("regenerate today:", e.message));
@@ -2072,6 +2397,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.query.date);
   for (const memberId of Object.keys(FAMILY_MEMBERS)) await ensureTodayProgram(memberId, date);
   ensureProgramHorizon().catch(() => {});
+  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > 45000) tickTickSync().catch(() => {});
   const distribution = await autoDistributeFamilyDate(date);
   const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -2141,7 +2467,7 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
     ticktickProjectName: safeText(req.body?.ticktickProjectName, 200) || null
   };
 
-  let tick = initialTask.ticktickTaskId ? null : await createTickTickTaskIfPossible(req, res, initialTask);
+  let tick = initialTask.ticktickTaskId ? null : await createTickTickTaskIfPossible(req, res, { ...initialTask, dueDate, checklist });
 
   const { rows } = await pool.query(
     `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, ticktick_task_id, ticktick_project_id, ticktick_project_name, checklist)
@@ -2225,6 +2551,7 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
 
   await autoDistributeTasksForDate(dueDate, assignee);
   const updated = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [rows[0].id]);
+  ttPushSoon(rows[0].id);
   res.json({ task: mapFamilyTask(updated.rows[0] || rows[0]) });
 }));
 
@@ -2243,6 +2570,7 @@ app.patch("/api/family/tasks/:id/check", asyncRoute(async (req, res) => {
     `UPDATE hero_family_tasks SET checklist_done = $2::jsonb, updated_at = NOW() WHERE id = $1 RETURNING *`,
     [row.id, JSON.stringify([...doneSet].sort((a, b) => a - b))]
   );
+  ttPushSoon(row.id);
   res.json({ task: mapFamilyTask(rows[0]) });
 }));
 
@@ -2511,7 +2839,8 @@ app.delete("/api/family/members/:id", asyncRoute(async (req, res) => {
   const id = String(req.params.id || "");
   const member = FAMILY_MEMBERS[id];
   if (!member || member.builtin) throw new PublicError(400, "لا يمكن حذف هذا المستخدم.");
-  await pool.query(`DELETE FROM hero_family_tasks WHERE assignee = $1`, [id]);
+  const droppedMember = await pool.query(`DELETE FROM hero_family_tasks WHERE assignee = $1 RETURNING ticktick_task_id, ticktick_project_id, done`, [id]);
+  for (const r of droppedMember.rows) if (r.ticktick_task_id && !r.done) ttDeleteSoon(r.ticktick_project_id, r.ticktick_task_id);
   await pool.query(`DELETE FROM hero_family_events WHERE assignee = $1`, [id]);
   await pool.query(`DELETE FROM hero_family_program_runs WHERE assignee = $1`, [id]);
   await pool.query(`DELETE FROM hero_family_school WHERE assignee = $1`, [id]);
@@ -2555,8 +2884,10 @@ app.patch("/api/family/tasks/:id/complete", asyncRoute(async (req, res) => {
 app.delete("/api/family/tasks/:id", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
-  const result = await pool.query("DELETE FROM hero_family_tasks WHERE id = $1", [req.params.id]);
+  const result = await pool.query("DELETE FROM hero_family_tasks WHERE id = $1 RETURNING ticktick_task_id, ticktick_project_id, done", [req.params.id]);
   if (!result.rowCount) throw new PublicError(404, "لم نجد هذه المهمة.");
+  const gone = result.rows[0];
+  if (gone.ticktick_task_id && !gone.done) ttDeleteSoon(gone.ticktick_project_id, gone.ticktick_task_id);
   res.status(204).end();
 }));
 
@@ -2968,7 +3299,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 app.get("/api/ticktick/status", (req, res) => {
   const configured = isTickTickConfigured();
   const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
-  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE });
+  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE, sync: { everyMinutes: TT_SYNC_MS / 60000, last: hasParentSession(req) ? ttLastSync : null } });
 });
 
 app.get("/api/ticktick/diagnostics", (req, res) => {
@@ -3046,6 +3377,8 @@ app.get("/auth/ticktick/callback", asyncRoute(async (req, res) => {
   if (!code || !verifyOAuthState(state)) return res.redirect("/?ticktick=state_error");
   const payload = await requestToken({ grant_type: "authorization_code", client_id: process.env.TICKTICK_CLIENT_ID, client_secret: process.env.TICKTICK_CLIENT_SECRET, code, redirect_uri: process.env.TICKTICK_REDIRECT_URI });
   writeStoredTokens(res, normalizeTokens(payload));
+  heroProjectCache = null;
+  setTimeout(() => tickTickSync().catch(() => {}), 1000);
   return res.redirect("/?ticktick=connected");
 }));
 
@@ -3064,8 +3397,23 @@ app.post("/api/ideas", asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/ticktick/disconnect", (req, res) => {
+  requireParent(req);
   clearCookie(res, "hero_ticktick_tokens");
+  persistServerTickTokens(null);
+  heroProjectCache = null;
   res.status(204).end();
+});
+
+app.post("/api/ticktick/sync", asyncRoute(async (req, res) => {
+  requireParent(req);
+  if (!ttConnected()) throw new PublicError(400, "TickTick غير متصل.");
+  const result = await tickTickSync();
+  res.json({ result, last: ttLastSync });
+}));
+
+app.get("/api/ticktick/sync", (req, res) => {
+  requireParent(req);
+  res.json({ connected: ttConnected(), running: ttSyncRunning, last: ttLastSync, everyMinutes: TT_SYNC_MS / 60000 });
 });
 
 /* ===================== AI tutor: math + Hebrew (Claude) ===================== */
@@ -3203,4 +3551,8 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Hero Family is running on port ${PORT}`);
+  loadServerTickTokens().then(() => {
+    setTimeout(() => tickTickSync().catch(() => {}), 15000);
+    setInterval(() => tickTickSync().catch(() => {}), TT_SYNC_MS);
+  });
 });
