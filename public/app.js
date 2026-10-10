@@ -46,7 +46,7 @@
   const $=id=>document.getElementById(id);
   const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
   const today=()=>iso(new Date());
-  let cal={month:today().slice(0,7),sel:today(),events:[],tasks:[],showTasks:true};
+  let cal={month:today().slice(0,7),sel:today(),events:[],tasks:[],showTasks:true,who:""};
   const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   const typeOf=t=>TYPES[t]||TYPES.other;
   const isPrayer=t=>t.type==="prayer";
@@ -252,8 +252,10 @@
   function calendarHtml(){
     const [y,m]=cal.month.split("-").map(Number);
     const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
-    const by={},tk={};for(const e of cal.events)(by[e.date]=by[e.date]||[]).push(e);
-    if(cal.showTasks)for(const t of cal.tasks)if(t.type!=="prayer")(tk[t.date]=tk[t.date]||[]).push(t);
+    const who=cal.who&&(cal.who==="all"||KIDS.includes(cal.who))?cal.who:KIDS[0];
+    const by={},tk={};for(const e of cal.events)if(who==="all"||e.assignee===who||e.assignee==="family")(by[e.date]=by[e.date]||[]).push(e);
+    if(cal.showTasks)for(const t of cal.tasks)if(t.type!=="prayer"&&(who==="all"||t.assignee===who))(tk[t.date]=tk[t.date]||[]).push(t);
+    const whoTabs=`<div class="ktabs" role="tablist">${KIDS.map(k=>`<button type="button" role="tab" aria-selected="${who===k}" class="${who===k?"on":""}" data-action="cal-who" data-k="${k}" style="--kc:${EVC(k)}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}</button>`).join("")}<button type="button" role="tab" aria-selected="${who==="all"}" class="${who==="all"?"on":""}" data-action="cal-who" data-k="all" style="--kc:var(--brand)">الكل</button></div>`;
     const names=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
     let cells=names.map(n=>`<div class="cal-h">${n}</div>`).join("");
     for(let i=0;i<lead;i++)cells+=`<div class="cal-c off"></div>`;
@@ -271,7 +273,7 @@
       if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`}
       const t=it.o,ty=typeOf(t.type);return `<div class="cal-ev cal-tk ${t.done?"done":""}" style="--ec:${EVC(t.assignee)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span></div>`};
     const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
-    return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
+    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -589,6 +591,7 @@
       case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
       case "pkid":pkid=b.dataset.k;return render();
+      case "cal-who":cal.who=b.dataset.k;return render();
       case "cal-tasks":cal.showTasks=!cal.showTasks;return render();
       case "cal-day":cal.sel=b.dataset.d;return render();
       case "cal-nav":{const [y,m]=cal.month.split("-").map(Number),dt=new Date(y,m-1+Number(b.dataset.n),1);cal.month=iso(dt).slice(0,7);cal.sel=cal.month===today().slice(0,7)?today():`${cal.month}-01`;return loadCal()}
@@ -685,12 +688,13 @@
     if(id==="taskForm")return guard(btn,async()=>{
       syncDraft();if(!draft.title.trim())return toast("اكتب المهمة أولاً.","err");
       if(draft.editId){
-        await api(`/api/family/tasks/${draft.editId}`,{method:"PATCH",body:JSON.stringify({...taskBody(),assignee:draft.who==="both"?"yaman":draft.who})});
-        close();await refresh();return toast("تم تحديث المهمة ✓","ok");
+        const r0=await api(`/api/family/tasks/${draft.editId}`,{method:"PATCH",body:JSON.stringify({...taskBody(),assignee:draft.who==="both"?"yaman":draft.who})});
+        close();await refresh();return toast(r0?.task&&draft.time&&r0.task.suggestedTime&&r0.task.suggestedTime!==draft.time?`نُقلت إلى ${r0.task.suggestedTime} لتجنب التعارض ✓`:"تم تحديث المهمة ✓","ok");
       }
       const who=draft.who==="both"?KIDS:[draft.who];
-      for(const w of who)await api("/api/family/tasks",{method:"POST",body:JSON.stringify({...taskBody(),assignee:w,source:"parent"})});
-      close();await refresh();toast("تمت إضافة المهمة ✓","ok");
+      let moved=null;
+      for(const w of who){const r1=await api("/api/family/tasks",{method:"POST",body:JSON.stringify({...taskBody(),assignee:w,source:"parent"})});if(r1?.timeMoved)moved=r1.timeMoved}
+      close();await refresh();toast(moved?`أُضيفت المهمة وانتقلت من ${moved.from} إلى ${moved.to} لتجنب التعارض ✓`:"تمت إضافة المهمة ✓","ok");
     });
     if(id==="memberForm")return guard(btn,async()=>{
       const r=await api("/api/family/members",{method:"POST",body:JSON.stringify({name:$("mName").value,age:Number($("mAge").value),icon:window.__mIcon||"🌟",pin:$("mPin").value})});

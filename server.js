@@ -902,12 +902,65 @@ function automaticSlotFallback(index) {
   return clockFromMinutes(base + Math.max(0, Number(index) || 0) * 45);
 }
 
+const DEFAULT_TASK_MINUTES = 15;
+const PRAYER_WINDOW_MINUTES = 10;
+const SLOT_BUFFER_MINUTES = 5;
+const LAST_START_MINUTE = 23 * 60 + 30;
+
+function timeToMinutes(t) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(t || ""));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+function minutesToTime(n) {
+  return `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+}
+
+function busyFromRows(rows, excludeId = null) {
+  return rows
+    .filter((r) => r.id !== excludeId)
+    .map((r) => {
+      const start = timeToMinutes(r.suggested_time);
+      if (start === null) return null;
+      const prayer = r.task_type === "prayer";
+      const dur = prayer ? PRAYER_WINDOW_MINUTES : Math.max(5, Number(r.timer_minutes) || DEFAULT_TASK_MINUTES);
+      return { start, end: start + dur, prayer, title: r.title };
+    })
+    .filter(Boolean);
+}
+
+// First start >= wanted where [start, start+dur) overlaps nothing. A long task may contain a
+// prayer (it simply pauses), but may not start inside a prayer window.
+function firstFreeStart(busy, wanted, dur) {
+  let start = wanted;
+  for (let guard = 0; guard < 60; guard += 1) {
+    const hit = busy.find((b) => (b.prayer ? start >= b.start && start < b.end : start < b.end && b.start < start + dur));
+    if (!hit) return { start, conflict: start !== wanted ? true : false };
+    start = hit.end + SLOT_BUFFER_MINUTES;
+    if (start > LAST_START_MINUTE) return null;
+  }
+  return null;
+}
+
+async function resolveTimeSlot(assignee, date, time, minutes, { excludeId = null, type = "" } = {}) {
+  const wanted = timeToMinutes(time);
+  if (wanted === null || type === "prayer") return { time, moved: false };
+  const { rows } = await pool.query(
+    `SELECT id, title, task_type, suggested_time, timer_minutes FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND suggested_time <> ''`,
+    [assignee, date]
+  );
+  const dur = Math.max(5, Number(minutes) || DEFAULT_TASK_MINUTES);
+  const found = firstFreeStart(busyFromRows(rows, excludeId), wanted, dur);
+  if (!found || found.start === wanted) return { time, moved: false };
+  return { time: minutesToTime(found.start), moved: true, from: time };
+}
+
 async function autoDistributeTasksForDate(date, assignee) {
   await ensureFamilyDatabase();
   if (!isFamilyMember(assignee)) return 0;
   const day = familyDateKey(date);
   const { rows } = await pool.query(
-    `SELECT id, task_type, suggested_time, created_at
+    `SELECT id, title, task_type, suggested_time, timer_minutes, created_at
        FROM hero_family_tasks
       WHERE assignee = $1 AND due_date = $2
       ORDER BY
@@ -917,15 +970,25 @@ async function autoDistributeTasksForDate(date, assignee) {
     [assignee, day]
   );
 
-  const used = new Set(rows.map((row) => safeTime(row.suggested_time)).filter(Boolean));
+  const busy = busyFromRows(rows);
   const updates = [];
   for (const row of rows) {
     const current = safeTime(row.suggested_time);
     if (current || row.task_type === "prayer") continue;
-    let chosen = DEFAULT_AUTOMATIC_TASK_SLOTS.find((slot) => !used.has(slot));
-    if (!chosen) chosen = automaticSlotFallback(used.size + updates.length);
-    used.add(chosen);
-    updates.push({ id: row.id, time: chosen });
+    const dur = Math.max(5, Number(row.timer_minutes) || DEFAULT_TASK_MINUTES);
+    let chosen = null;
+    for (const slot of DEFAULT_AUTOMATIC_TASK_SLOTS) {
+      const at = timeToMinutes(slot);
+      const found = at === null ? null : firstFreeStart(busy, at, dur);
+      if (found && found.start === at) { chosen = at; break; }
+    }
+    if (chosen === null) {
+      const found = firstFreeStart(busy, timeToMinutes(DEFAULT_AUTOMATIC_TASK_SLOTS[0]) ?? 15 * 60, dur);
+      if (!found) continue;
+      chosen = found.start;
+    }
+    busy.push({ start: chosen, end: chosen + dur, prayer: false, title: row.title });
+    updates.push({ id: row.id, time: minutesToTime(chosen) });
   }
 
   for (const update of updates) {
@@ -1427,6 +1490,8 @@ async function insertCoachPlanTasks(req, res, plan, date) {
         [member, date, task.title]
       );
       if (exists.rows[0]) continue;
+      const planSlot = await resolveTimeSlot(member, date, task.suggestedTime, task.timerMinutes, { type: task.type });
+      if (planSlot.moved) task.suggestedTime = planSlot.time;
       const baseTask = { assignee: member, title: task.title, type: task.type, points: task.points, note: task.note, suggestedTime: task.suggestedTime, timerMinutes: task.timerMinutes, source: task.source || "chatgpt" };
       const tick = baseTask.source === "prayer" ? null : await createTickTickTaskIfPossible(req, res, baseTask);
       const { rows } = await pool.query(
@@ -1574,11 +1639,13 @@ async function applyProgramNow(member, date, { force = false, replace = false } 
   }
   const prayerResult = await getPrayerTimesSafely(day);
   const school = await getSchoolSettings(member);
-  const tasks = [...buildProgramTasks(member, day, school), ...buildPrayerTasks(prayerResult.prayerTimes)];
+  const tasks = [...buildPrayerTasks(prayerResult.prayerTimes), ...buildProgramTasks(member, day, school)];
   const inserted = [];
   for (const task of tasks) {
     const exists = await pool.query(`SELECT 1 FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND title = $3 LIMIT 1`, [member, day, task.title]);
     if (exists.rows[0]) continue;
+    const progSlot = await resolveTimeSlot(member, day, safeTime(task.suggestedTime), task.timerMinutes, { type: task.type });
+    if (progSlot.moved) task.suggestedTime = progSlot.time;
     const { rows } = await pool.query(
       `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, checklist)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) RETURNING *`,
@@ -1875,11 +1942,14 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   const points = Math.min(50, Math.max(0, Number(req.body?.points) || 5));
   const dueDate = familyDateKey(req.body?.date);
   const note = safeText(req.body?.note, 500);
-  const suggestedTime = safeTime(req.body?.suggestedTime);
+  let suggestedTime = safeTime(req.body?.suggestedTime);
   const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
   const source = safeText(req.body?.source, 30) || "parent";
   const checklist = safeChecklist(req.body?.checklist);
   if (!isFamilyMember(assignee) || !title) throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
+
+  const slot = await resolveTimeSlot(assignee, dueDate, suggestedTime, timerMinutes, { type });
+  if (slot.moved) suggestedTime = slot.time;
 
   const id = crypto.randomUUID();
   const initialTask = {
@@ -1919,7 +1989,7 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
   );
   await autoDistributeTasksForDate(dueDate, assignee);
   const updated = await pool.query(`SELECT * FROM hero_family_tasks WHERE id = $1`, [rows[0].id]);
-  res.status(201).json({ task: mapFamilyTask(updated.rows[0] || rows[0]), ticktickSynced: Boolean(tick || initialTask.ticktickTaskId) });
+  res.status(201).json({ task: mapFamilyTask(updated.rows[0] || rows[0]), ticktickSynced: Boolean(tick || initialTask.ticktickTaskId), timeMoved: slot.moved ? { from: slot.from, to: slot.time } : null });
 }));
 
 app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
@@ -1932,12 +2002,15 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
   const points = Math.min(50, Math.max(0, Number(req.body?.points) || 0));
   const dueDate = familyDateKey(req.body?.date);
   const note = safeText(req.body?.note, 500);
-  const suggestedTime = safeTime(req.body?.suggestedTime);
+  let suggestedTime = safeTime(req.body?.suggestedTime);
   const timerMinutes = safeTimerMinutes(req.body?.timerMinutes);
 
   if (!isFamilyMember(assignee) || !title) {
     throw new PublicError(400, "اختر الطفل واكتب مهمة قصيرة وواضحة.");
   }
+
+  const slot = await resolveTimeSlot(assignee, dueDate, suggestedTime, timerMinutes, { excludeId: req.params.id, type });
+  if (slot.moved) suggestedTime = slot.time;
 
   const { rows } = await pool.query(
     `UPDATE hero_family_tasks
