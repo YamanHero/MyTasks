@@ -556,6 +556,13 @@ async function ensureFamilyDatabase() {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS hero_family_school (
+          assignee TEXT PRIMARY KEY,
+          school_start TEXT NOT NULL DEFAULT '08:00',
+          school_end TEXT NOT NULL DEFAULT '14:00',
+          school_days JSONB NOT NULL DEFAULT '[0,1,2,3,4]'::jsonb
+        );
+
         CREATE TABLE IF NOT EXISTS hero_family_program_runs (
           assignee TEXT NOT NULL,
           run_date DATE NOT NULL,
@@ -1381,6 +1388,26 @@ async function insertCoachPlanTasks(req, res, plan, date) {
    Teens (13+) get a 2-hour review block; younger children get two short sessions with a break. */
 const STUDY_WEEKDAYS = new Set([1, 2, 3, 4, 6]);
 
+const DEFAULT_SCHOOL = { start: "08:00", end: "14:00", days: [0, 1, 2, 3, 4] };
+
+function normalizeSchool(input) {
+  const start = safeTime(input?.start) || DEFAULT_SCHOOL.start;
+  let end = safeTime(input?.end) || DEFAULT_SCHOOL.end;
+  if ((minutesFromClock(end) ?? 0) <= (minutesFromClock(start) ?? 0)) end = DEFAULT_SCHOOL.end;
+  const days = Array.isArray(input?.days) ? [...new Set(input.days.map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : DEFAULT_SCHOOL.days;
+  return { start, end, days };
+}
+
+async function getSchoolSettings(member) {
+  const { rows } = await pool.query(`SELECT school_start, school_end, school_days FROM hero_family_school WHERE assignee = $1`, [member]);
+  if (!rows[0]) return { ...DEFAULT_SCHOOL, days: [...DEFAULT_SCHOOL.days] };
+  return normalizeSchool({ start: rows[0].school_start, end: rows[0].school_end, days: rows[0].school_days });
+}
+
+function addMinutes(clock, delta) {
+  return clockFromMinutes((minutesFromClock(clock) ?? 0) + delta);
+}
+
 function weekdayOfDateKey(date) {
   return new Date(`${familyDateKey(date)}T12:00:00Z`).getUTCDay();
 }
@@ -1389,29 +1416,37 @@ function programTask(title, type, time, timer, note, checklist, points) {
   return { title, type, suggestedTime: time, timerMinutes: timer, note, checklist, points: points ?? (type === "prayer" ? 0 : 10), source: "program" };
 }
 
-function buildProgramTasks(member, date) {
+function buildProgramTasks(member, date, school = DEFAULT_SCHOOL) {
   const info = FAMILY_MEMBERS[member];
   const teen = (info?.age || 10) >= 13;
   const day = weekdayOfDateKey(date);
   const study = STUDY_WEEKDAYS.has(day);
   const tasks = [];
+  const atSchool = school.days.includes(day);
+  const studyStart = atSchool ? (minutesFromClock(addMinutes(school.end, teen ? 120 : 90)) < 15 * 60 + 30 ? "15:30" : addMinutes(school.end, teen ? 120 : 90)) : (teen ? "16:00" : "15:30");
 
-  tasks.push(programTask("نظافة شخصية صباحية", "routine", "07:00", 10,
+  tasks.push(programTask("نظافة شخصية صباحية", "routine", atSchool ? addMinutes(school.start, -70) : "08:00", 10,
     "روتين ثابت كل صباح، بنفس الترتيب.",
     ["اغسل وجهك بالماء والصابون", "نظّف أسنانك بالفرشاة لمدة دقيقتين", "رتّب شعرك", "البس ملابس نظيفة", "رتّب سريرك"]));
 
+  if (atSchool) {
+    tasks.push(programTask(`المدرسة (${school.start} - ${school.end})`, "other", addMinutes(school.start, -30), 0,
+      `ساعات المدرسة من ${school.start} إلى ${school.end}.`,
+      ["جهّز الحقيبة والوجبة وقارورة الماء", "اذهب إلى المدرسة في الوقت", "عُد إلى البيت وأخرج أغراضك من الحقيبة"], 0));
+  }
+
   if (study && teen) {
-    tasks.push(programTask("مراجعة الدروس (ساعتان)", "study", "16:00", 120,
+    tasks.push(programTask("مراجعة الدروس (ساعتان)", "study", studyStart, 120,
       "ساعتان من المراجعة، في جلستين بينهما استراحة قصيرة.",
       ["جهّز الكتب والدفتر والقلم وكوب ماء", "ضع هاتفك بعيداً عنك", "الجلسة الأولى: راجع 50 دقيقة", "استراحة 10 دقائق: قف وتحرّك واشرب", "الجلسة الثانية: راجع 50 دقيقة", "اكتب ما راجعته في ثلاثة أسطر", "اكتب سؤالاً واحداً لتسأل عنه غداً"], 20));
   } else if (study) {
-    tasks.push(programTask("مراجعة الدروس: الجزء الأول", "study", "15:30", 30,
+    tasks.push(programTask("مراجعة الدروس: الجزء الأول", "study", studyStart, 30,
       "ثلاثون دقيقة فقط، ثم استراحة.",
       ["جهّز الكتاب والدفتر والقلم", "اقرأ الدرس الأول", "حلّ التمرين الأول", "ضع علامة على ما لم تفهمه"], 15));
-    tasks.push(programTask("استراحة حركة", "movement", "16:05", 10,
+    tasks.push(programTask("استراحة حركة", "movement", addMinutes(studyStart, 35), 10,
       "حركة قصيرة بين جلستين.",
       ["اشرب ماء", "تحرّك أو اقفز عشر مرات", "اجلس وخذ نفساً هادئاً"], 5));
-    tasks.push(programTask("مراجعة الدروس: الجزء الثاني", "study", "16:20", 30,
+    tasks.push(programTask("مراجعة الدروس: الجزء الثاني", "study", addMinutes(studyStart, 50), 30,
       "الجلسة الأخيرة اليوم.",
       ["اقرأ الدرس الثاني", "حلّ التمرين الثاني", "اقرأ ما كتبته مرة واحدة", "اطلب من أحد أن يسمع ما تعلمته"], 15));
   } else {
@@ -1426,7 +1461,8 @@ function buildProgramTasks(member, date) {
       ["اغتسل", "البس ملابس نظيفة", "تطيّب", "اذهب إلى الصلاة مع أهلك"]));
   }
 
-  tasks.push(programTask(teen ? "رياضة أو مشي" : "لعب بالحركة", "movement", "17:15", 25,
+  const studyEnd = study ? addMinutes(studyStart, teen ? 120 : 80) : "17:00";
+  tasks.push(programTask(teen ? "رياضة أو مشي" : "لعب بالحركة", "movement", addMinutes(studyEnd, 15), 25,
     "حركة يومية خفيفة.",
     ["اشرب ماء", "ابدأ بتمدد خفيف", teen ? "امشِ أو مارس رياضتك 20 دقيقة" : "العب بالحركة 20 دقيقة", "اجلس وخذ نفساً هادئاً"], 10));
 
@@ -1479,7 +1515,8 @@ async function applyProgramNow(member, date, { force = false, replace = false } 
     );
   }
   const prayerResult = await getPrayerTimesSafely(day);
-  const tasks = [...buildProgramTasks(member, day), ...buildPrayerTasks(prayerResult.prayerTimes)];
+  const school = await getSchoolSettings(member);
+  const tasks = [...buildProgramTasks(member, day, school), ...buildPrayerTasks(prayerResult.prayerTimes)];
   const inserted = [];
   for (const task of tasks) {
     const exists = await pool.query(`SELECT 1 FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND title = $3 LIMIT 1`, [member, day, task.title]);
@@ -1901,6 +1938,28 @@ app.patch("/api/family/tasks/:id/check", asyncRoute(async (req, res) => {
   res.json({ task: mapFamilyTask(rows[0]) });
 }));
 
+app.get("/api/family/school", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const settings = {};
+  for (const id of Object.keys(FAMILY_MEMBERS)) settings[id] = await getSchoolSettings(id);
+  res.json({ settings });
+}));
+
+app.put("/api/family/school/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const id = String(req.params.id || "").toLowerCase();
+  if (!isFamilyMember(id)) throw new PublicError(400, "مستخدم غير معروف.");
+  const school = normalizeSchool(req.body || {});
+  await pool.query(
+    `INSERT INTO hero_family_school (assignee, school_start, school_end, school_days) VALUES ($1,$2,$3,$4::jsonb)
+     ON CONFLICT (assignee) DO UPDATE SET school_start = EXCLUDED.school_start, school_end = EXCLUDED.school_end, school_days = EXCLUDED.school_days`,
+    [id, school.start, school.end, JSON.stringify(school.days)]
+  );
+  res.json({ school });
+}));
+
 app.get("/api/family/members", (req, res) => {
   res.json({ members: Object.values(FAMILY_MEMBERS).map(publicMember) });
 });
@@ -1945,6 +2004,7 @@ app.delete("/api/family/members/:id", asyncRoute(async (req, res) => {
   await pool.query(`DELETE FROM hero_family_tasks WHERE assignee = $1`, [id]);
   await pool.query(`DELETE FROM hero_family_events WHERE assignee = $1`, [id]);
   await pool.query(`DELETE FROM hero_family_program_runs WHERE assignee = $1`, [id]);
+  await pool.query(`DELETE FROM hero_family_school WHERE assignee = $1`, [id]);
   await pool.query(`DELETE FROM hero_family_members WHERE id = $1`, [id]);
   await loadFamilyMembers();
   res.status(204).end();

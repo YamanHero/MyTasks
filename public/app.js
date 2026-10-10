@@ -33,7 +33,7 @@
   let area=(PEOPLE[qs.get("area")]||qs.get("area")==="home")?qs.get("area"):(PEOPLE[stored]?stored:"home");
   let pview="today";
   const pending=new Map();
-  let family={},tick={},dashboard=null,child={},prayer=null;
+  let family={},tick={},dashboard=null,child={},prayer=null,school={};
   let loading=true,pin="",pinBusy=false,pinError="";
   let focusId={};
   let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
@@ -118,6 +118,7 @@
     family=f;tick=t;dashboard=null;child={};syncMembers(f.members);
     const jobs=[];
     if(f.parentAuthenticated)jobs.push(api(`/api/family/dashboard?date=${today()}`).then(d=>dashboard=d).catch(()=>null));
+    if(f.parentAuthenticated)jobs.push(api("/api/family/school").then(d=>school=d.settings||{}).catch(()=>null));
     for(const m of KIDS)if(f.parentAuthenticated||f[`${m}Authenticated`])jobs.push(api(`/api/family/child/${m}?date=${today()}`).then(d=>child[m]=d).catch(()=>null));
     await Promise.all(jobs);
     for(const id of pending.keys()){const t=findTask(id);if(t)t.done=true}
@@ -150,7 +151,7 @@
     const back=(area!=="parent"&&parentIn&&area!=="home")?`<button class="pill" data-area="parent">→ لوحة الوالدين</button>`:`<button class="pill" data-area="home">👥 من أنا؟</button>`;
     return `<div class="topbar">${back}<button class="pill pill-sm" data-action="prefs" aria-label="الإعدادات">⚙️</button>${lockable?`<button class="pill" data-action="lock">🔒 قفل</button>`:""}</div>`;
   }
-  const ckHtml=t=>{const l=t.checklist||[];if(!l.length||t.done)return"";const n=l.filter(x=>x.done).length;return `<div class="cklist" role="list" aria-label="خطوات المهمة"><div class="ck-h"><b>الخطوات</b><span>${n}/${l.length}</span></div>${l.map((x,i)=>`<button type="button" role="listitem" class="stp ${x.done?"on":""}" data-action="ck" data-id="${t.id}" data-i="${i}" aria-pressed="${x.done}"><i>✓</i><span>${esc(x.text)}</span></button>`).join("")}</div>`};
+  const ckHtml=(t,force)=>{const l=t.checklist||[];if(!l.length||(t.done&&!force))return"";const n=l.filter(x=>x.done).length;return `<div class="cklist" role="list" aria-label="خطوات المهمة"><div class="ck-h"><b>الخطوات</b><span>${n}/${l.length}</span></div>${l.map((x,i)=>`<button type="button" role="listitem" class="stp ${x.done?"on":""}" data-action="ck" data-id="${t.id}" data-i="${i}" aria-pressed="${x.done}"><i>✓</i><span>${esc(x.text)}</span></button>`).join("")}</div>`};
   const timeChip=t=>t.suggestedTime?`<span class="tchip">⏰ ${esc(t.suggestedTime)}</span>`:"";
   const timerChip=t=>t.timerMinutes?`<span class="tchip timer">⏱ ${t.timerMinutes} د</span>`:"";
 
@@ -175,7 +176,7 @@
     return `<article class="card"><div class="card-title"><h2>🕌 مواقيت الصلاة</h2></div>${prayer===null?`<p class="muted"><span class="spin"></span>جاري تحميل المواقيت…</p>`:`${has?`<div class="stat3" style="grid-template-columns:repeat(3,1fr)">${PRAYER_KEYS.map(([k,l])=>`<div><b style="font-size:1.1rem">${esc(pt[k]||"—")}</b><span>${l}</span></div>`).join("")}</div>`:""}${prayer.warning?`<p class="soft-note" style="margin-top:12px">${esc(prayer.warning)}</p>`:""}<button class="btn btn-soft btn-big" style="margin-top:14px;min-height:54px;font-size:1rem" data-action="prayer-edit">✏️ إدخال المواقيت يدوياً</button>`}</article>`;
   }
   function membersCard(){
-    const ms=KIDS.map(id=>{const p=PEOPLE[id],dyn=id!=="yaman"&&id!=="judy";return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--tint);font-size:1.4rem">${p.icon}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(p.name)}</div><div class="muted small">${dyn?"مستخدم مضاف":"مستخدم أساسي"}</div></div>${dyn?`<button class="icon-btn" data-action="member-pin" data-id="${id}" aria-label="تغيير رمز ${esc(p.name)}">🔑</button><button class="icon-btn" data-action="member-del" data-id="${id}" aria-label="حذف ${esc(p.name)}">🗑</button>`:""}</div>`}).join("");
+    const ms=KIDS.map(id=>{const p=PEOPLE[id],dyn=id!=="yaman"&&id!=="judy";return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--tint);font-size:1.4rem">${p.icon}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(p.name)}</div><div class="muted small">${dyn?"مستخدم مضاف":"مستخدم أساسي"} · 🏫 ${esc((school[id]||{start:"08:00",end:"14:00"}).start)}–${esc((school[id]||{start:"08:00",end:"14:00"}).end)}</div></div><button class="icon-btn" data-action="school-edit" data-id="${id}" aria-label="ساعات مدرسة ${esc(p.name)}">🏫</button>${dyn?`<button class="icon-btn" data-action="member-pin" data-id="${id}" aria-label="تغيير رمز ${esc(p.name)}">🔑</button><button class="icon-btn" data-action="member-del" data-id="${id}" aria-label="حذف ${esc(p.name)}">🗑</button>`:""}</div>`}).join("");
     return `<article class="card"><div class="card-title"><h2>👥 المستخدمون</h2><span class="count">${KIDS.length}</span></div>${ms}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-member">＋ مستخدم جديد</button><p class="muted small" style="margin-top:8px">لكل مستخدم جديد برنامج يومي ثابت حسب عمره، ورمز دخول خاص به.</p></article>`;
   }
   function memberModal(){
@@ -188,6 +189,16 @@
       <p class="hint">يحصل المستخدم على برنامج يومي ثابت يناسب عمره، فيه مراجعة ونظافة وصلوات وراحة، ولكل مهمة خطوات واضحة.</p>
       <button class="btn btn-primary btn-big" type="submit">إضافة</button></form>`);
     window.__mIcon="🌟";
+  }
+  const DAYS_AR=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  function schoolModal(id){
+    const sc=school[id]||{start:"08:00",end:"14:00",days:[0,1,2,3,4]};
+    window.__schoolDays=new Set(sc.days);
+    modal(`🏫 ساعات مدرسة ${PEOPLE[id]?.name||""}`,`<form class="form" id="schoolForm" data-id="${id}">
+      <div class="grid2" style="gap:12px"><label class="field"><span>بداية الدوام</span><input id="scStart" type="time" value="${esc(sc.start)}" required></label><label class="field"><span>نهاية الدوام</span><input id="scEnd" type="time" value="${esc(sc.end)}" required></label></div>
+      <div><span class="label">أيام المدرسة</span><div class="seg wrap" role="group" id="scDays">${DAYS_AR.map((d,i)=>`<button type="button" class="${sc.days.includes(i)?"on":""}" data-action="sc-day" data-v="${i}">${d}</button>`).join("")}</div></div>
+      <p class="hint">يُضاف الدوام إلى برنامج اليوم، وتُرتَّب النظافة الصباحية والمراجعة حوله.</p>
+      <button class="btn btn-primary btn-big" type="submit">حفظ</button></form>`);
   }
   function memberPinModal(id){
     modal(`تغيير رمز ${PEOPLE[id]?.name||""}`,`<form class="form" id="memberPinForm" data-id="${id}">
@@ -206,7 +217,7 @@
   function parentTaskRow(t,m){
     const ty=typeOf(t.type);
     const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}${t.note?`<span>${esc(t.note)}</span>`:""}`;
-    return `<div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span></span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>`;
+    return `<div class="trow"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span></span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold"><summary>الخطوات ${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
   }
   function kidCard(m){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
@@ -591,6 +602,8 @@
       });
       case "add-member":return memberModal();
       case "m-icon":{window.__mIcon=b.dataset.v;document.querySelectorAll("#mIcons button").forEach(x=>x.classList.toggle("on",x===b));return}
+      case "school-edit":return schoolModal(b.dataset.id);
+      case "sc-day":{const d=Number(b.dataset.v);const set=window.__schoolDays;set.has(d)?set.delete(d):set.add(d);b.classList.toggle("on",set.has(d));return}
       case "member-pin":return memberPinModal(b.dataset.id);
       case "member-del":return confirmModal(`حذف ${PEOPLE[b.dataset.id]?.name||"المستخدم"}؟`,"ستُحذف كل مهامه ومواعيده ولا يمكن التراجع.","do-member-del",b.dataset.id);
       case "do-member-del":return guard(b,async()=>{await api(`/api/family/members/${b.dataset.id}`,{method:"DELETE"});if(area===b.dataset.id)area="parent";close();await refresh();toast("تم حذف المستخدم")});
@@ -617,7 +630,7 @@
   });
 
   document.addEventListener("submit",async e=>{
-    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm","memberForm","memberPinForm"].includes(id))return;
+    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm","memberForm","memberPinForm","schoolForm"].includes(id))return;
     e.preventDefault();const btn=e.target.querySelector("[type=submit]");
     if(id==="taskForm")return guard(btn,async()=>{
       syncDraft();if(!draft.title.trim())return toast("اكتب المهمة أولاً.","err");
@@ -632,6 +645,11 @@
     if(id==="memberForm")return guard(btn,async()=>{
       const r=await api("/api/family/members",{method:"POST",body:JSON.stringify({name:$("mName").value,age:Number($("mAge").value),icon:window.__mIcon||"🌟",pin:$("mPin").value})});
       close();await refresh();toast(`أُضيف ${r.member.name} ✓`,"ok");
+    });
+    if(id==="schoolForm")return guard(btn,async()=>{
+      const mid=e.target.dataset.id;
+      const r=await api(`/api/family/school/${mid}`,{method:"PUT",body:JSON.stringify({start:$("scStart").value,end:$("scEnd").value,days:[...window.__schoolDays].sort()})});
+      school[mid]=r.school;close();render();toast("تم حفظ ساعات المدرسة ✓ طبّق برنامج اليوم من جديد ليظهر الدوام","ok");
     });
     if(id==="memberPinForm")return guard(btn,async()=>{
       await api(`/api/family/members/${e.target.dataset.id}/pin`,{method:"POST",body:JSON.stringify({pin:$("mNewPin").value})});
