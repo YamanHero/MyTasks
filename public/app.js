@@ -217,8 +217,14 @@
   /* ---- parent ---- */
   function parentTaskRow(t,m){
     const ty=typeOf(t.type);
-    const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}${t.note?`<span>${esc(t.note)}</span>`:""}`;
-    return `<div class="trow"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span></span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold"><summary>الخطوات ${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
+    const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}`;
+    const note=t.note?`<span class="t-note">${esc(t.note)}</span>`:"";
+    return `<div class="trow ${t.done?"is-done":""}"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span>${note}</span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold"><summary><span>☑ الخطوات</span><b>${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</b></summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
+  }
+  let pkid=null;
+  function kidTabs(){
+    const cur=KIDS.includes(pkid)?pkid:KIDS[0];
+    return `<div class="seg" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em></button>`}).join("")}</div>`;
   }
   function kidCard(m){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
@@ -274,7 +280,7 @@
     if(pview==="today"){
       body=`<div class="actions"><button class="btn btn-primary" data-action="add-task">＋ مهمة جديدة</button><button class="btn btn-soft" data-action="plan">✨ خطة اليوم الذكية</button></div>
       ${prev?.total?`<div class="soft-note">🌙 بقيت ${prev.total} ${prev.total===1?"مهمة":"مهام"} من أمس (${KIDS.map(k=>`${PEOPLE[k].name} ${prev.summary?.[k]||0}`).join("، ")}). لا نرحّلها كلها، اختاروا مهمة واحدة سهلة للبداية.</div>`:""}
-      ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}<div class="grid2">${KIDS.map(kidCard).join("")}</div><button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
+      ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}${kidTabs()}${kidCard(KIDS.includes(pkid)?pkid:KIDS[0])}<button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
     else body=membersCard()+prayerCard()+tickView();
     const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":"الإعدادات",pview==="events"?"جدول العائلة القادم":"الصلاة والمزامنة","🏠",false);
@@ -572,6 +578,7 @@
       case "add-task":draft=newDraft({who:b.dataset.who||"yaman"});return taskModal();
       case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,steps:(t.checklist||[]).map(x=>x.text).join("\n"),editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
+      case "pkid":pkid=b.dataset.k;return render();
       case "cal-day":cal.sel=b.dataset.d;return render();
       case "cal-nav":{const [y,m]=cal.month.split("-").map(Number),dt=new Date(y,m-1+Number(b.dataset.n),1);cal.month=iso(dt).slice(0,7);cal.sel=cal.month===today().slice(0,7)?today():`${cal.month}-01`;return loadCal()}
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();

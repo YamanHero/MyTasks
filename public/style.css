@@ -524,3 +524,32 @@ body[data-area^="u"]{--bg:#f1faf5;--brand:#0f8a5f;--brand-d:#0b5c40;--tint:#d8f3
 .cal-lg{display:inline-flex;align-items:center;gap:6px}.cal-lg i{width:10px;height:10px;border-radius:50%}
 .cal-ev{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-top:8px;border-radius:14px;background:color-mix(in srgb,var(--ec) 14%,#fff);border-inline-start:5px solid var(--ec)}
 .cal-t{flex:none;min-width:64px;text-align:center;font-weight:900;font-size:.88rem}
+
+/* ---- screen layout pass: parent list + child task ---- */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;padding:4px;border-radius:16px;background:var(--tint)}
+.seg button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:0;border-radius:12px;background:transparent;font:inherit;font-weight:800;color:var(--muted);cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink,inherit);box-shadow:0 1px 4px rgba(25,28,60,.12)}
+.seg button em{font-style:normal;min-width:22px;height:22px;padding:0 6px;border-radius:99px;display:inline-grid;place-items:center;font-size:.78rem;background:var(--kc,var(--brand));color:#fff}
+.trow{gap:0;border:1px solid var(--hair,var(--line));border-radius:14px;background:#fff;overflow:hidden}
+.trow .task{border:0;border-radius:0;background:transparent}
+.trow.is-done{background:var(--ok-tint)}
+.trow .t-note{display:block;margin-top:2px;color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .ck-fold{margin:0;padding:0 14px;border-top:1px solid var(--line)}
+.trow .ck-fold summary{min-height:38px;font-size:.84rem;font-weight:800;color:var(--muted)}
+.trow .ck-fold summary b{margin-inline-start:auto;margin-inline-end:10px;color:var(--brand-d)}
+.trow .ck-fold .cklist{margin:4px 0 12px}
+body.calm .focus{display:grid;grid-template-columns:64px 1fr;column-gap:14px;row-gap:0;align-items:center;text-align:right;padding:18px 16px 16px}
+body.calm .focus>*{grid-column:1/-1}
+body.calm .focus .kicker{display:none}
+body.calm .focus .big-icon{grid-column:1;grid-row:1/3;width:64px;height:64px;margin:0;border-radius:20px;font-size:2.1rem}
+body.calm .focus h2{grid-column:2;grid-row:1;font-size:1.3rem;line-height:1.35;align-self:end;margin:0}
+body.calm .focus .meta{grid-column:2;grid-row:2;justify-content:flex-start;margin:6px 0 0;align-self:start}
+body.calm .focus .note{margin:12px 0 0;max-width:none}
+body.calm .focus .cklist{margin:14px 0 4px}
+body.calm .focus .btn-big{margin-top:14px}
+body.calm .focus .actions{margin-top:8px!important;display:flex;gap:8px;justify-content:center}
+body.calm .focus .actions .btn{flex:1}
+body.calm .focus .reward{display:none}
+.trow .t-main{overflow:hidden}.trow .t-body{min-width:0;overflow:hidden}
+.trow .t-main .t-meta{flex-wrap:wrap}
+.trow{grid-template-columns:minmax(0,1fr)}.kid-card,.kid-card .list{min-width:0}
