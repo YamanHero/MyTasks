@@ -1460,7 +1460,7 @@ function applyProgramForMember(member, date, options = {}) {
   return next;
 }
 
-async function applyProgramNow(member, date, { force = false } = {}) {
+async function applyProgramNow(member, date, { force = false, replace = false } = {}) {
   await ensureFamilyDatabase();
   if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
   const day = familyDateKey(date);
@@ -1472,6 +1472,12 @@ async function applyProgramNow(member, date, { force = false } = {}) {
     if (existing.rows[0]) return { inserted: [], skipped: true, reason: "has_tasks" };
   }
 
+  if (replace) {
+    await pool.query(
+      `DELETE FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND done = FALSE AND task_type <> 'prayer' AND source NOT IN ('parent','ticktick') AND ticktick_task_id IS NULL`,
+      [member, day]
+    );
+  }
   const prayerResult = await getPrayerTimesSafely(day);
   const tasks = [...buildProgramTasks(member, day), ...buildPrayerTasks(prayerResult.prayerTimes)];
   const inserted = [];
@@ -2033,7 +2039,7 @@ app.post("/api/family/child/:assignee/program", asyncRoute(async (req, res) => {
   requireParent(req);
   const assignee = String(req.params.assignee || "").toLowerCase();
   const date = familyDateKey(req.body?.date || req.query?.date);
-  const result = await applyProgramForMember(assignee, date, { force: true });
+  const result = await applyProgramForMember(assignee, date, { force: true, replace: req.body?.replace === true });
   const tasks = await getFamilyTasks(assignee, date);
   res.json({ date, member: publicMember(FAMILY_MEMBERS[assignee]), tasks, ...result });
 }));

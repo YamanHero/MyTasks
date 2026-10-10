@@ -580,9 +580,10 @@
       case "do-delete-event":return guard(b,async()=>{await api(`/api/family/events/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
       case "plan":return planModal();
       case "p-mode":planOpts.fullDay=b.dataset.v==="1";planOpts.goals=$("planGoals")?.value||planOpts.goals;return planModal();
-      case "program":return guard(b,async()=>{
-        const r=await api(`/api/family/child/${b.dataset.who}/program`,{method:"POST",body:JSON.stringify({date:today()})});
-        await refresh();toast(r.inserted?.length?`أُضيف برنامج اليوم لـ${PEOPLE[b.dataset.who].name} ✓`:"برنامج اليوم موجود بالفعل.",r.inserted?.length?"ok":"");
+      case "program":return modal(`برنامج اليوم لـ${PEOPLE[b.dataset.who].name}`,`<p class="muted" style="margin-bottom:14px">تطبيق البرنامج اليومي الثابت. المهام التي أضفتموها بأنفسكم أو استوردتموها من TickTick والمهام المنجزة تبقى كما هي.</p><div class="actions"><button class="btn btn-primary" data-action="program-go" data-who="${b.dataset.who}" data-replace="1">استبدل المهام المفتوحة</button><button class="btn btn-soft" data-action="program-go" data-who="${b.dataset.who}">أضف فقط</button></div><button class="btn btn-line" style="margin-top:10px" data-action="close">إلغاء</button>`);
+      case "program-go":return guard(b,async()=>{
+        const r=await api(`/api/family/child/${b.dataset.who}/program`,{method:"POST",body:JSON.stringify({date:today(),replace:b.dataset.replace==="1"})});
+        close();await refresh();toast(`تم تطبيق برنامج اليوم لـ${PEOPLE[b.dataset.who].name} ✓`,"ok");
       });
       case "seed":return guard(b,async()=>{
         const r=await api(`/api/family/child/${b.dataset.who}/seed-today`,{method:"POST",body:JSON.stringify({date:today()})});
