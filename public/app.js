@@ -470,6 +470,7 @@
       ${quoteHtml(quoteFor(today()+m,open.length?(prayers.some(t=>!t.done)&&new Date().getHours()>=12?"prayer":["study","effort","success"][new Date().getDate()%3]):"success"))}
       ${prevN&&!done.length&&!calm?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
       ${focus}
+      ${tutorCard(m)}
       ${prayers.length&&calm?`<article class="card"><details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="prayers" style="margin-top:10px">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></details></article>`:prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
       ${kidStarsFold(m)}
       ${events.length?(calm?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`):""}
@@ -551,6 +552,55 @@
     const tones=soundOn?TONE_EVENTS.map(e=>`<div class="tonebox"><b>${e.n}</b><div class="muted small">${e.d}</div><div class="tonechips">${Object.entries(TONES).map(([id,t])=>`<button type="button" class="chip ${toneSel[e.k]===id?"on":""}" data-action="tone-pick" data-ev="${e.k}" data-id="${id}" aria-pressed="${toneSel[e.k]===id}">${t.n}</button>`).join("")}</div></div>`).join(""):"";
     modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"الأصوات","تشغيل أصوات الإنجاز والتنبيهات")}${tones?`<h4 class="tonehd">اختيار النغمات</h4><p class="muted small">اضغط على نغمة لسماعها واختيارها. «تلقائي» يتبع الوضع الهادئ.</p>${tones}`:""}</div>`);
   }
+  /* ---- AI tutor (math / Hebrew) ---- */
+  const tutor={m:"",subject:"math",busy:false,chats:{}};
+  const TUTOR_SUBJ={math:{i:"🔢",n:"الرياضيات",chips:["اشرح لي درساً جديداً","أعطني تمريناً","ساعدني في مسألة"]},hebrew:{i:"🗣️",n:"العبرية",chips:["علّمني كلمات جديدة","أعطني تمرين قراءة","لنتحدث بالعبرية","اشرح لي قاعدة"]}};
+  const tkey=()=>tutor.m+":"+tutor.subject;
+  function tchat(){const k=tkey();if(!tutor.chats[k]){let v=[];try{v=JSON.parse(localStorage.getItem("hero-tutor-"+k)||"[]")}catch{}tutor.chats[k]=Array.isArray(v)?v:[]}return tutor.chats[k]}
+  function tsave(){try{localStorage.setItem("hero-tutor-"+tkey(),JSON.stringify(tchat().slice(-24)))}catch{}}
+  const tbubble=m=>`<div class="tb ${m.role==="user"?"me":"ai"}"><div class="tt" dir="auto">${esc(m.content)}</div>${m.role==="assistant"?`<button type="button" class="tsay" data-action="tutor-say" aria-label="استمع">🔊</button>`:""}</div>`;
+  function tutorCard(m){
+    return `<article class="card tutorcard"><div class="card-title"><h2>🧑‍🏫 معلّمي الذكي</h2></div><p class="muted small">اسأل وتعلّم بالخطوة. اختر المادة:</p><div class="tutbtns"><button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="math">🔢 رياضيات</button><button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="hebrew">🗣️ עברית</button></div></article>`;
+  }
+  function tutorModal(){
+    const S=TUTOR_SUBJ[tutor.subject],msgs=tchat();
+    const sw=Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button type="button" class="${tutor.subject===k?"on":""}" data-action="tutor-open" data-member="${tutor.m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("");
+    modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs" role="group">${sw}</div>
+      <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. اختر ما تريد أو اكتب سؤالك.</div>`}</div>
+      <div class="tchips" id="tchips">${S.chips.map(c=>`<button type="button" class="chip" data-action="tutor-chip" data-t="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+      <div class="tform"><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب هنا..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
+      ${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div>`);
+    const lg=$("tlog");if(lg)lg.scrollTop=lg.scrollHeight;
+  }
+  async function tutorSend(text){
+    text=(text||"").trim();if(!text||tutor.busy)return;
+    const msgs=tchat(),lg=$("tlog");if(!lg)return;
+    tutor.busy=true;msgs.push({role:"user",content:text});
+    if(!lg.querySelector(".tb"))lg.innerHTML="";
+    lg.insertAdjacentHTML("beforeend",tbubble(msgs[msgs.length-1])+`<div class="tb ai" id="ttyping"><div class="tt tdots"><i></i><i></i><i></i></div></div>`);
+    lg.scrollTop=lg.scrollHeight;const inp=$("tutIn");if(inp)inp.value="";const ch=$("tchips");if(ch)ch.remove();
+    const key=tkey();
+    try{
+      const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:tutor.subject,messages:msgs.slice(-14)})});
+      tutor.chats[key].push({role:"assistant",content:r.reply});tsave();
+      if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;playEvent("check")}
+    }catch(err){
+      tutor.chats[key].pop();
+      $("ttyping")?.remove();
+      if($("tlog"))$("tlog").insertAdjacentHTML("beforeend",`<div class="tb ai"><div class="tt terr">${esc(err.message||"تعذّر الاتصال بالمعلّم")}</div></div>`);
+    }finally{tutor.busy=false}
+  }
+  function tutorSay(text){
+    try{
+      const ss=window.speechSynthesis;if(!ss)return;ss.cancel();
+      String(text).split(/\n+/).map(l=>l.trim()).filter(Boolean).forEach(l=>{
+        const he=/[֐-׿]/.test(l)&&!/[؀-ۿ]/.test(l);
+        const u=new SpeechSynthesisUtterance(l);u.lang=he?"he-IL":"ar-SA";u.rate=.9;ss.speak(u);
+      });
+    }catch{}
+  }
+
+  document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="tutIn"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();tutorSend(e.target.value)}});
   /* ---- bedtime message via WhatsApp (opens WhatsApp with the text ready; the parent presses send) ---- */
   const WA_DEFAULT="0515800799";
   /* plain, literal, predictable wording for a 15-year-old on the autism spectrum: numbered steps, no idioms, no pressure, same structure every night */
@@ -787,6 +837,11 @@
         else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
         render();return prefsSheet();
       }
+      case "tutor-open":{tutor.m=b.dataset.member||tutor.m;tutor.subject=b.dataset.subject||"math";return tutorModal()}
+      case "tutor-chip":return tutorSend(b.dataset.t);
+      case "tutor-send":return tutorSend($("tutIn")?.value);
+      case "tutor-say":{const t=b.closest(".tb")?.querySelector(".tt");if(t)tutorSay(t.textContent);return}
+      case "tutor-clear":{tutor.chats[tkey()]=[];tsave();return tutorModal()}
       case "tone-pick":{const ev=b.dataset.ev,id=b.dataset.id;if(!TONES[id])return;toneSel[ev]=id;try{localStorage.setItem("hero-tone-"+ev,id)}catch{}
         if(id==="auto"){playEvent(ev,true)}else playTone(id);
         return prefsSheet()}

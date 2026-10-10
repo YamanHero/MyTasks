@@ -3053,6 +3053,122 @@ app.post("/api/ticktick/disconnect", (req, res) => {
   res.status(204).end();
 });
 
+/* ===================== AI tutor: math + Hebrew (Claude) ===================== */
+const TUTOR_SUBJECTS = {
+  math: { label: "الرياضيات" },
+  hebrew: { label: "العبرية" }
+};
+const tutorHits = new Map();
+
+function tutorProfile(member) {
+  const age = Number(member?.age) || 12;
+  const name = member?.name || "الطالب";
+  const grade = age <= 7 ? "الصف الأول أو الثاني" : age <= 9 ? "الصف الثالث تقريباً" : age <= 11 ? "الصف الخامس تقريباً" : age <= 13 ? "الصف السابع تقريباً" : age <= 15 ? "الصف التاسع أو العاشر تقريباً" : "المرحلة الثانوية";
+  const asd = member?.id === "yaman";
+  const little = age <= 10;
+  let style;
+  if (asd) {
+    style = [
+      `${name} عمره ${age} سنة ولديه اضطراب طيف التوحد. اكتب له بلغة حرفية ومباشرة وواضحة: بلا تعابير مجازية ولا سخرية ولا أمثال ولا أسئلة مفتوحة غامضة.`,
+      "استعمل في كل رد البنية نفسها لتكون متوقَّعة: (1) جملة قصيرة عمّا سنفعله الآن، (2) خطوة واحدة أو سؤال واحد فقط، (3) سطر يقول ماذا تنتظر منه أن يفعل (مثال: اكتب الجواب).",
+      "اجعل الرد قصيراً (حتى 8 أسطر). لا تطرح أكثر من سؤال واحد في الرد. لا تضغط عليه بالوقت. عند الخطأ قل بهدوء وحقائق: «الجواب غير صحيح، هذه هي الخطوة التي تغيّرت» ثم اشرح، دون عبارات عاطفية مبالغ فيها.",
+      "المديح يكون محدداً وواقعياً (مثال: «حللت المعادلة بشكل صحيح لأنك نقلت الحد بعلامته المعاكسة»). يمكنك أن تعرض عليه اختيار الموضوع من خيارين."
+    ];
+  } else if (little) {
+    style = [
+      `${name} طفلة عمرها ${age} سنوات. اكتبي لها بكلمات بسيطة جداً وجُمل قصيرة وبنبرة دافئة ومرحة، مع رمز تعبيري أو اثنين على الأكثر.`,
+      "اجعل الرد من 3 إلى 6 أسطر. اسأل سؤالاً واحداً في كل مرة. حوّل المسائل إلى قصص صغيرة وأشياء تعدّها (تفاح، ألعاب، نجوم). امدح الجهد، ولا تُشعرها بالفشل عند الخطأ."
+    ];
+  } else {
+    style = [
+      `${name} عمره ${age} سنة. تحدث بنبرة ودودة ومحترمة، ورد قصير وواضح (حتى 8 أسطر)، وسؤال واحد في كل مرة.`
+    ];
+  }
+  return { name, age, grade, asd, little, style: style.join("\n") };
+}
+
+function tutorSystemPrompt(subject, member) {
+  const pr = tutorProfile(member);
+  const common = [
+    `أنت «المعلّم الذكي» في تطبيق Hero Family العائلي. تعلّم ${pr.name} مادة ${TUTOR_SUBJECTS[subject].label}، ومستواه التقريبي ${pr.grade} حسب المنهاج في إسرائيل. لا تجزم بالصف بل اسأله عن موضوع درسه الحالي إذا لزم.`,
+    "اللغة الأم للأسرة هي العربية، فاشرح بالعربية البسيطة.",
+    pr.style,
+    "قواعد الشكل: نص عادي فقط. لا Markdown ولا جداول ولا LaTeX ولا رموز مثل ** أو #. استعمل ×  ÷  ²  √  والكسور بالشكل 3/4. ضع كل معادلة أو جملة عبرية في سطر مستقل.",
+    "أنت معلّم ذكاء اصطناعي ولست إنساناً، ولا تقل غير ذلك إن سُئلت.",
+    "التزم بالمادة. إذا خرج الحديث عنها فأعده بلطف إلى الدرس. لا تطلب معلومات شخصية (عنوان، هاتف، مدرسة، صور). لا تتحدث في السياسة أو العنف أو أي موضوع غير مناسب للأطفال. إذا ذكر الطفل أنه حزين أو خائف أو تعرّض لأذى فاطلب منه بلطف أن يخبر والديه الآن وتوقف عن الدرس.",
+    "لا تكتب الواجب كاملاً بدلاً منه. ساعده على الوصول للجواب بنفسه ثم تحقق من جوابه."
+  ];
+  const math = [
+    "طريقة التعليم في الرياضيات: ابدأ بسؤاله عمّا يعرفه أو عمّا يريد تعلمه. أعطِ تلميحاً صغيراً قبل الحل، وخطوة واحدة في كل مرة، ثم اطلب منه أن يجرّب. إذا تعثر مرتين فاعرض الحل مفصلاً خطوة بخطوة. تحقق من فهمه بمثال جديد مشابه. تحقق من حساباتك دائماً قبل أن تكتب النتيجة.",
+    "يمكنك ذكر المصطلح العبري بين قوسين أحياناً (مثال: מכנה = المقام) لأن الامتحانات قد تكون بالعبرية.",
+    "عندما يطلب تمارين فأعطه تمريناً واحداً مناسباً لمستواه، وتدرّج في الصعوبة حسب إجاباته."
+  ];
+  const hebrew = [
+    "طريقة التعليم في العبرية (لغة ثانية لطفل عربي): اشرح بالعربية، واجعل الأمثلة بالعبرية. اكتب الكلمات والجمل العبرية بالتشكيل (ניקוד) " + (pr.little ? "دائماً، وبكلمات قصيرة جداً." : "عند الكلمات الجديدة، ويمكنك الاستغناء عنه في الكلمات المعروفة.") + " اكتب بعد كل كلمة جديدة نطقها بالحروف العربية بين قوسين ومعناها بالعربية.",
+    pr.little ? "المواضيع: الحروف والقراءة، الألوان، الأرقام، العائلة، الحيوانات، المدرسة، جمل قصيرة وبسيطة. استعمل ألعاباً صغيرة (خمّن الكلمة، أكمل الجملة)." : "المواضيع: المفردات، القراءة والفهم، القواعد (الجذر שורש والأوزان בניינים والأزمنة)، الكتابة، والمحادثة. يمكنك تمثيل أدوار (في المدرسة، في المحل، مع صديق): تكلّم بعبرية بسيطة ثم ترجمها للعربية، واطلب منه الرد بالعبرية وصحّح أخطاءه بلطف.",
+    "عند التصحيح اذكر الصواب أولاً ثم السبب في جملة واحدة. اعطه تمريناً واحداً قصيراً في كل مرة (ترجمة، إكمال جملة، ترتيب كلمات)."
+  ];
+  return [...common, ...(subject === "math" ? math : hebrew)].join("\n\n");
+}
+
+async function claudeChat({ system, messages, maxTokens = 700, timeoutMs = 45000 }) {
+  const response = await fetchWithTimeout((process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com") + "/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: maxTokens, system, messages })
+  }, timeoutMs);
+  const body = await readResponseBody(response);
+  if (!response.ok) {
+    const error = new Error(body?.error?.message || `Claude request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return (Array.isArray(body?.content) ? body.content : []).map((c) => c?.text || "").join("").trim();
+}
+
+app.post("/api/family/tutor", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  const assignee = String(req.body?.assignee || "").toLowerCase();
+  if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  requireChildOrParent(req, assignee);
+  const subject = String(req.body?.subject || "");
+  if (!TUTOR_SUBJECTS[subject]) throw new PublicError(400, "اختر الرياضيات أو العبرية.");
+  if (!isAnthropicConfigured()) throw new PublicError(503, "المعلّم الذكي غير مفعّل بعد. على الوالدين إضافة مفتاح Claude في إعدادات الخادم.");
+
+  const now = Date.now();
+  const hits = (tutorHits.get(assignee) || []).filter((t) => now - t < 3600_000);
+  if (hits.length >= 60) throw new PublicError(429, "استخدمنا المعلّم كثيراً في هذه الساعة. خذ استراحة قصيرة ثم عد لنكمل.");
+
+  let messages = (Array.isArray(req.body?.messages) ? req.body.messages : [])
+    .map((m) => ({ role: m?.role === "assistant" ? "assistant" : "user", content: String(m?.content || "").trim().slice(0, 1500) }))
+    .filter((m) => m.content)
+    .slice(-16);
+  while (messages.length && messages[0].role !== "user") messages.shift();
+  // collapse consecutive same-role messages (API requires alternation)
+  messages = messages.reduce((acc, m) => {
+    const last = acc[acc.length - 1];
+    if (last && last.role === m.role) last.content += "\n" + m.content;
+    else acc.push({ ...m });
+    return acc;
+  }, []);
+  if (!messages.length || messages[messages.length - 1].role !== "user") throw new PublicError(400, "اكتب سؤالك أولاً.");
+
+  hits.push(now);
+  tutorHits.set(assignee, hits);
+  const member = FAMILY_MEMBERS[assignee];
+  try {
+    const reply = await claudeChat({ system: tutorSystemPrompt(subject, member), messages });
+    res.json({ reply: reply || "لم أستطع الإجابة. جرّب أن تكتب سؤالك بطريقة أخرى." });
+  } catch (error) {
+    console.warn("Tutor request failed:", error.message, error.cause?.message || "");
+    throw new PublicError(502, "تعذّر الوصول إلى المعلّم الآن. حاول بعد قليل.");
+  }
+}));
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((error, req, res, next) => {
@@ -3061,6 +3177,7 @@ app.use((error, req, res, next) => {
   if (!(error instanceof PublicError)) console.error("Unexpected server error:", error);
   res.status(status).json({ error: message });
 });
+
 
 app.listen(PORT, () => {
   console.log(`Hero Family is running on port ${PORT}`);

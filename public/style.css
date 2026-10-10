@@ -620,3 +620,28 @@ button.cal-tk:active{background:var(--tint)}
 .tonechips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .tonechips .chip{border:1.5px solid var(--line,#d6dae1);background:var(--card,#fff);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:.88rem;cursor:pointer}
 .tonechips .chip.on{background:var(--brand,#12a37a);border-color:var(--brand,#12a37a);color:#fff;font-weight:700}
+
+/* AI tutor */
+.tutbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.tutbtns .btn{font-size:1.05rem;padding:14px 8px}
+.tutor{display:flex;flex-direction:column;gap:10px}
+.tlog{display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:48dvh;overflow:auto;padding:4px 2px;scroll-behavior:auto}
+.tb{display:flex;align-items:flex-end;gap:6px;max-width:92%}
+.tb.me{align-self:flex-start;flex-direction:row-reverse}
+.tb.ai{align-self:flex-end}
+.tt{white-space:pre-wrap;word-break:break-word;line-height:1.7;padding:10px 14px;border-radius:18px;font-size:1.02rem}
+.tb.me .tt{background:var(--brand);color:#fff;border-bottom-left-radius:6px}
+.tb.ai .tt{background:var(--tint);color:var(--ink);border-bottom-right-radius:6px}
+.tt.terr{background:#fdecec;color:#9b1c1c}
+.tsay{border:0;background:transparent;font-size:1.2rem;cursor:pointer;padding:4px;flex:none}
+.tempty{text-align:center;color:var(--muted,#6b7280);padding:28px 8px}
+.tchips{display:flex;flex-wrap:wrap;gap:8px}
+.tchips .chip{border:1.5px solid var(--brand);background:var(--surface);color:var(--brand-d);cursor:pointer;font:inherit;font-size:.92rem;font-weight:700}
+.tform{display:flex;gap:8px;align-items:flex-end}
+.tform textarea{flex:1;min-width:0;border:1.5px solid var(--line,#d6dae1);border-radius:16px;padding:10px 12px;font:inherit;font-size:1rem;resize:none;background:var(--surface);color:var(--ink)}
+.tform .btn{flex:none;padding:12px 16px}
+.linkbtn{border:0;background:transparent;color:var(--muted,#6b7280);font:inherit;font-size:.85rem;cursor:pointer;align-self:center;padding:4px}
+.tdots{display:flex;gap:5px;align-items:center;padding:14px}
+.tdots i{width:8px;height:8px;border-radius:50%;background:var(--brand);opacity:.35;animation:tdot 1s infinite}
+.tdots i:nth-child(2){animation-delay:.15s}.tdots i:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
