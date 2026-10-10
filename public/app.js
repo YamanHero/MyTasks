@@ -118,24 +118,41 @@
   const extra={};
   let calm=true;try{calm=localStorage.getItem("hero-calm")!=="off"}catch{}
   let actx=null;
-  function tone(freq,at,len,vol){
-    const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime+at;
-    o.type="sine";o.frequency.value=freq;
-    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+len);
-    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+len+0.05);
+  /* synth engine: oscillator + optional pitch glide, through a light echo for a "sparkly" feel */
+  let bus=null;
+  function getBus(){
+    if(bus)return bus;
+    const inp=actx.createGain(),comp=actx.createDynamicsCompressor(),dl=actx.createDelay(),fb=actx.createGain(),wet=actx.createGain();
+    dl.delayTime.value=.17;fb.gain.value=.28;wet.gain.value=.22;
+    inp.connect(comp);inp.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(comp);comp.connect(actx.destination);
+    return bus=inp;
   }
+  function tone(freq,at,len,vol,type,glideTo){
+    const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime+at;
+    o.type=type||"sine";o.frequency.setValueAtTime(freq,t);
+    if(glideTo)o.frequency.exponentialRampToValueAtTime(glideTo,t+len*.85);
+    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+    o.connect(g);g.connect(getBus());o.start(t);o.stop(t+len+0.05);
+  }
+  const N={C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880,B5:987.77,C6:1046.5,D6:1174.66,E6:1318.51,G6:1567.98,C7:2093};
+  const seq=(notes,gap,len,vol,type)=>notes.forEach((f,i)=>tone(typeof f==="string"?N[f]:f,i*gap,len,vol,type));
   /* ---- selectable tones (synthesised, no audio files); choice is stored per device ---- */
   const TONES={
     auto:{n:"تلقائي"},
     none:{n:"بدون صوت"},
-    chime:{n:"جرس",p:()=>{tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2)}},
-    soft:{n:"هادئ",p:()=>tone(660,0,.55,.1)},
-    bell:{n:"ناقوس",p:()=>{tone(880,0,.9,.14);tone(1760,0,.6,.05)}},
-    drop:{n:"قطرة",p:()=>{tone(1200,0,.12,.14);tone(800,.07,.28,.12)}},
-    harp:{n:"قيثارة",p:()=>[523.25,659.25,783.99].forEach((f,i)=>tone(f,i*.08,.5,.12))},
-    pop:{n:"نقرة",p:()=>tone(520,0,.08,.14)},
-    fan:{n:"فرحة",p:()=>[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.11,.5,.16))},
-    low:{n:"عميق",p:()=>{tone(330,0,.5,.16);tone(440,.12,.5,.12)}}
+    coin:{n:"🪙 عملة",p:()=>{tone(N.B5,0,.09,.13,"square");tone(N.E6,.08,.5,.13,"square")}},
+    level:{n:"🎮 مستوى جديد",p:()=>seq(["C5","E5","G5","C6","E6"],.075,.28,.15,"triangle")},
+    tada:{n:"🎉 تاداا",p:()=>{seq(["G4","C5"],.11,.16,.16,"triangle");["C5","E5","G5","C6"].forEach(f=>tone(f,.28,.9,.1,"triangle"))}},
+    star:{n:"⭐ نجمة",p:()=>seq(["E6","C6","G6","E6","C7"],.09,.4,.09)},
+    magic:{n:"✨ سحر",p:()=>{tone(400,0,.45,.1,"sine",1800);seq(["C6","E6","G6","C7"],.07,.4,.07)}},
+    bubble:{n:"🫧 فقاعة",p:()=>{tone(320,0,.14,.16,"sine",900);tone(500,.12,.16,.13,"sine",1200)}},
+    boing:{n:"🦘 نطّة",p:()=>{tone(180,0,.18,.18,"triangle",620);tone(620,.17,.3,.14,"triangle",260)}},
+    xylo:{n:"🎶 إكسيليفون",p:()=>seq(["C5","D5","E5","G5","E5","G5","C6"],.09,.35,.17,"triangle")},
+    victory:{n:"🏆 نصر",p:()=>{seq(["G4","G4","G4"],.1,.12,.15,"square");tone(N.C5,.34,.16,.15,"square");tone(N.G4,.5,.1,.13,"square");["C5","E5","G5"].forEach(f=>tone(f,.62,.9,.1,"triangle"))}},
+    chime:{n:"🔔 جرس",p:()=>{tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2)}},
+    bell:{n:"🛎 ناقوس",p:()=>{tone(880,0,.9,.14);tone(1760,0,.6,.05)}},
+    soft:{n:"🌙 هادئ",p:()=>tone(660,0,.55,.1)},
+    pop:{n:"نقرة",p:()=>tone(520,0,.08,.14)}
   };
   const TONE_EVENTS=[
     {k:"task",n:"إنهاء مهمة",d:"عند الضغط على «تم»"},
@@ -157,9 +174,9 @@
     if(!soundOn&&!force)return;
     let id=toneSel[ev]||"auto";
     if(id==="auto"){
-      if(ev==="check"){if(calm)return;id="pop"}
-      else if(ev==="prayer"||calm)id="soft";
-      else id=ev==="all"?"fan":"chime";
+      if(ev==="prayer"||(calm&&ev!=="check"))id="soft";
+      else if(ev==="check"){if(calm)return;id="bubble"}
+      else id=ev==="all"?"tada":"coin";
     }
     playTone(id);
   }
