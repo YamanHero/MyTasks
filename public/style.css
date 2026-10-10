@@ -487,8 +487,8 @@ body.calm .timerbox{max-width:none;margin:14px 0 16px}
 .cklist{display:grid;gap:6px;margin:12px 0 4px;text-align:right}
 .ck-h{display:flex;justify-content:space-between;color:var(--muted);font-size:.9rem;font-weight:700;padding:0 4px}
 .stp{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 14px;border-radius:14px;background:var(--tint);border:0;font:inherit;font-weight:700;color:var(--ink,inherit);text-align:right;cursor:pointer}
-.stp i{flex:none;width:26px;height:26px;border-radius:7px;background:#fff;color:transparent;display:grid;place-items:center;font-style:normal;font-size:.9rem;border:2px solid color-mix(in srgb,var(--brand) 40%,#fff)}
-.stp.on{opacity:.65}.stp.on span{text-decoration:line-through}
+.stp i{flex:none;width:30px;height:30px;border-radius:8px;background:#fff;color:transparent;display:grid;place-items:center;font-style:normal;font-size:1.05rem;font-weight:900;border:3px solid var(--brand);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.stp.on{opacity:1;background:color-mix(in srgb,var(--tint) 60%,#fff)}.stp.on span{opacity:.6}.stp.on span{text-decoration:line-through}
 .stp.on i{background:var(--brand);color:#fff;border-color:var(--brand)}
 .btn-quiet{background:transparent;border:0;color:var(--muted);font-weight:600;box-shadow:none}
 .twrap{position:relative;display:grid;place-items:center;margin-top:6px}
