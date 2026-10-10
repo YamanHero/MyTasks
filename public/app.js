@@ -519,7 +519,7 @@
     $("modalRoot").innerHTML=`<section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="x" data-action="close" aria-label="إغلاق">✕</button></div>${html}</section>`;
     const f=$("modalRoot").querySelector("input[type=text],textarea");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
   }
-  function close(){$("modalRoot").innerHTML=""}
+  function close(){try{stopRec();stopSpeak()}catch{}$("modalRoot").innerHTML=""}
   function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=document.querySelectorAll("[data-step]");if(sp.length)draft.sl=[...sp].map((x,i)=>({t:x.value,d:Boolean((draft.sl[i]||{}).d)}));if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
 
   function taskModal(){
@@ -552,54 +552,110 @@
     const tones=soundOn?TONE_EVENTS.map(e=>`<div class="tonebox"><b>${e.n}</b><div class="muted small">${e.d}</div><div class="tonechips">${Object.entries(TONES).map(([id,t])=>`<button type="button" class="chip ${toneSel[e.k]===id?"on":""}" data-action="tone-pick" data-ev="${e.k}" data-id="${id}" aria-pressed="${toneSel[e.k]===id}">${t.n}</button>`).join("")}</div></div>`).join(""):"";
     modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"الأصوات","تشغيل أصوات الإنجاز والتنبيهات")}${tones?`<h4 class="tonehd">اختيار النغمات</h4><p class="muted small">اضغط على نغمة لسماعها واختيارها. «تلقائي» يتبع الوضع الهادئ.</p>${tones}`:""}</div>`);
   }
-  /* ---- AI tutor (math / Hebrew) ---- */
-  const tutor={m:"",subject:"math",busy:false,chats:{}};
-  const TUTOR_SUBJ={math:{i:"🔢",n:"الرياضيات",chips:["اشرح لي درساً جديداً","أعطني تمريناً","ساعدني في مسألة"]},hebrew:{i:"🗣️",n:"العبرية",chips:["علّمني كلمات جديدة","أعطني تمرين قراءة","لنتحدث بالعبرية","اشرح لي قاعدة"]}};
+  /* ---- AI tutor (math / Hebrew / French) with voice in + natural voice out ---- */
+  const tutor={m:"",subject:"math",busy:false,chats:{},recLang:{},rec:null,recOn:false};
+  const TUTOR_SUBJ={
+    math:{i:"🔢",n:"الرياضيات",chips:["اشرح لي درساً جديداً","أعطني تمريناً","ساعدني في مسألة"],rec:[["ar-IL","العربية"]],lat:"en-US"},
+    hebrew:{i:"🗣️",n:"עברית",chips:["علّمني كلمات جديدة","أعطني تمرين قراءة","لنتحدث بالعبرية","اشرح لي قاعدة"],rec:[["he-IL","עברית"],["ar-IL","العربية"]],lat:"en-US"},
+    french:{i:"🇫🇷",n:"Français",chips:["علّمني كلمات جديدة","لنتحدث بالفرنسية","أعطني تمريناً","كيف أنطق هذه الكلمة؟"],rec:[["fr-FR","Français"],["ar-IL","العربية"]],lat:"fr-FR"}
+  };
   const tkey=()=>tutor.m+":"+tutor.subject;
   function tchat(){const k=tkey();if(!tutor.chats[k]){let v=[];try{v=JSON.parse(localStorage.getItem("hero-tutor-"+k)||"[]")}catch{}tutor.chats[k]=Array.isArray(v)?v:[]}return tutor.chats[k]}
   function tsave(){try{localStorage.setItem("hero-tutor-"+tkey(),JSON.stringify(tchat().slice(-24)))}catch{}}
+  let autoSpeak=false;try{autoSpeak=localStorage.getItem("hero-tutor-auto")==="on"}catch{}
+  const recIdx=()=>tutor.recLang[tutor.subject]||0;
+  const recCur=()=>TUTOR_SUBJ[tutor.subject].rec[recIdx()%TUTOR_SUBJ[tutor.subject].rec.length];
   const tbubble=m=>`<div class="tb ${m.role==="user"?"me":"ai"}"><div class="tt" dir="auto">${esc(m.content)}</div>${m.role==="assistant"?`<button type="button" class="tsay" data-action="tutor-say" aria-label="استمع">🔊</button>`:""}</div>`;
   function tutorCard(m){
-    return `<article class="card tutorcard"><div class="card-title"><h2>🧑‍🏫 معلّمي الذكي</h2></div><p class="muted small">اسأل وتعلّم بالخطوة. اختر المادة:</p><div class="tutbtns"><button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="math">🔢 رياضيات</button><button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="hebrew">🗣️ עברית</button></div></article>`;
+    return `<article class="card tutorcard"><div class="card-title"><h2>🧑‍🏫 معلّمي الذكي</h2></div><p class="muted small">اسأل بالكتابة أو بالصوت 🎤 واختر المادة:</p><div class="tutbtns">${Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("")}</div></article>`;
   }
   function tutorModal(){
-    const S=TUTOR_SUBJ[tutor.subject],msgs=tchat();
+    stopRec();stopSpeak();
+    const S=TUTOR_SUBJ[tutor.subject],msgs=tchat(),rc=recCur();
     const sw=Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button type="button" class="${tutor.subject===k?"on":""}" data-action="tutor-open" data-member="${tutor.m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("");
     modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs" role="group">${sw}</div>
-      <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. اختر ما تريد أو اكتب سؤالك.</div>`}</div>
+      <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. اختر ما تريد أو اكتب أو اضغط 🎤 وتكلّم.</div>`}</div>
       <div class="tchips" id="tchips">${S.chips.map(c=>`<button type="button" class="chip" data-action="tutor-chip" data-t="${esc(c)}">${esc(c)}</button>`).join("")}</div>
-      <div class="tform"><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب هنا..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
-      ${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div>`);
+      <div class="tform"><button type="button" class="tmic" id="tmic" data-action="tutor-mic" aria-label="تسجيل صوتي">🎤</button><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب أو اضغط 🎤 وتكلّم..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
+      <div class="topts"><button type="button" class="chip" data-action="tutor-reclang" id="trl">🎙 لغة التسجيل: ${esc(rc[1])}</button><button type="button" class="chip ${autoSpeak?"on":""}" data-action="tutor-auto" id="tauto">${autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا"}</button>${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div></div>`);
     const lg=$("tlog");if(lg)lg.scrollTop=lg.scrollHeight;
   }
   async function tutorSend(text){
     text=(text||"").trim();if(!text||tutor.busy)return;
+    stopRec();stopSpeak();
     const msgs=tchat(),lg=$("tlog");if(!lg)return;
     tutor.busy=true;msgs.push({role:"user",content:text});
     if(!lg.querySelector(".tb"))lg.innerHTML="";
     lg.insertAdjacentHTML("beforeend",tbubble(msgs[msgs.length-1])+`<div class="tb ai" id="ttyping"><div class="tt tdots"><i></i><i></i><i></i></div></div>`);
     lg.scrollTop=lg.scrollHeight;const inp=$("tutIn");if(inp)inp.value="";const ch=$("tchips");if(ch)ch.remove();
-    const key=tkey();
+    const key=tkey(),subj=tutor.subject;
     try{
-      const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:tutor.subject,messages:msgs.slice(-14)})});
+      const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:subj,messages:msgs.slice(-14)})});
       tutor.chats[key].push({role:"assistant",content:r.reply});tsave();
-      if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;playEvent("check")}
+      if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;if(autoSpeak)tutorSay(r.reply)}
     }catch(err){
       tutor.chats[key].pop();
       $("ttyping")?.remove();
       if($("tlog"))$("tlog").insertAdjacentHTML("beforeend",`<div class="tb ai"><div class="tt terr">${esc(err.message||"تعذّر الاتصال بالمعلّم")}</div></div>`);
     }finally{tutor.busy=false}
   }
+  /* ---- natural voice out: pick the best installed voice per language, speak each script run in its own language ---- */
+  let voices=[];
+  const loadVoices=()=>{try{voices=speechSynthesis.getVoices()||[]}catch{}};
+  try{loadVoices();speechSynthesis.addEventListener("voiceschanged",loadVoices)}catch{}
+  const voiceCache={};
+  function bestVoice(lang){
+    if(voiceCache[lang]!==undefined&&voices.length)return voiceCache[lang];
+    const base=lang.split("-")[0].toLowerCase();
+    const c=voices.filter(v=>(v.lang||"").replace("_","-").toLowerCase().startsWith(base));
+    const score=v=>{const n=(v.name||"").toLowerCase();let x=0;
+      if(/natural|neural|online/.test(n))x+=6;if(/premium|enhanced|siri/.test(n))x+=5;if(/google/.test(n))x+=3;
+      if((v.lang||"").replace("_","-").toLowerCase()===lang.toLowerCase())x+=2;
+      if(/compact|espeak|robot/.test(n))x-=4;return x};
+    c.sort((a,b)=>score(b)-score(a));
+    return voiceCache[lang]=c[0]||null;
+  }
+  function stopSpeak(){try{speechSynthesis&&speechSynthesis.cancel()}catch{}}
+  function speechRuns(text,latLang){
+    /* the bracketed [نطق] guides are written for the eyes only */
+    let t=String(text).replace(/\[[^\]]*\]/g," ").replace(/[*#_`()]/g,"");
+    const runs=[];
+    const lang=ch=>/[֐-׿]/.test(ch)?"he-IL":/[؀-ۿ]/.test(ch)?"ar-SA":/[A-Za-zÀ-ɏ]/.test(ch)?latLang:null;
+    let cur=null;
+    for(const ch of t){
+      const l=lang(ch);
+      if(l&&(!cur||cur.lang!==l)){cur={lang:l,text:""};runs.push(cur)}
+      if(cur)cur.text+=ch;
+    }
+    return runs.map(r=>({lang:r.lang,text:r.text.replace(/\s+/g," ").trim()})).filter(r=>r.text&&/[\p{L}]/u.test(r.text));
+  }
   function tutorSay(text){
     try{
-      const ss=window.speechSynthesis;if(!ss)return;ss.cancel();
-      String(text).split(/\n+/).map(l=>l.trim()).filter(Boolean).forEach(l=>{
-        const he=/[֐-׿]/.test(l)&&!/[؀-ۿ]/.test(l);
-        const u=new SpeechSynthesisUtterance(l);u.lang=he?"he-IL":"ar-SA";u.rate=.9;ss.speak(u);
+      const ss=window.speechSynthesis;if(!ss)return;ss.cancel();loadVoices();
+      const lat=(TUTOR_SUBJ[tutor.subject]||{}).lat||"en-US";
+      speechRuns(text,lat).forEach(r=>{
+        const u=new SpeechSynthesisUtterance(r.text);u.lang=r.lang;
+        const v=bestVoice(r.lang);if(v){u.voice=v;u.lang=v.lang}
+        u.rate=r.lang===lat||r.lang==="he-IL"?.88:.95;u.pitch=1.02;
+        ss.speak(u);
       });
     }catch{}
   }
-
+  /* ---- voice in (speech recognition) ---- */
+  function stopRec(){try{tutor.rec&&tutor.rec.stop()}catch{}tutor.rec=null;tutor.recOn=false;$("tmic")?.classList.remove("rec")}
+  function startRec(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR)return toast("هذا المتصفح لا يدعم التسجيل الصوتي. اكتب سؤالك، أو جرّب Chrome أو Safari.","err");
+    if(tutor.recOn)return stopRec();
+    stopSpeak();
+    const rec=new SR();rec.lang=recCur()[0];rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+    let finalText="",sent=false;
+    const box=$("tutIn");
+    rec.onresult=e=>{let interim="";for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)finalText+=r[0].transcript+" ";else interim+=r[0].transcript}if(box)box.value=(finalText+interim).trim()};
+    rec.onerror=e=>{const m=e.error==="not-allowed"||e.error==="service-not-allowed"?"اسمح للمتصفح باستعمال الميكروفون ثم حاول مجدداً.":e.error==="no-speech"?"لم أسمع صوتاً. اضغط 🎤 وتكلّم بصوت أوضح.":e.error==="language-not-supported"?"هذه اللغة غير مدعومة للتسجيل على هذا الجهاز.":"تعذّر التسجيل الصوتي. اكتب سؤالك.";toast(m,"err");stopRec()};
+    rec.onend=()=>{const was=tutor.recOn;tutor.rec=null;tutor.recOn=false;$("tmic")?.classList.remove("rec");const t=(finalText||$("tutIn")?.value||"").trim();if(was&&t&&!sent){sent=true;tutorSend(t)}};
+    try{rec.start();tutor.rec=rec;tutor.recOn=true;$("tmic")?.classList.add("rec")}catch{toast("تعذّر بدء التسجيل.","err")}
+  }
   document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="tutIn"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();tutorSend(e.target.value)}});
   /* ---- bedtime message via WhatsApp (opens WhatsApp with the text ready; the parent presses send) ---- */
   const WA_DEFAULT="0515800799";
@@ -842,6 +898,9 @@
       case "tutor-send":return tutorSend($("tutIn")?.value);
       case "tutor-say":{const t=b.closest(".tb")?.querySelector(".tt");if(t)tutorSay(t.textContent);return}
       case "tutor-clear":{tutor.chats[tkey()]=[];tsave();return tutorModal()}
+      case "tutor-mic":return startRec();
+      case "tutor-reclang":{stopRec();tutor.recLang[tutor.subject]=(recIdx()+1)%TUTOR_SUBJ[tutor.subject].rec.length;const x=$("trl");if(x)x.textContent="🎙 لغة التسجيل: "+recCur()[1];return}
+      case "tutor-auto":{autoSpeak=!autoSpeak;try{localStorage.setItem("hero-tutor-auto",autoSpeak?"on":"off")}catch{}b.classList.toggle("on",autoSpeak);b.textContent=autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا";if(!autoSpeak)stopSpeak();return}
       case "tone-pick":{const ev=b.dataset.ev,id=b.dataset.id;if(!TONES[id])return;toneSel[ev]=id;try{localStorage.setItem("hero-tone-"+ev,id)}catch{}
         if(id==="auto"){playEvent(ev,true)}else playTone(id);
         return prefsSheet()}

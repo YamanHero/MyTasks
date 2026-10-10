@@ -645,3 +645,13 @@ button.cal-tk:active{background:var(--tint)}
 .tdots i{width:8px;height:8px;border-radius:50%;background:var(--brand);opacity:.35;animation:tdot 1s infinite}
 .tdots i:nth-child(2){animation-delay:.15s}.tdots i:nth-child(3){animation-delay:.3s}
 @keyframes tdot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+
+/* tutor: mic + options */
+.tutbtns{grid-template-columns:repeat(3,1fr)}
+.tutbtns .btn{font-size:.95rem;padding:14px 4px}
+.tmic{flex:none;width:52px;height:52px;border-radius:50%;border:0;background:var(--tint);font-size:1.5rem;cursor:pointer;display:grid;place-items:center}
+.tmic.rec{background:#e5484d;animation:micp 1s infinite}
+@keyframes micp{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}50%{box-shadow:0 0 0 12px rgba(229,72,77,0)}}
+.topts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.topts .chip{border:1.5px solid var(--line,#d6dae1);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;font-size:.84rem}
+.topts .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
