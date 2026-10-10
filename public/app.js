@@ -46,7 +46,7 @@
   const $=id=>document.getElementById(id);
   const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
   const today=()=>iso(new Date());
-  let cal={month:today().slice(0,7),sel:today(),events:[]};
+  let cal={month:today().slice(0,7),sel:today(),events:[],tasks:[],showTasks:true};
   const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   const typeOf=t=>TYPES[t]||TYPES.other;
   const isPrayer=t=>t.type==="prayer";
@@ -245,26 +245,33 @@
   async function loadCal(){
     const [y,m]=cal.month.split("-").map(Number);
     const from=`${cal.month}-01`,to=`${cal.month}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
-    try{const d=await api(`/api/family/events?from=${from}&to=${to}`);cal.events=d.events||[]}catch{cal.events=[]}
+    const [e,t]=await Promise.all([api(`/api/family/events?from=${from}&to=${to}`).catch(()=>({})),api(`/api/family/calendar-tasks?from=${from}&to=${to}`).catch(()=>({}))]);
+    cal.events=e.events||[];cal.tasks=t.tasks||[];
     render();
   }
   function calendarHtml(){
     const [y,m]=cal.month.split("-").map(Number);
     const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
-    const by={};for(const e of cal.events)(by[e.date]=by[e.date]||[]).push(e);
+    const by={},tk={};for(const e of cal.events)(by[e.date]=by[e.date]||[]).push(e);
+    if(cal.showTasks)for(const t of cal.tasks)if(t.type!=="prayer")(tk[t.date]=tk[t.date]||[]).push(t);
     const names=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
     let cells=names.map(n=>`<div class="cal-h">${n}</div>`).join("");
     for(let i=0;i<lead;i++)cells+=`<div class="cal-c off"></div>`;
     for(let d=1;d<=days;d++){
-      const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[];
+      const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[],ts=tk[ds]||[];
       const colors=[...new Set(ev.map(e=>e.assignee))].slice(0,4);
-      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${ev.length?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span></button>`;
+      const bars=KIDS.map(k=>{const l=ts.filter(t=>t.assignee===k);if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
+      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span></button>`;
     }
     const title=first.toLocaleDateString("ar",{month:"long",year:"numeric"});
     const legend=[["family","كل العائلة"],...KIDS.map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
-    const day=(by[cal.sel]||[]);
-    const dayHtml=day.length?day.map(e=>`<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد في هذا اليوم</div>`;
-    return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}</div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${day.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
+    const dayEv=(by[cal.sel]||[]).map(e=>({k:"ev",time:e.time,o:e})),dayTk=(tk[cal.sel]||[]).map(t=>({k:"tk",time:t.time,o:t}));
+    const items=[...dayEv,...dayTk].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
+    const row=it=>{
+      if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`}
+      const t=it.o,ty=typeOf(t.type);return `<div class="cal-ev cal-tk ${t.done?"done":""}" style="--ec:${EVC(t.assignee)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span></div>`};
+    const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
+    return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -582,6 +589,7 @@
       case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
       case "pkid":pkid=b.dataset.k;return render();
+      case "cal-tasks":cal.showTasks=!cal.showTasks;return render();
       case "cal-day":cal.sel=b.dataset.d;return render();
       case "cal-nav":{const [y,m]=cal.month.split("-").map(Number),dt=new Date(y,m-1+Number(b.dataset.n),1);cal.month=iso(dt).slice(0,7);cal.sel=cal.month===today().slice(0,7)?today():`${cal.month}-01`;return loadCal()}
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();

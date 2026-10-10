@@ -765,7 +765,7 @@ function mapFamilyTask(row) {
     bonusPoints,
     earnedPoints,
     badges,
-    date: String(row.due_date).slice(0, 10),
+    date: pgDateKey(row.due_date),
     note: row.note || "",
     suggestedTime: row.suggested_time || "",
     timerMinutes: Number(row.timer_minutes || 0),
@@ -2131,6 +2131,18 @@ app.get("/api/family/events", asyncRoute(async (req, res) => {
     [from, to]
   );
   res.json({ events: rows.map(mapFamilyEvent) });
+}));
+
+app.get("/api/family/calendar-tasks", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const from = familyDateKey(req.query.from);
+  const to = familyDateKey(req.query.to || req.query.from);
+  const { rows } = await pool.query(
+    `SELECT id, assignee, title, task_type, due_date, suggested_time, done, timer_minutes FROM hero_family_tasks WHERE due_date BETWEEN $1 AND $2 ORDER BY due_date ASC, NULLIF(suggested_time, '') ASC NULLS LAST, created_at ASC LIMIT 1500`,
+    [from, to]
+  );
+  res.json({ tasks: rows.map((r) => ({ id: r.id, assignee: r.assignee, title: r.title, type: r.task_type, date: pgDateKey(r.due_date), time: r.suggested_time || "", done: Boolean(r.done), timer: Number(r.timer_minutes || 0) })) });
 }));
 
 app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {

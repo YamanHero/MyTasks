@@ -560,3 +560,15 @@ body.calm .focus .reward{display:none}
 .edrow input{flex:1;min-width:0}
 .edadd{justify-self:start}
 input[type=time]{text-align:start}
+
+.cal-c{min-height:58px}
+.cal-bars{display:grid;gap:2px;width:78%}
+.cal-bars u{display:block;height:4px;border-radius:99px;text-decoration:none;background:color-mix(in srgb,var(--kc) 25%,#fff);position:relative;overflow:hidden}
+.cal-bars u::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--kc)}
+.cal-tk{background:#fff;border:1px solid var(--line);border-inline-start:5px solid var(--ec)}
+.cal-tk.done .t-title{text-decoration:line-through;color:var(--muted)}
+.cal-ok{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-weight:900;color:#fff}
+.cal-tk.done .cal-ok{background:var(--ok);border-color:var(--ok)}
+.cal-tg{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto}
+.cal-tg{padding:4px 10px;border-radius:99px;background:var(--tint);font-weight:800;color:var(--ink,inherit);cursor:pointer}
+.cal-tg input{width:18px;height:18px;min-height:0;margin:0;accent-color:var(--brand)}
