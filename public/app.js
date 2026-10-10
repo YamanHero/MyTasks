@@ -215,11 +215,13 @@
   }
 
   /* ---- parent ---- */
+  const ckOpen=new Set();
+  document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.matches&&d.matches("details[data-ck]")){d.open?ckOpen.add(d.dataset.ck):ckOpen.delete(d.dataset.ck)}},true);
   function parentTaskRow(t,m){
     const ty=typeOf(t.type);
     const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}`;
     const note=t.note?`<span class="t-note">${esc(t.note)}</span>`:"";
-    return `<div class="trow ${t.done?"is-done":""}"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span>${note}</span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold"><summary><span>☑ الخطوات</span><b>${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</b></summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
+    return `<div class="trow ${t.done?"is-done":""}"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span>${note}</span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold" data-ck="${t.id}" ${ckOpen.has(t.id)?"open":""}><summary><span>☑ الخطوات</span><b>${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</b></summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
   }
   let pkid=null;
   function kidTabs(){
