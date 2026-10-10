@@ -613,3 +613,10 @@ button.cal-tk:active{background:var(--tint)}
 .bd b{font-size:.88rem}.bd small{font-size:.72rem;color:var(--muted)}
 .bd.on{opacity:1;background:var(--gold-tint);box-shadow:inset 0 0 0 1.5px #f1cf63}.bd.on .bd-i{filter:none}.bd.on small{color:#7a5600;font-weight:800}
 .nav-in{grid-template-columns:repeat(4,1fr)}.nav-in .tab{padding-inline:2px;font-size:.78rem}
+
+/* tone picker */
+.tonehd{margin:14px 0 2px;font-size:1rem}
+.tonebox{padding:10px 0;border-top:1px solid var(--line,#e5e7eb)}
+.tonechips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tonechips .chip{border:1.5px solid var(--line,#d6dae1);background:var(--card,#fff);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:.88rem;cursor:pointer}
+.tonechips .chip.on{background:var(--brand,#12a37a);border-color:var(--brand,#12a37a);color:#fff;font-weight:700}

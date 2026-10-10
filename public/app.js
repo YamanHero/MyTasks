@@ -124,16 +124,46 @@
     g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+len);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+len+0.05);
   }
-  function playDone(kind="task"){
-    if(!soundOn)return;
+  /* ---- selectable tones (synthesised, no audio files); choice is stored per device ---- */
+  const TONES={
+    auto:{n:"تلقائي"},
+    none:{n:"بدون صوت"},
+    chime:{n:"جرس",p:()=>{tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2)}},
+    soft:{n:"هادئ",p:()=>tone(660,0,.55,.1)},
+    bell:{n:"ناقوس",p:()=>{tone(880,0,.9,.14);tone(1760,0,.6,.05)}},
+    drop:{n:"قطرة",p:()=>{tone(1200,0,.12,.14);tone(800,.07,.28,.12)}},
+    harp:{n:"قيثارة",p:()=>[523.25,659.25,783.99].forEach((f,i)=>tone(f,i*.08,.5,.12))},
+    pop:{n:"نقرة",p:()=>tone(520,0,.08,.14)},
+    fan:{n:"فرحة",p:()=>[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.11,.5,.16))},
+    low:{n:"عميق",p:()=>{tone(330,0,.5,.16);tone(440,.12,.5,.12)}}
+  };
+  const TONE_EVENTS=[
+    {k:"task",n:"إنهاء مهمة",d:"عند الضغط على «تم»"},
+    {k:"check",n:"تعليم خطوة (checkbox)",d:"عند تعليم خطوة في القائمة"},
+    {k:"prayer",n:"إتمام صلاة",d:"عند تعليم صلاة كمنجزة"},
+    {k:"all",n:"إنهاء كل مهام اليوم",d:"عند اكتمال اليوم"}
+  ];
+  const toneSel={};
+  TONE_EVENTS.forEach(e=>{let v="auto";try{v=localStorage.getItem("hero-tone-"+e.k)||"auto"}catch{}toneSel[e.k]=TONES[v]?v:"auto"});
+  function playTone(id,force){
+    if(id==="none")return;
     try{
       actx=actx||new (window.AudioContext||window.webkitAudioContext)();
       if(actx.state==="suspended")actx.resume();
-      if(kind==="soft"||calm){tone(660,0,.55,.1);return}
-      if(kind==="all"){[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.11,.5,.16));return}
-      tone(659.25,0,.32,.2);tone(987.77,.09,.42,.2);
+      TONES[id].p();
     }catch{}
   }
+  function playEvent(ev,force){
+    if(!soundOn&&!force)return;
+    let id=toneSel[ev]||"auto";
+    if(id==="auto"){
+      if(ev==="check"){if(calm)return;id="pop"}
+      else if(ev==="prayer"||calm)id="soft";
+      else id=ev==="all"?"fan":"chime";
+    }
+    playTone(id);
+  }
+  function playDone(kind="task"){playEvent(kind==="soft"?"prayer":kind)}
   function confetti(x,y,n=30){
     if(calm||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
     const cols=["#f5b301","#12a37a","#d6246e","#3b6ff0","#9a4de0","#e8710a"];
@@ -499,7 +529,8 @@
   }
   function prefsSheet(){
     const row=(k,on,t,s)=>`<button type="button" class="pick ${on?"on":""}" data-action="pref" data-v="${k}" aria-pressed="${on}"><span class="box">${on?"✓":""}</span><span><b>${t}</b><div class="muted small">${s}</div></span></button>`;
-    modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"صوت الإنجاز","نغمة قصيرة عند إنهاء مهمة")}</div>`);
+    const tones=soundOn?TONE_EVENTS.map(e=>`<div class="tonebox"><b>${e.n}</b><div class="muted small">${e.d}</div><div class="tonechips">${Object.entries(TONES).map(([id,t])=>`<button type="button" class="chip ${toneSel[e.k]===id?"on":""}" data-action="tone-pick" data-ev="${e.k}" data-id="${id}" aria-pressed="${toneSel[e.k]===id}">${t.n}</button>`).join("")}</div></div>`).join(""):"";
+    modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"الأصوات","تشغيل أصوات الإنجاز والتنبيهات")}${tones?`<h4 class="tonehd">اختيار النغمات</h4><p class="muted small">اضغط على نغمة لسماعها واختيارها. «تلقائي» يتبع الوضع الهادئ.</p>${tones}`:""}</div>`);
   }
   /* ---- bedtime message via WhatsApp (opens WhatsApp with the text ready; the parent presses send) ---- */
   const WA_DEFAULT="0515800799";
@@ -737,6 +768,9 @@
         else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
         render();return prefsSheet();
       }
+      case "tone-pick":{const ev=b.dataset.ev,id=b.dataset.id;if(!TONES[id])return;toneSel[ev]=id;try{localStorage.setItem("hero-tone-"+ev,id)}catch{}
+        if(id==="auto"){playEvent(ev,true)}else playTone(id);
+        return prefsSheet()}
       case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
@@ -784,7 +818,7 @@
       case "prayer-edit":return prayerModal();
       case "endday":return guard(b,()=>endDayModal(b.dataset.member));
       case "help":{const t=findTask(b.dataset.id);if(!t)return;help={task:t,member:b.dataset.member,mode:t.type==="youtube"?"youtube":"full",question:"",loading:false,result:null,checked:new Set()};return helpModal()}
-      case "ck":{const t=findTask(b.dataset.id);if(!t||!t.checklist)return;const i=Number(b.dataset.i),it=t.checklist[i];if(!it)return;const nv=!it.done;it.done=nv;render();try{if(nv&&soundOn&&!calm)tone(660,0,.1,.04);await api(`/api/family/tasks/${t.id}/check`,{method:"PATCH",body:JSON.stringify({index:i,done:nv})})}catch(err){it.done=!nv;render();onErr(err)}return}
+      case "ck":{const t=findTask(b.dataset.id);if(!t||!t.checklist)return;const i=Number(b.dataset.i),it=t.checklist[i];if(!it)return;const nv=!it.done;it.done=nv;render();try{if(nv)playEvent("check");await api(`/api/family/tasks/${t.id}/check`,{method:"PATCH",body:JSON.stringify({index:i,done:nv})})}catch(err){it.done=!nv;render();onErr(err)}return}
       case "h-mode":help.question=$("helpQ")?.value||help.question;help.mode=b.dataset.v;return helpModal();
       case "h-check":{const i=Number(b.dataset.i);help.checked.has(i)?help.checked.delete(i):help.checked.add(i);help.question=$("helpQ")?.value||help.question;return helpModal()}
       case "h-quick":{const q=$("helpQ");if(q)q.value=b.dataset.v;help.question=b.dataset.v;return document.querySelector('[data-action="h-ask"]')?.click()}
