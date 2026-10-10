@@ -40,7 +40,7 @@
   let draft=newDraft();
   let help={task:null,member:"",mode:"full",question:"",loading:false,result:null,checked:new Set()};
   let breathTimer=null;
-  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,sl:[],editId:null,...o}}
+  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,sl:[],date:"",editId:null,...o}}
 
   /* ======================= helpers ======================= */
   const $=id=>document.getElementById(id);
@@ -71,7 +71,7 @@
     toast(err.message,"err");
   }
   const allTasks=()=>KIDS.flatMap(k=>child[k]?.tasks||[]);
-  const findTask=id=>allTasks().find(t=>t.id===id);
+  const findTask=id=>allTasks().find(t=>t.id===id)||(cal.tasks||[]).find(t=>t.id===id);
   const stats=m=>{const l=(child[m]?.tasks||[]).filter(t=>!isPrayer(t));const done=l.filter(t=>t.done).length;return{total:l.length,done,open:l.length-done}};
   function buzz(ms=25){try{navigator.vibrate&&navigator.vibrate(ms)}catch{}}
   /* ---- completion sound (soft two-note chime, no audio files) ---- */
@@ -271,9 +271,9 @@
     const items=[...dayEv,...dayTk].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
     const row=it=>{
       if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`}
-      const t=it.o,ty=typeOf(t.type);return `<div class="cal-ev cal-tk ${t.done?"done":""}" style="--ec:${EVC(t.assignee)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span></div>`};
+      const t=it.o,ty=typeOf(t.type);return `<button type="button" class="cal-ev cal-tk ${t.done?"done":""}" data-action="edit-task" data-id="${t.id}" style="--ec:${EVC(t.assignee)}" aria-label="فتح المهمة: ${esc(t.title)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span><span class="cal-go" aria-hidden="true">‹</span></button>`};
     const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
-    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-event" data-d="${cal.sel}">＋ موعد في هذا اليوم</button></article>`;
+    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -568,7 +568,7 @@
     if(pview==="settings"&&area==="parent")render();
   }
   function taskBody(){
-    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:(draft.sl||[]).map(x=>x.trim()).filter(Boolean).slice(0,8)};
+    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:draft.date||today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:(draft.sl||[]).map(x=>x.trim()).filter(Boolean).slice(0,8)};
   }
 
   document.addEventListener("keydown",e=>{const el=e.target;if(e.key==="Enter"&&el&&el.matches&&el.matches("[data-step]")){e.preventDefault();syncDraft();if(draft.sl.length<8){draft.sl.push("");taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus()}}});
@@ -587,8 +587,8 @@
     switch(a){
       case "close":return close();
       case "reload":return guard(b,()=>refresh());
-      case "add-task":draft=newDraft({who:b.dataset.who||"yaman"});return taskModal();
-      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),editId:t.id});return taskModal()}
+      case "add-task":draft=newDraft({who:b.dataset.who||"yaman",date:b.dataset.d||""});return taskModal();
+      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),date:t.date||"",editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
       case "pkid":pkid=b.dataset.k;return render();
       case "cal-who":cal.who=b.dataset.k;return render();

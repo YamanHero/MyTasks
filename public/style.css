@@ -572,3 +572,7 @@ input[type=time]{text-align:start}
 .cal-tg{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto}
 .cal-tg{padding:4px 10px;border-radius:99px;background:var(--tint);font-weight:800;color:var(--ink,inherit);cursor:pointer}
 .cal-tg input{width:18px;height:18px;min-height:0;margin:0;accent-color:var(--brand)}
+
+button.cal-tk{width:100%;font:inherit;text-align:right;color:inherit;cursor:pointer}
+button.cal-tk:active{background:var(--tint)}
+.cal-go{flex:none;color:var(--muted);font-size:1.4rem}
