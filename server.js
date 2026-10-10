@@ -2308,6 +2308,49 @@ async function computeMemberStats(member, today) {
   };
 }
 
+// ---- app privacy (Vercel Authentication on/off per project), controlled from inside Hero ----
+function vercelFetchUrl(path) {
+  const team = process.env.VERCEL_TEAM_ID;
+  const sep = path.includes("?") ? "&" : "?";
+  return `https://api.vercel.com${path}${team ? `${sep}teamId=${encodeURIComponent(team)}` : ""}`;
+}
+
+async function vercelRequest(path, options = {}) {
+  const response = await fetchWithTimeout(vercelFetchUrl(path), {
+    ...options,
+    headers: { Authorization: `Bearer ${process.env.VERCEL_TOKEN}`, "Content-Type": "application/json", ...(options.headers || {}) }
+  }, 15000);
+  const body = await readResponseBody(response);
+  if (!response.ok) throw new PublicError(502, body?.error?.message || `تعذر الاتصال بـ Vercel (${response.status}).`);
+  return body;
+}
+
+function vercelProjectPrivate(project) {
+  const sso = project?.ssoProtection;
+  return Boolean(sso && sso.enabled !== false && (sso.deploymentType || sso.enabled === true));
+}
+
+app.get("/api/apps", asyncRoute(async (req, res) => {
+  requireParent(req);
+  if (!process.env.VERCEL_TOKEN) return res.json({ configured: false, items: [] });
+  const body = await vercelRequest("/v9/projects?limit=50");
+  const items = (body.projects || []).map((p) => ({ id: p.id, name: p.name, private: vercelProjectPrivate(p) }));
+  res.json({ configured: true, items });
+}));
+
+app.put("/api/apps/:id/visibility", asyncRoute(async (req, res) => {
+  requireParent(req);
+  if (!process.env.VERCEL_TOKEN) throw new PublicError(400, "لم يُضبط VERCEL_TOKEN في Railway بعد.");
+  const id = String(req.params.id || "");
+  if (!/^prj_[A-Za-z0-9]+$/.test(id)) throw new PublicError(400, "معرّف التطبيق غير صحيح.");
+  const makePrivate = req.body?.private === true;
+  const updated = await vercelRequest(`/v9/projects/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ssoProtection: makePrivate ? { deploymentType: "all_except_custom_domains" } : null })
+  });
+  res.json({ id, name: updated.name, private: vercelProjectPrivate(updated) });
+}));
+
 app.get("/api/family/stats", asyncRoute(async (req, res) => {
   await ensureFamilyDatabase();
   const today = dateKeyInTimeZone(new Date());

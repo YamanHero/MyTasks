@@ -70,7 +70,7 @@
   let area=(PEOPLE[qs.get("area")]||qs.get("area")==="home")?qs.get("area"):(PEOPLE[stored]?stored:"home");
   let pview="today";
   const pending=new Map();
-  let family={},tick={},dashboard=null,child={},prayer=null,school={},weekly=[],ach=[],kidStats={};
+  let family={},tick={},dashboard=null,child={},prayer=null,school={},weekly=[],ach=[],kidStats={},apps=null;
   let loading=true,pin="",pinBusy=false,pinError="";
   let focusId={};
   let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
@@ -243,6 +243,13 @@
     const earned=st.badges.filter(b=>b.earned);
     return `<article class="card"><details class="fold"><summary>⭐ نجومي (${earned.length}/${st.badges.length})</summary><div style="margin-top:10px"><div class="sline"><span>إنجاز هذا الأسبوع</span><b>${rateTxt(st.week.rate)}</b></div>${deltaHtml(st)}${badgesHtml(st)}</div></details></article>`;
   }
+  function appsCard(){
+    if(!apps)return `<article class="card"><div class="card-title"><h2>🔒 خصوصية تطبيقاتي</h2></div><p class="muted">جارٍ التحميل…</p></article>`;
+    if(!apps.configured)return `<article class="card"><div class="card-title"><h2>🔒 خصوصية تطبيقاتي</h2></div><p class="muted">للتحكم في تطبيقاتك على Vercel من هنا، أنشئ رمز وصول من vercel.com/account/tokens وأضفه في Railway باسم <b>VERCEL_TOKEN</b>. إن كان لديك فريق أضف أيضًا <b>VERCEL_TEAM_ID</b>.</p></article>`;
+    if(apps.error)return `<article class="card"><div class="card-title"><h2>🔒 خصوصية تطبيقاتي</h2></div><p class="muted">${esc(apps.error)}</p><button class="btn btn-soft btn-sm" data-action="apps-reload">إعادة المحاولة</button></article>`;
+    const rows=apps.items.map(a=>`<div class="ev-row"><div style="flex:1;min-width:0"><div class="t-title">${esc(a.name)}</div><div class="muted small">${a.private?"🔒 خاص: يحتاج تسجيل دخول Vercel":"🌐 عام: يفتحه أي شخص لديه الرابط"}</div></div><button class="btn ${a.private?"btn-soft":"btn-danger"} btn-sm" data-action="app-toggle" data-id="${a.id}" data-name="${esc(a.name)}" data-private="${a.private?1:0}">${a.private?"اجعله عامًا":"اجعله خاصًا"}</button></div>`).join("");
+    return `<article class="card"><div class="card-title"><h2>🔒 خصوصية تطبيقاتي</h2><span class="count">${apps.items.length}</span></div>${rows||`<div class="empty"><b>📦</b>لا توجد تطبيقات</div>`}<p class="muted small" style="margin-top:8px">الخاص يحميه Vercel بتسجيل الدخول. العام يعني أن أي شخص يملك الرابط يرى التطبيق وبياناته.</p></article>`;
+  }
   function weeklyCard(){
     const who=a=>a==="family"?"كل العائلة":(PEOPLE[a]?.name||a);
     const rows=weekly.filter(w=>w.enabled).map(w=>{const ty=typeOf(w.type),days=w.days.length?w.days.map(d=>DAYS_AR[d]).join("، "):"لم تُحدَّد الأيام بعد";
@@ -382,7 +389,7 @@
       ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}${kidTabs()}${kidCard(KIDS.includes(pkid)?pkid:KIDS[0])}<button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
     else if(pview==="stats")body=statsView();
-    else body=membersCard()+weeklyCard()+prayerCard()+tickView();
+    else body=membersCard()+weeklyCard()+appsCard()+prayerCard()+tickView();
     const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":pview==="stats"?"الإنجاز":"الإعدادات",pview==="events"?"جدول العائلة القادم":pview==="stats"?"نسبة الإنجاز والنجوم لكل واحد":"الصلاة والمزامنة","🏠",false);
     return `${topbar()}${head}<div class="stack">${body}</div>`;
   }
@@ -656,6 +663,10 @@
     }catch(err){pinError=err.message;pin="";paintPin(true)}
     finally{pinBusy=false;go?.classList.remove("busy")}
   }
+  async function loadApps(){
+    try{apps=await api("/api/apps")}catch(e){apps={configured:true,items:[],error:e.message}}
+    if(pview==="settings"&&area==="parent")render();
+  }
   async function loadPrayer(){
     prayer=null;if(pview==="settings")render();
     try{const r=await api(`/api/prayer/today?date=${today()}`);prayer={prayerTimes:r.prayerTimes||{},warning:r.warning||""}}
@@ -672,7 +683,7 @@
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
     let b=e.target.closest("[data-area],[data-action],[data-pview]");if(b===document.body)b=null;
     if(!b){if(e.target.id==="modalRoot")close();return}
-    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="events")loadCal();return}
+    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="settings"&&!apps)loadApps();if(pview==="events")loadCal();return}
     if(b.dataset.area&&!b.dataset.action){
       area=b.dataset.area;pin="";pinError="";
       if(area!=="home"){try{localStorage.setItem("hero-area",area)}catch{}}
@@ -752,6 +763,11 @@
       case "add-member":return memberModal();
       case "m-icon":{window.__mIcon=b.dataset.v;document.querySelectorAll("#mIcons button").forEach(x=>x.classList.toggle("on",x===b));return}
       case "school-edit":return schoolModal(b.dataset.id);
+      case "apps-reload":apps=null;render();return loadApps();
+      case "app-toggle":{const toPrivate=b.dataset.private!=="1";const name=b.dataset.name;
+        if(toPrivate)return guard(b,async()=>{await api(`/api/apps/${b.dataset.id}/visibility`,{method:"PUT",body:JSON.stringify({private:true})});await loadApps();toast(`${name} صار خاصًا 🔒`,"ok")});
+        return modal(`جعل ${name} عامًا؟`,`<p class="muted" style="margin-bottom:16px">سيستطيع أي شخص يملك الرابط أن يفتح «${esc(name)}» دون تسجيل دخول. لا تفعل ذلك إن كان فيه بيانات خاصة.</p><div class="actions"><button class="btn btn-danger" data-action="app-public-go" data-id="${esc(b.dataset.id)}" data-name="${esc(name)}">نعم، اجعله عامًا</button><button class="btn btn-line" data-action="close">تراجع</button></div>`)}
+      case "app-public-go":return guard(b,async()=>{await api(`/api/apps/${b.dataset.id}/visibility`,{method:"PUT",body:JSON.stringify({private:false})});close();await loadApps();toast(`${b.dataset.name} صار عامًا 🌐`,"ok")});
       case "weekly-edit":return weeklyModal(b.dataset.id);
       case "wk-day":{const d=Number(b.dataset.v);const set=window.__wkDays;set.has(d)?set.delete(d):set.add(d);b.classList.toggle("on",set.has(d));return}
       case "weekly-del":return guard(b,async()=>{const r=await api(`/api/family/weekly/${b.dataset.id}`,{method:"DELETE"});weekly=r.items||[];close();await refresh();toast("تم الإيقاف ✓")});
