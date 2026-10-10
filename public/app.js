@@ -40,7 +40,7 @@
   let draft=newDraft();
   let help={task:null,member:"",mode:"full",question:"",loading:false,result:null,checked:new Set()};
   let breathTimer=null;
-  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,steps:"",editId:null,...o}}
+  function newDraft(o={}){return{step:1,who:"yaman",type:"study",points:15,title:"",note:"",time:"",timer:0,sl:[],editId:null,...o}}
 
   /* ======================= helpers ======================= */
   const $=id=>document.getElementById(id);
@@ -224,7 +224,7 @@
   let pkid=null;
   function kidTabs(){
     const cur=KIDS.includes(pkid)?pkid:KIDS[0];
-    return `<div class="seg" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em></button>`}).join("")}</div>`;
+    return `<div class="ktabs" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em></button>`}).join("")}</div>`;
   }
   function kidCard(m){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
@@ -357,7 +357,7 @@
     const f=$("modalRoot").querySelector("input[type=text],textarea");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
   }
   function close(){$("modalRoot").innerHTML=""}
-  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=$("taskSteps");if(sp)draft.steps=sp.value;if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
+  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=document.querySelectorAll("[data-step]");if(sp.length)draft.sl=[...sp].map(x=>x.value);if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
 
   function taskModal(){
     const ty=typeOf(draft.type),two=draft.step===2,edit=!!draft.editId;
@@ -378,7 +378,7 @@
       <label class="field"><span>الوقت المقترح (اختياري)</span><input id="taskTime" type="time" value="${esc(draft.time)}"></label>
       <div><span class="label">مؤقت (دقائق)</span><div class="seg wrap" role="group">${TIMERS.map(n=>`<button type="button" class="${draft.timer===n?"on":""}" data-action="d-timer" data-v="${n}">${n?n+" د":"بلا"}</button>`).join("")}</div></div>
       ${draft.type==="prayer"?`<p class="hint">مهام الصلاة بلا نقاط ولا مكافآت.</p>`:`<div><span class="label">النقاط</span><div class="stepper"><button type="button" data-action="d-pts" data-v="-5" aria-label="أقل">−</button><output>⭐ ${draft.points}</output><button type="button" data-action="d-pts" data-v="5" aria-label="أكثر">＋</button></div></div>`}
-      <label class="field"><span>الخطوات (سطر لكل خطوة، اختياري)</span><textarea id="taskSteps" rows="4" maxlength="700" placeholder="مثال:&#10;جهّز الكتب&#10;ابدأ بالجزء الأول">${esc(draft.steps)}</textarea></label>
+      <div class="field"><span>خطوات المهمة (اختياري)</span><div class="edsteps">${(draft.sl||[]).map((x,i)=>`<div class="edrow"><i class="edbox" aria-hidden="true"></i><input type="text" data-step="${i}" maxlength="90" value="${esc(x)}" placeholder="خطوة ${i+1}" autocomplete="off"><button type="button" class="icon-btn" data-action="step-del" data-i="${i}" aria-label="حذف الخطوة ${i+1}">✕</button></div>`).join("")}<button type="button" class="btn btn-soft btn-sm edadd" data-action="step-add">＋ أضف خطوة</button>${(draft.sl||[]).length?"":`<p class="hint">إن لم تضف خطوات، نضيف تلقائيًا خطوات مناسبة لنوع المهمة.</p>`}</div></div>
       <label class="field"><span>ملاحظة للطفل (اختياري)</span><input id="taskNote" type="text" maxlength="500" placeholder="مثال: بعد الغداء مباشرة" value="${esc(draft.note)}" autocomplete="off"></label>
       <div class="actions"><button class="btn btn-primary" type="submit">${edit?"حفظ التعديل":"حفظ المهمة"}</button><button class="btn btn-line" type="button" data-action="d-back">→ رجوع</button></div>
       ${edit?`<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${esc(draft.editId)}" data-title="${esc(draft.title)}">🗑 حذف المهمة</button>`:""}
@@ -557,9 +557,10 @@
     if(pview==="settings"&&area==="parent")render();
   }
   function taskBody(){
-    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:draft.steps.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,8)};
+    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:(draft.sl||[]).map(x=>x.trim()).filter(Boolean).slice(0,8)};
   }
 
+  document.addEventListener("keydown",e=>{const el=e.target;if(e.key==="Enter"&&el&&el.matches&&el.matches("[data-step]")){e.preventDefault();syncDraft();if(draft.sl.length<8){draft.sl.push("");taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus()}}});
   /* ======================= events ======================= */
   document.addEventListener("click",async e=>{
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
@@ -576,7 +577,7 @@
       case "close":return close();
       case "reload":return guard(b,()=>refresh());
       case "add-task":draft=newDraft({who:b.dataset.who||"yaman"});return taskModal();
-      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,steps:(t.checklist||[]).map(x=>x.text).join("\n"),editId:t.id});return taskModal()}
+      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
       case "pkid":pkid=b.dataset.k;return render();
       case "cal-day":cal.sel=b.dataset.d;return render();
@@ -584,6 +585,8 @@
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
       case "d-next":draft.step=2;taskModal();return;
+      case "step-add":{syncDraft();if((draft.sl||[]).length>=8)return toast("الحد الأقصى 8 خطوات");draft.sl=[...(draft.sl||[]),""];taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus();return}
+      case "step-del":{syncDraft();draft.sl.splice(Number(b.dataset.i),1);taskModal();return}
       case "d-back":syncDraft();draft.step=1;taskModal();return;
       case "d-sugg":syncDraft();draft.title=b.dataset.v;taskModal();return;
       case "d-timer":syncDraft();draft.timer=Number(b.dataset.v);return taskModal();

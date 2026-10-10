@@ -526,10 +526,10 @@ body[data-area^="u"]{--bg:#f1faf5;--brand:#0f8a5f;--brand-d:#0b5c40;--tint:#d8f3
 .cal-t{flex:none;min-width:64px;text-align:center;font-weight:900;font-size:.88rem}
 
 /* ---- screen layout pass: parent list + child task ---- */
-.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;padding:4px;border-radius:16px;background:var(--tint)}
-.seg button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:0;border-radius:12px;background:transparent;font:inherit;font-weight:800;color:var(--muted);cursor:pointer}
-.seg button.on{background:#fff;color:var(--ink,inherit);box-shadow:0 1px 4px rgba(25,28,60,.12)}
-.seg button em{font-style:normal;min-width:22px;height:22px;padding:0 6px;border-radius:99px;display:inline-grid;place-items:center;font-size:.78rem;background:var(--kc,var(--brand));color:#fff}
+.ktabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;padding:4px;border-radius:16px;background:var(--tint)}
+.ktabs button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:0;border-radius:12px;background:transparent;font:inherit;font-weight:800;color:var(--muted);cursor:pointer}
+.ktabs button.on{background:#fff;color:var(--ink,inherit);box-shadow:0 1px 4px rgba(25,28,60,.12)}
+.ktabs button em{font-style:normal;min-width:22px;height:22px;padding:0 6px;border-radius:99px;display:inline-grid;place-items:center;font-size:.78rem;background:var(--kc,var(--brand));color:#fff}
 .trow{gap:0;border:1px solid var(--hair,var(--line));border-radius:14px;background:#fff;overflow:hidden}
 .trow .task{border:0;border-radius:0;background:transparent}
 .trow.is-done{background:var(--ok-tint)}
@@ -553,3 +553,10 @@ body.calm .focus .reward{display:none}
 .trow .t-main{overflow:hidden}.trow .t-body{min-width:0;overflow:hidden}
 .trow .t-main .t-meta{flex-wrap:wrap}
 .trow{grid-template-columns:minmax(0,1fr)}.kid-card,.kid-card .list{min-width:0}
+
+.edsteps{display:grid;gap:8px}
+.edrow{display:flex;align-items:center;gap:10px}
+.edbox{flex:none;width:28px;height:28px;border-radius:8px;border:3px solid var(--brand);background:#fff}
+.edrow input{flex:1;min-width:0}
+.edadd{justify-self:start}
+input[type=time]{text-align:start}
