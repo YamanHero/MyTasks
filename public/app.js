@@ -357,28 +357,29 @@
   /* ---- parent ---- */
   const ckOpen=new Set();
   document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.matches&&d.matches("details[data-ck]")){d.open?ckOpen.add(d.dataset.ck):ckOpen.delete(d.dataset.ck)}},true);
-  function parentTaskRow(t,m){
+  function parentTaskRow(t,m,kid){
     const ty=typeOf(t.type);
     const meta=`${timeChip(t)}${timerChip(t)}<span>${ty.l}</span>${isPrayer(t)?"":`<span>⭐ ${t.points}</span>`}${t.status==="in_progress"?"<span>▶ بدأ</span>":""}${t.ticktickTaskId?"<span>TickTick</span>":""}`;
     const note=t.note?`<span class="t-note">${esc(t.note)}</span>`:"";
-    return `<div class="trow ${t.done?"is-done":""}"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="edit-task" data-id="${t.id}" aria-label="تعديل: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span>${note}</span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold" data-ck="${t.id}" ${ckOpen.has(t.id)?"open":""}><summary><span>☑ الخطوات</span><b>${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</b></summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
+    return `<div class="trow ${t.done?"is-done":""}"><div class="task ${t.done?"done":""}" style="--tc:${ty.c}"><button class="t-main" data-action="${kid?"kid-task":"edit-task"}" data-id="${t.id}" aria-label="${kid?"تفاصيل":"تعديل"}: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${meta}</span>${note}</span></button><div class="t-act">${t.done?`<span class="check on" aria-label="منجزة">✓</span>`:`<button class="check" data-action="complete" data-member="${m}" data-id="${t.id}" aria-label="تأكيد إنجاز: ${esc(t.title)}">✓</button>`}</div></div>${(t.checklist||[]).length?`<details class="fold ck-fold" data-ck="${t.id}" ${ckOpen.has(t.id)?"open":""}><summary><span>☑ الخطوات</span><b>${(t.checklist||[]).filter(x=>x.done).length}/${t.checklist.length}</b></summary>${ckHtml(t,true).replace(/^<div class="cklist"[^>]*>/,m0=>m0)}</details>`:""}</div>`;
   }
   let pkid=null;
   function kidTabs(){
     const cur=KIDS.includes(pkid)?pkid:KIDS[0];
     return `<div class="ktabs" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em></button>`}).join("")}</div>`;
   }
-  function kidCard(m){
+  function kidCard(m,kid){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
+    const R=t=>parentTaskRow(t,m,kid);
     const pct=s.total?Math.round(s.done/s.total*100):0;
     const prayers=tasks.filter(isPrayer),rest=tasks.filter(t=>!isPrayer(t));
     const open=rest.filter(t=>!t.done),done=rest.filter(t=>t.done);
     const body=rest.length||prayers.length?
-      (open.length?listOrDetails(open,4,t=>parentTaskRow(t,m),"باقي المهام"):(rest.length?`<div class="empty"><b>🏆</b>أنجز ${p.name} كل المهام</div>`:""))
-      +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
-      +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(t=>parentTaskRow(t,m)).join("")}</div></details>`:"")
-      :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div></div>`;
-    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span><button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div><div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div></article>`;
+      (open.length?listOrDetails(open,4,R,"باقي المهام"):(rest.length?`<div class="empty"><b>🏆</b>${kid?`أحسنت يا ${p.name}! أنجزت كل المهام`:`أنجز ${p.name} كل المهام`}</div>`:""))
+      +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(R).join("")}</div></details>`:"")
+      +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(R).join("")}</div></details>`:"")
+      :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم${kid?"":`<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div>`}</div>`;
+    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span>${kid?"":`<button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button>`}</div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div>${kid?"":`<div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div>`}</article>`;
   }
   const EVC=id=>id==="yaman"?"#0891b2":id==="judy"?"#d6246e":id==="family"?"#e0a100":"#12a37a";
   const evName=id=>id==="family"?"كل العائلة":(PEOPLE[id]?.name||"");
@@ -503,18 +504,13 @@
     const events=(d.events||[]);
     const prevN=d.previousIncomplete?.incomplete||0;
     const row=t=>{const ty=typeOf(t.type);return `<button class="task" style="--tc:${ty.c}" data-action="focus" data-member="${m}" data-id="${t.id}" aria-label="ابدأ: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${timeChip(t)}${timerChip(t)}<span>⭐ ${t.points}</span></span></span><span aria-hidden="true">←</span></button>`};
-    return `${topbar()}${calm?`<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>${greeting()} ${p.name}</b></div>`:hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
-    <div class="stack">
-      ${calm?`<div class="slim" role="status"><b>${done.length?`أنجزت ${done.length}`:"لم نبدأ بعد"}</b>${open.length&&open.length<=5?`<span>بقي ${open.length}</span>`:""}<i class="slim-bar" aria-hidden="true"><u style="width:${tasks.length?Math.round(done.length/tasks.length*100):0}%"></u></i></div>`:`<article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>`}
-      ${quoteHtml(quoteFor(today()+m,open.length?(prayers.some(t=>!t.done)&&new Date().getHours()>=12?"prayer":["study","effort","success"][new Date().getDate()%3]):"success"))}
-      ${prevN&&!done.length&&!calm?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
-      ${focus}
+    return `${topbar()}<div class="stack">
+      ${prevN&&!done.length?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
+      ${kidCard(m,true)}
+      ${events.length?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:""}
       ${tutorCard(m)}
-      ${prayers.length&&calm?`<article class="card"><details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="prayers" style="margin-top:10px">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></details></article>`:prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
       ${kidStarsFold(m)}
-      ${events.length?(calm?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`):""}
-      ${rest.length?`<article class="card"><div class="card-title"><h2>${calm?"التالي":"بعدها"}</h2>${calm?"":`<span class="count">${rest.length}</span>`}</div><div class="list">${listOrDetails(rest,calm?1:3,row,calm?"باقي اليوم":"عرض الباقي")}</div></article>`:""}
-      ${done.length?`<article class="card"><details class="fold" ${open.length?"":"open"}><summary>أنجزت اليوم (${done.length})</summary><div class="list">${done.map(t=>{const ty=typeOf(t.type);return `<div class="task done" style="--tc:${ty.c}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${gain(t)}</span></span>${(t.badges||[]).length?`<span class="badges">${t.badges.map(b=>`<span>${esc(b.icon)} ${esc(b.label)}</span>`).join("")}</span>`:""}</span><span class="check on" aria-hidden="true">✓</span></div>`}).join("")}</div></details></article>`:""}
+      ${quoteHtml(quoteFor(today()+m,open.length?"effort":"success"))}
       ${tasks.length&&(open.length===0||new Date().getHours()>=17)?`<button class="btn btn-line" data-action="endday" data-member="${m}">🌙 تقرير يومي</button>`:""}
     </div>`;
   }
