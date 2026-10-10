@@ -529,7 +529,7 @@
   /* ======================= events ======================= */
   document.addEventListener("click",async e=>{
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
-    const b=e.target.closest("[data-area],[data-action],[data-pview]");
+    let b=e.target.closest("[data-area],[data-action],[data-pview]");if(b===document.body)b=null;
     if(!b){if(e.target.id==="modalRoot")close();return}
     if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();return}
     if(b.dataset.area&&!b.dataset.action){
