@@ -471,13 +471,15 @@
     document.body.dataset.area=a;document.body.classList.toggle("calm",calm);
     $("themeColor").content=PEOPLE[a].color;
     const y=scrollY;
+    $("root").style.minHeight=document.documentElement.scrollHeight+"px";
     $("root").innerHTML=loading?skeleton():(area==="home"?homeView():area==="parent"?parentView():childView(area));
     const pm=!loading&&area==="parent"&&family.parentAuthenticated&&dashboard;
     const nav=$("nav");nav.hidden=!pm;
     nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["stats","📊","الإنجاز"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
     $("fabRoot").innerHTML="";
     document.querySelectorAll("#root details.fold").forEach(d=>{if(foldState.get(foldKey(d))===true&&!d.open)d.open=true});
-    scrollTo(0,y);
+    scrollTo({top:y,left:0,behavior:"instant"});
+    $("root").style.minHeight="";
     const fc=document.querySelector(".focus[data-fid]"),fid=fc?fc.dataset.fid:"";
     if(calm&&fc&&lastFocus&&fid!==lastFocus){fc.style.opacity="0";requestAnimationFrame(()=>requestAnimationFrame(()=>{fc.style.transition="opacity .45s ease";fc.style.opacity="1"}))}
     lastFocus=fid;
