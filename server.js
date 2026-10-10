@@ -2573,26 +2573,41 @@ app.post("/api/family/events", asyncRoute(async (req, res) => {
   res.status(201).json({ event: mapFamilyEvent(rows[0]) });
 }));
 
+// Parents see the whole family; a child may only read their own slice (own tasks + family-wide events).
+function calendarScope(req) {
+  const who = String(req.query.assignee || "").toLowerCase();
+  if (hasParentSession(req)) return isFamilyMember(who) ? who : null;
+  if (!isFamilyMember(who)) throw new PublicError(401, "أدخل رمز الدخول الخاص بك أولاً.");
+  requireChildOrParent(req, who);
+  return who;
+}
+
 app.get("/api/family/events", asyncRoute(async (req, res) => {
-  requireParent(req);
+  const who = calendarScope(req);
   await ensureFamilyDatabase();
   const from = familyDateKey(req.query.from);
   const to = familyDateKey(req.query.to || req.query.from);
+  const params = [from, to];
+  let extra = "";
+  if (who) { params.push(who); extra = " AND (assignee = $3 OR assignee = 'family')"; }
   const { rows } = await pool.query(
-    `SELECT * FROM hero_family_events WHERE event_date BETWEEN $1 AND $2 ORDER BY event_date ASC, NULLIF(event_time, '') ASC NULLS LAST, created_at ASC LIMIT 400`,
-    [from, to]
+    `SELECT * FROM hero_family_events WHERE event_date BETWEEN $1 AND $2${extra} ORDER BY event_date ASC, NULLIF(event_time, '') ASC NULLS LAST, created_at ASC LIMIT 400`,
+    params
   );
   res.json({ events: rows.map(mapFamilyEvent) });
 }));
 
 app.get("/api/family/calendar-tasks", asyncRoute(async (req, res) => {
-  requireParent(req);
+  const who = calendarScope(req);
   await ensureFamilyDatabase();
   const from = familyDateKey(req.query.from);
   const to = familyDateKey(req.query.to || req.query.from);
+  const params = [from, to];
+  let extra = "";
+  if (who) { params.push(who); extra = " AND assignee = $3"; }
   const { rows } = await pool.query(
-    `SELECT * FROM hero_family_tasks WHERE due_date BETWEEN $1 AND $2 ORDER BY due_date ASC, NULLIF(suggested_time, '') ASC NULLS LAST, created_at ASC LIMIT 1500`,
-    [from, to]
+    `SELECT * FROM hero_family_tasks WHERE due_date BETWEEN $1 AND $2${extra} ORDER BY due_date ASC, NULLIF(suggested_time, '') ASC NULLS LAST, created_at ASC LIMIT 1500`,
+    params
   );
   res.json({ tasks: rows.map(mapFamilyTask).map((t) => ({ ...t, time: t.suggestedTime || "", timer: t.timerMinutes || 0 })) });
 }));

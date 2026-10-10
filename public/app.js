@@ -69,6 +69,7 @@
   [qs.get("area"),stored].forEach(v=>{if(isMid(v))addPerson(v)});
   let area=(PEOPLE[qs.get("area")]||qs.get("area")==="home")?qs.get("area"):(PEOPLE[stored]?stored:"home");
   let pview="today";
+  let kview="today";
   const pending=new Map();
   let family={},tick={},dashboard=null,child={},prayer=null,school={},weekly=[],ach=[],kidStats={},apps=null;
   let loading=true,pin="",pinBusy=false,pinError="";
@@ -384,14 +385,16 @@
   async function loadCal(){
     const [y,m]=cal.month.split("-").map(Number);
     const from=`${cal.month}-01`,to=`${cal.month}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
-    const [e,t]=await Promise.all([api(`/api/family/events?from=${from}&to=${to}`).catch(()=>({})),api(`/api/family/calendar-tasks?from=${from}&to=${to}`).catch(()=>({}))]);
+    const q=KIDS.includes(area)?`&assignee=${area}`:"";
+    const [e,t]=await Promise.all([api(`/api/family/events?from=${from}&to=${to}${q}`).catch(()=>({})),api(`/api/family/calendar-tasks?from=${from}&to=${to}${q}`).catch(()=>({}))]);
     cal.events=e.events||[];cal.tasks=t.tasks||[];
     render();
   }
   function calendarHtml(){
     const [y,m]=cal.month.split("-").map(Number);
     const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
-    const who=cal.who&&(cal.who==="all"||KIDS.includes(cal.who))?cal.who:KIDS[0];
+    const kid=KIDS.includes(area)?area:"";
+    const who=kid||(cal.who&&(cal.who==="all"||KIDS.includes(cal.who))?cal.who:KIDS[0]);
     const by={},tk={};for(const e of cal.events)if(who==="all"||e.assignee===who||e.assignee==="family")(by[e.date]=by[e.date]||[]).push(e);
     if(cal.showTasks)for(const t of cal.tasks)if(who==="all"||t.assignee===who)(tk[t.date]=tk[t.date]||[]).push(t);
     const whoTabs=`<div class="ktabs" role="tablist">${KIDS.map(k=>`<button type="button" role="tab" aria-selected="${who===k}" class="${who===k?"on":""}" data-action="cal-who" data-k="${k}" style="--kc:${EVC(k)}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}</button>`).join("")}<button type="button" role="tab" aria-selected="${who==="all"}" class="${who==="all"?"on":""}" data-action="cal-who" data-k="all" style="--kc:var(--brand)">الكل</button></div>`;
@@ -402,20 +405,20 @@
       const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[],ts=tk[ds]||[];
       const colors=[...new Set(ev.map(e=>e.assignee))].slice(0,4);
       const fp=t=>t.type==="prayer"&&t.source==="prayer";const prDone=ts.filter(t=>fp(t)&&t.done).length,prAll=ts.filter(fp).length;
-      const bars=KIDS.map(k=>{const l=ts.filter(t=>t.assignee===k&&t.type!=="prayer"&&t.type!=="school");if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
+      const bars=(kid?[kid]:KIDS).map(k=>{const l=ts.filter(t=>t.assignee===k&&t.type!=="prayer"&&t.type!=="school");if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
       cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span>${prAll&&who!=="all"?`<small class="cal-pr ${prDone===prAll?"all":""}">🕌${prDone}/${prAll}</small>`:""}</button>`;
     }
     const title=first.toLocaleDateString("ar",{month:"long",year:"numeric"});
-    const legend=[["family","كل العائلة"],...KIDS.map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
+    const legend=[["family","كل العائلة"],...(kid?[kid]:KIDS).map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
     const dayEv=(by[cal.sel]||[]).map(e=>({k:"ev",time:e.time,o:e})),dayTk=(tk[cal.sel]||[]).map(t=>({k:"tk",time:t.time,o:t}));
     const items=[...dayEv,...dayTk].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
     const row=it=>{
-      if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`}
-      const t=it.o,ty=typeOf(t.type);return `<button type="button" class="cal-ev cal-tk ${t.done?"done":""} ${t.type==="prayer"?"cal-pray":""}" data-action="edit-task" data-id="${t.id}" style="--ec:${EVC(t.assignee)}" aria-label="فتح المهمة: ${esc(t.title)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span><span class="cal-go" aria-hidden="true">‹</span></button>`};
+      if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div>${kid?"":`<button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button>`}</div>`}
+      const t=it.o,ty=typeOf(t.type);return `<button type="button" class="cal-ev cal-tk ${t.done?"done":""} ${t.type==="prayer"?"cal-pray":""}" data-action="${kid?"kid-task":"edit-task"}" data-id="${t.id}" style="--ec:${EVC(t.assignee)}" aria-label="فتح المهمة: ${esc(t.title)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span><span class="cal-go" aria-hidden="true">‹</span></button>`};
     const prs=items.filter(x=>x.k==="tk"&&x.o.type==="prayer"&&x.o.source==="prayer"),prDn=prs.filter(x=>x.o.done).length;
     const prSum=prs.length?`<div class="cal-prsum"><span>🕌 الصلوات: ${prDn} من ${prs.length}</span><i aria-hidden="true">${prs.map(x=>`<u class="${x.o.done?"on":""}"></u>`).join("")}</i></div>`:"";
     const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
-    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${prSum}${dayHtml}${quoteHtml(quoteFor(cal.sel,"effort"))}<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div></article>`;
+    return `<article class="card">${kid?"":whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}${kid?"":`<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label>`}</div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${prSum}${dayHtml}${quoteHtml(quoteFor(cal.sel,"effort"))}${kid?"":`<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div>`}</article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -441,11 +444,47 @@
     return `${topbar()}${head}<div class="stack">${body}</div>`;
   }
 
+  /* ---- child screens: list of the day, calendar, task details ---- */
+  const dayShift=(ds,n)=>{const [y,m,d]=ds.split("-").map(Number);return iso(new Date(y,m-1,d+n))};
+  function kidListView(m){
+    const d=cal.sel||today();
+    const tasks=(cal.tasks||[]).filter(t=>t.assignee===m&&t.date===d);
+    const evs=(cal.events||[]).filter(e=>e.date===d&&(e.assignee===m||e.assignee==="family"));
+    const real=tasks.filter(t=>t.type!=="prayer"&&t.type!=="school"),done=real.filter(t=>t.done).length;
+    const its=[...evs.map(e=>({k:"ev",time:e.time||"",o:e})),...tasks.map(t=>({k:"tk",time:t.time||"",o:t}))].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
+    const sec=t=>!t?"بدون وقت محدد":t<"12:00"?"🌅 صباحاً":t<"16:00"?"☀️ ظهراً":t<"19:00"?"🌇 عصراً":"🌙 مساءً";
+    let last="",html="";
+    for(const it of its){
+      const s=sec(it.time);if(s!==last){html+=`<h3 class="kl-sec">${s}</h3>`;last=s}
+      if(it.k==="ev"){html+=`<div class="kl-row ev"><span class="kl-time">${esc(it.time||"—")}</span><span class="kl-ico">📌</span><span class="kl-body"><b>${esc(it.o.title)}</b></span></div>`;continue}
+      const t=it.o,ty=typeOf(t.type),sc=t.type==="school";
+      html+=`<button type="button" class="kl-row ${t.done?"done":""} ${sc?"school":""} ${t.type==="prayer"?"pray":""}" data-action="kid-task" data-id="${t.id}" style="--tc:${ty.c}"><span class="kl-time">${esc(t.time||"—")}</span><span class="kl-ico" aria-hidden="true">${ty.i}</span><span class="kl-body"><b>${esc(t.title)}</b>${t.checklist&&t.checklist.length&&!sc&&t.type!=="prayer"?`<small>${t.checklist.filter(x=>x.done).length}/${t.checklist.length} خطوات</small>`:""}</span><span class="kl-st" aria-hidden="true">${t.done?"✓":"○"}</span></button>`;
+    }
+    const isToday=d===today();
+    return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="kl-day" data-n="1" aria-label="اليوم التالي">›</button><h2>${isToday?"اليوم":dayLabel(d)}</h2><button class="icon-btn" data-action="kl-day" data-n="-1" aria-label="اليوم السابق">‹</button></div>
+      ${isToday?"":`<button class="btn btn-soft btn-sm" style="margin:0 auto 8px;display:block" data-action="kl-today">العودة إلى اليوم</button>`}
+      ${real.length?`<div class="slim" role="status"><b>أنجزت ${done} من ${real.length}</b><i class="slim-bar" aria-hidden="true"><u style="width:${Math.round(done/real.length*100)}%"></u></i></div>`:""}
+      <div class="kl">${html||`<div class="empty" style="padding:18px 0"><b>🗓</b>لا مهام ولا مواعيد في هذا اليوم</div>`}</div></article>`;
+  }
+  function kidTaskModal(id){
+    const t=findTask(id);if(!t)return;
+    const ty=typeOf(t.type),own=(child[t.assignee]?.tasks||[]).find(x=>x.id===id);
+    const cl=t.checklist||[];
+    const canDone=!t.done&&t.date===today()&&own&&t.type!=="school";
+    modal(t.title,`<div class="form"><div class="meta"><span class="tchip">${ty.i} ${ty.l}</span>${(t.time||t.suggestedTime)?`<span class="tchip">🕒 ${esc(t.time||t.suggestedTime)}</span>`:""}<span class="tchip">📅 ${t.date===today()?"اليوم":dayLabel(t.date)}</span>${(t.timer||t.timerMinutes)?`<span class="tchip">⏱ ${t.timer||t.timerMinutes} د</span>`:""}</div>
+      ${t.note?`<p class="note">${esc(t.note)}</p>`:""}
+      ${cl.length?`<div class="ktl">${cl.map((x,i)=>`<button type="button" class="ktck ${x.done?"on":""}" data-action="kt-ck" data-id="${t.id}" data-i="${i}" aria-pressed="${x.done}"><span class="edbox">${x.done?"✓":""}</span><span>${esc(x.text)}</span></button>`).join("")}</div>`:""}
+      ${t.done?`<div class="soft-note">✓ أنجزت هذه المهمة. أحسنت!</div>`:canDone?`<button class="btn btn-primary btn-big" data-action="kt-done" data-member="${t.assignee}" data-id="${t.id}">✓ تم</button>`:`<p class="muted small">${t.type==="school"?"هذا وقت المدرسة.":t.date>today()?"هذه مهمة قادمة.":"يمكن إنهاؤها من شاشة اليوم."}</p>`}
+      <button type="button" class="btn btn-line" data-action="close">إغلاق</button></div>`);
+  }
+
   /* ---- child ---- */
   function childView(m){
     const p=PEOPLE[m];
     if(!family.parentAuthenticated&&!family[`${m}Authenticated`])return `${topbar()}<div class="stack">${loginCard(m)}</div>`;
     const d=child[m];
+    if(d&&kview==="cal")return `${topbar()}<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>تقويمي</b></div><div class="stack">${calendarHtml()}</div>`;
+    if(d&&kview==="list")return `${topbar()}<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>قائمة المهام</b></div><div class="stack">${kidListView(m)}</div>`;
     if(!d)return `${topbar()}<div class="stack"><article class="card login"><h2>تعذر تحميل مهامك</h2><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`;
     const all=d.tasks||[],tasks=all.filter(t=>!isPrayer(t)),prayers=all.filter(isPrayer);
     const open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done),pts=pointsOf(tasks);
@@ -492,8 +531,10 @@
     $("root").style.minHeight=document.documentElement.scrollHeight+"px";
     $("root").innerHTML=loading?skeleton():(area==="home"?homeView():area==="parent"?parentView():childView(area));
     const pm=!loading&&area==="parent"&&family.parentAuthenticated&&dashboard;
-    const nav=$("nav");nav.hidden=!pm;
-    nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["stats","📊","الإنجاز"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
+    const kn=!loading&&KIDS.includes(area)&&(family.parentAuthenticated||family[`${area}Authenticated`])&&child[area];
+    document.body.classList.toggle("kidnav",Boolean(kn));
+    const nav=$("nav");nav.hidden=!(pm||kn);
+    nav.innerHTML=kn?`<div class="nav-in k3">${[["today","🏠","اليوم"],["list","📋","المهام"],["cal","📅","التقويم"]].map(([k,i,l])=>`<button class="tab ${kview===k?"active":""}" data-kview="${k}" aria-current="${kview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:pm?`<div class="nav-in">${[["today","📋","اليوم"],["stats","📊","الإنجاز"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
     $("fabRoot").innerHTML="";
     document.querySelectorAll("#root details.fold").forEach(d=>{if(foldState.get(foldKey(d))===true&&!d.open)d.open=true});
     scrollTo({top:y,left:0,behavior:"instant"});
@@ -837,13 +878,14 @@
   /* ======================= events ======================= */
   document.addEventListener("click",async e=>{
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
-    let b=e.target.closest("[data-area],[data-action],[data-pview]");if(b===document.body)b=null;
+    let b=e.target.closest("[data-area],[data-action],[data-pview],[data-kview]");if(b===document.body)b=null;
     if(!b){if(e.target.id==="modalRoot")close();return}
+    if(b.dataset.kview){kview=b.dataset.kview;if(kview!=="today"){if(!cal.sel||cal.sel.slice(0,7)!==cal.month)cal.sel=today();render();scrollTo(0,0);loadCal()}else{render();scrollTo(0,0)}return}
     if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="settings"&&!apps)loadApps();if(pview==="events")loadCal();return}
     if(b.dataset.area&&!b.dataset.action){
       area=b.dataset.area;pin="";pinError="";
       if(area!=="home"){try{localStorage.setItem("hero-area",area)}catch{}}
-      history.replaceState(null,"",`?area=${area}`);render();scrollTo(0,0);return;
+      kview="today";history.replaceState(null,"",`?area=${area}`);render();scrollTo(0,0);return;
     }
     const a=b.dataset.action;
     switch(a){
@@ -856,6 +898,14 @@
       case "cal-who":cal.who=b.dataset.k;return render();
       case "cal-tasks":cal.showTasks=!cal.showTasks;return render();
       case "cal-day":cal.sel=b.dataset.d;return render();
+      case "kid-task":return kidTaskModal(b.dataset.id);
+      case "kl-day":{const nd=dayShift(cal.sel||today(),Number(b.dataset.n));cal.sel=nd;if(nd.slice(0,7)!==cal.month){cal.month=nd.slice(0,7);render();return loadCal()}return render()}
+      case "kl-today":{cal.sel=today();if(cal.month!==today().slice(0,7)){cal.month=today().slice(0,7);render();return loadCal()}return render()}
+      case "kt-ck":{const id=b.dataset.id,i=Number(b.dataset.i),t=findTask(id);if(!t||!t.checklist||!t.checklist[i])return;const nv=!t.checklist[i].done;
+        const copies=[...(cal.tasks||[]).filter(x=>x.id===id),...allTasks().filter(x=>x.id===id)];copies.forEach(x=>{if(x.checklist&&x.checklist[i])x.checklist[i].done=nv});
+        kidTaskModal(id);if(nv)playEvent("check");
+        try{await api(`/api/family/tasks/${id}/check`,{method:"PATCH",body:JSON.stringify({index:i,done:nv})})}catch(err){copies.forEach(x=>{if(x.checklist&&x.checklist[i])x.checklist[i].done=!nv});kidTaskModal(id);onErr(err)}return}
+      case "kt-done":{const id=b.dataset.id;completeTask(b);(cal.tasks||[]).forEach(x=>{if(x.id===id)x.done=true});close();return}
       case "cal-nav":{const [y,m]=cal.month.split("-").map(Number),dt=new Date(y,m-1+Number(b.dataset.n),1);cal.month=iso(dt).slice(0,7);cal.sel=cal.month===today().slice(0,7)?today():`${cal.month}-01`;return loadCal()}
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
