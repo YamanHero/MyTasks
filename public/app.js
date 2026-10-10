@@ -11,9 +11,46 @@
     routine: {l:"روتين",         p:5, i:"⏰",c:"#0891b2",s:["تنظيف الأسنان","تحضير الحقيبة","تحضير ملابس الغد"]},
     breathing:{l:"تنفس وهدوء",   p:5, i:"🌬️",c:"#2fa4a0",s:["وردة وشمعة: 5 مرات","الأصابع الخمسة","زفير طويل مع إنزال الكتفين"]},
     youtube: {l:"قناتي",         p:15,i:"🎬",c:"#e0392b",s:["فكرة حلقة جديدة","تدريب صوت أو دبلجة","قائمة تصوير"]},
+    school:  {l:"مدرسة",         p:0, i:"🏫",c:"#5b6b7b",s:[]},
+    lesson:  {l:"درس خاص",       p:10,i:"🎓",c:"#6b4de0",s:["درس الرياضيات","درس اللغة"]},
+    outing:  {l:"زيارة وخروج",   p:0, i:"🚗",c:"#c2410c",s:["زيارة الجدّين","مشوار مع العائلة"]},
+    rest:    {l:"استراحة",       p:0, i:"😌",c:"#64748b",s:["استراحة هادئة","وقت حر"]},
     prayer:  {l:"صلاة",          p:0, i:"🕌",c:"#2e7d6b",s:[]},
     other:   {l:"مهمة أخرى",     p:5, i:"⭐",c:"#7b6cf6",s:[]}
   };
+  /* ---- daily motivation: Quran, hadith and sayings attributed to scholars (source shown with each) ---- */
+  const QUOTES=[
+    {c:"prayer",t:"وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ",s:"القرآن الكريم، البقرة: 45"},
+    {c:"prayer",t:"حَافِظُوا عَلَى الصَّلَوَاتِ وَالصَّلَاةِ الْوُسْطَىٰ",s:"القرآن الكريم، البقرة: 238"},
+    {c:"prayer",t:"إِنَّ الصَّلَاةَ تَنْهَىٰ عَنِ الْفَحْشَاءِ وَالْمُنكَرِ",s:"القرآن الكريم، العنكبوت: 45"},
+    {c:"prayer",t:"أَرِحْنَا بِالصَّلَاةِ يَا بِلَالُ",s:"حديث نبوي، رواه أبو داود"},
+    {c:"prayer",t:"وَالصَّلَاةُ نُورٌ",s:"حديث نبوي، رواه مسلم"},
+    {c:"prayer",t:"أَرَأَيْتُمْ لَوْ أَنَّ نَهْرًا بِبَابِ أَحَدِكُمْ يَغْتَسِلُ مِنْهُ كُلَّ يَوْمٍ خَمْسَ مَرَّاتٍ، هَلْ يَبْقَى مِنْ دَرَنِهِ شَيْءٌ؟ قَالُوا: لَا. قَالَ: فَذَلِكَ مَثَلُ الصَّلَوَاتِ الْخَمْسِ يَمْحُو اللَّهُ بِهِنَّ الْخَطَايَا",s:"حديث نبوي، متفق عليه"},
+    {c:"study",t:"وَقُل رَّبِّ زِدْنِي عِلْمًا",s:"القرآن الكريم، طه: 114"},
+    {c:"study",t:"يَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَاتٍ",s:"القرآن الكريم، المجادلة: 11"},
+    {c:"study",t:"مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ",s:"حديث نبوي، رواه مسلم"},
+    {c:"study",t:"خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ",s:"حديث نبوي، رواه البخاري"},
+    {c:"study",t:"لَا يُسْتَطَاعُ الْعِلْمُ بِرَاحَةِ الْجِسْمِ",s:"يحيى بن أبي كثير، رواه مسلم"},
+    {c:"study",t:"مَنْ لَمْ يَذُقْ مُرَّ التَّعَلُّمِ سَاعَةً تَجَرَّعَ ذُلَّ الْجَهْلِ طُولَ حَيَاتِهِ",s:"يُنسب إلى الإمام الشافعي"},
+    {c:"study",t:"قِيمَةُ كُلِّ امْرِئٍ مَا يُحْسِنُهُ",s:"يُنسب إلى الإمام علي بن أبي طالب"},
+    {c:"effort",t:"وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰ",s:"القرآن الكريم، النجم: 39"},
+    {c:"effort",t:"أَحَبُّ الْأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ",s:"حديث نبوي، متفق عليه"},
+    {c:"effort",t:"احْرِصْ عَلَى مَا يَنْفَعُكَ وَاسْتَعِنْ بِاللَّهِ وَلَا تَعْجَزْ",s:"حديث نبوي، رواه مسلم"},
+    {c:"effort",t:"إِنَّ اللَّهَ لَا يُضِيعُ أَجْرَ مَنْ أَحْسَنَ عَمَلًا",s:"القرآن الكريم، الكهف: 30"},
+    {c:"effort",t:"إِنَّ اللَّهَ يُحِبُّ إِذَا عَمِلَ أَحَدُكُمْ عَمَلًا أَنْ يُتْقِنَهُ",s:"حديث نبوي، رواه البيهقي"},
+    {c:"success",t:"إِنَّ مَعَ الْعُسْرِ يُسْرًا",s:"القرآن الكريم، الشرح: 6"},
+    {c:"success",t:"وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا",s:"القرآن الكريم، العنكبوت: 69"},
+    {c:"success",t:"فَإِذَا عَزَمْتَ فَتَوَكَّلْ عَلَى اللَّهِ",s:"القرآن الكريم، آل عمران: 159"},
+    {c:"success",t:"إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ",s:"القرآن الكريم، الرعد: 11"},
+    {c:"success",t:"الْمُؤْمِنُ الْقَوِيُّ خَيْرٌ وَأَحَبُّ إِلَى اللَّهِ مِنَ الْمُؤْمِنِ الضَّعِيفِ، وَفِي كُلٍّ خَيْرٌ",s:"حديث نبوي، رواه مسلم"}
+  ];
+  const QCAT={prayer:"🕌",study:"📚",effort:"💪",success:"🌟"};
+  function quoteFor(seed,pref){
+    let h=0;for(const ch of String(seed))h=(h*31+ch.charCodeAt(0))>>>0;
+    const pool=pref?QUOTES.filter(q=>q.c===pref):QUOTES;const list=pool.length?pool:QUOTES;
+    return list[h%list.length];
+  }
+  const quoteHtml=q=>`<figure class="quote"><span class="q-ico" aria-hidden="true">${QCAT[q.c]||"✨"}</span><blockquote>${esc(q.t)}</blockquote><figcaption>${esc(q.s)}</figcaption></figure>`;
   const PEOPLE={
     parent:{name:"الوالدان",icon:"🏠",color:"#4f46e5",sub:"نظرة واحدة على يوم العائلة كلها."},
     yaman:{name:"يَمان",icon:"🦸‍♂️",color:"#0891b2",sub:"خطوة واحدة واضحة في كل مرة."},
@@ -33,7 +70,7 @@
   let area=(PEOPLE[qs.get("area")]||qs.get("area")==="home")?qs.get("area"):(PEOPLE[stored]?stored:"home");
   let pview="today";
   const pending=new Map();
-  let family={},tick={},dashboard=null,child={},prayer=null,school={};
+  let family={},tick={},dashboard=null,child={},prayer=null,school={},weekly=[],ach=[],kidStats={};
   let loading=true,pin="",pinBusy=false,pinError="";
   let focusId={};
   let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
@@ -119,6 +156,9 @@
     family=f;tick=t;dashboard=null;child={};syncMembers(f.members);
     const jobs=[];
     if(f.parentAuthenticated)jobs.push(api(`/api/family/dashboard?date=${today()}`).then(d=>dashboard=d).catch(()=>null));
+    if(f.parentAuthenticated)jobs.push(api("/api/family/stats").then(d=>ach=d.members||[]).catch(()=>null));
+    for(const m of KIDS)if(!f.parentAuthenticated&&f[`${m}Authenticated`])jobs.push(api(`/api/family/stats?member=${m}`).then(d=>kidStats[m]=(d.members||[])[0]).catch(()=>null));
+    if(f.parentAuthenticated)jobs.push(api("/api/family/weekly").then(d=>weekly=d.items||[]).catch(()=>null));
     if(f.parentAuthenticated)jobs.push(api("/api/family/school").then(d=>school=d.settings||{}).catch(()=>null));
     for(const m of KIDS)if(f.parentAuthenticated||f[`${m}Authenticated`])jobs.push(api(`/api/family/child/${m}?date=${today()}`).then(d=>child[m]=d).catch(()=>null));
     await Promise.all(jobs);
@@ -177,8 +217,51 @@
     return `<article class="card"><div class="card-title"><h2>🕌 مواقيت الصلاة</h2></div>${prayer===null?`<p class="muted"><span class="spin"></span>جاري تحميل المواقيت…</p>`:`${has?`<div class="stat3" style="grid-template-columns:repeat(3,1fr)">${PRAYER_KEYS.map(([k,l])=>`<div><b style="font-size:1.1rem">${esc(pt[k]||"—")}</b><span>${l}</span></div>`).join("")}</div>`:""}${prayer.warning?`<p class="soft-note" style="margin-top:12px">${esc(prayer.warning)}</p>`:""}<button class="btn btn-soft btn-big" style="margin-top:14px;min-height:54px;font-size:1rem" data-action="prayer-edit">✏️ إدخال المواقيت يدوياً</button>`}</article>`;
   }
   function membersCard(){
-    const ms=KIDS.map(id=>{const p=PEOPLE[id],dyn=id!=="yaman"&&id!=="judy";return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--tint);font-size:1.4rem">${p.icon}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(p.name)}</div><div class="muted small">${dyn?"مستخدم مضاف":"مستخدم أساسي"} · 🏫 ${esc((school[id]||{start:"08:00",end:"14:00"}).start)}–${esc((school[id]||{start:"08:00",end:"14:00"}).end)}</div></div><button class="icon-btn" data-action="school-edit" data-id="${id}" aria-label="ساعات مدرسة ${esc(p.name)}">🏫</button>${dyn?`<button class="icon-btn" data-action="member-pin" data-id="${id}" aria-label="تغيير رمز ${esc(p.name)}">🔑</button><button class="icon-btn" data-action="member-del" data-id="${id}" aria-label="حذف ${esc(p.name)}">🗑</button>`:""}</div>`}).join("");
+    const ms=KIDS.map(id=>{const p=PEOPLE[id],dyn=id!=="yaman"&&id!=="judy";return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--tint);font-size:1.4rem">${p.icon}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(p.name)}</div><div class="muted small">${dyn?"مستخدم مضاف":"مستخدم أساسي"} · 🏫 ${esc((school[id]||{start:"07:00",end:"14:00"}).start)}–${esc((school[id]||{start:"07:00",end:"14:00"}).end)}</div></div><button class="icon-btn" data-action="school-edit" data-id="${id}" aria-label="ساعات مدرسة ${esc(p.name)}">🏫</button>${dyn?`<button class="icon-btn" data-action="member-pin" data-id="${id}" aria-label="تغيير رمز ${esc(p.name)}">🔑</button><button class="icon-btn" data-action="member-del" data-id="${id}" aria-label="حذف ${esc(p.name)}">🗑</button>`:""}</div>`}).join("");
     return `<article class="card"><div class="card-title"><h2>👥 المستخدمون</h2><span class="count">${KIDS.length}</span></div>${ms}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="add-member">＋ مستخدم جديد</button><p class="muted small" style="margin-top:8px">لكل مستخدم جديد برنامج يومي ثابت حسب عمره، ورمز دخول خاص به.</p></article>`;
+  }
+  /* ---- achievements dashboard ---- */
+  const DAY_S=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
+  const rateTxt=r=>r===null||r===undefined?"—":r+"%";
+  function bigRing(r,color){const v=r||0,C=2*Math.PI*44;return `<svg class="sring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="none" stroke="color-mix(in srgb,${color} 18%,#fff)" stroke-width="10"/><circle cx="50" cy="50" r="44" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(C*v/100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 50)"/></svg>`}
+  function weekBars(series,color){return `<div class="wbars" role="img" aria-label="إنجاز الأيام السبعة الأخيرة">${series.map(d=>{const h=d.rate===null?6:Math.max(8,d.rate);return `<div class="wb"><i style="height:${h}%;${d.rate===null?"opacity:.25;":d.pending?"opacity:.45;":""}background:${color}"></i><small>${DAY_S[new Date(d.date+"T12:00:00").getDay()]}</small><em>${d.rate===null?"":d.pending?"اليوم":d.rate+"%"}</em></div>`}).join("")}</div>`}
+  function deltaHtml(st){if(st.delta===null)return `<span class="dlt flat">نقارن بالأسبوع الماضي بعد أسبوعين</span>`;if(st.delta>0)return `<span class="dlt up">▲ تحسن ${st.delta} نقطة عن الأسبوع الماضي</span>`;if(st.delta<0)return `<span class="dlt down">▼ ${Math.abs(st.delta)} نقطة أقل من الأسبوع الماضي. نبدأ يومًا جديدًا</span>`;return `<span class="dlt flat">ثبات مثل الأسبوع الماضي</span>`}
+  function badgesHtml(st){return `<div class="bdg">${st.badges.map(b=>`<div class="bd ${b.earned?"on":""}" title="${esc(b.hint)}"><span class="bd-i" aria-hidden="true">${b.icon}</span><b>${esc(b.title)}</b><small>${b.earned?"حصلت عليه ✓":esc(b.progress)}</small></div>`).join("")}</div>`}
+  function statCard(st){
+    const color=PEOPLE[st.id]?.color||"#4f46e5";
+    return `<article class="card stat" style="--sc:${color}"><div class="kid-head"><div class="av" aria-hidden="true" style="background:${color}">${st.icon}</div><div style="flex:1;min-width:0"><h3>${esc(st.name)}</h3><div class="muted small">${st.level.icon} ${esc(st.level.label)} · ${st.stars} من ${st.badges.length} نجوم</div></div></div>
+      <div class="stat-top"><div class="ringbox">${bigRing(st.week.rate,color)}<b>${rateTxt(st.week.rate)}</b><small>هذا الأسبوع</small></div>
+      <div class="stat-side"><div class="sline"><span>اليوم</span><b>${st.today.total?`${st.today.done}/${st.today.total} · ${rateTxt(st.today.rate)}`:"لا مهام"}</b></div><div class="sline"><span>الصلوات (الأسبوع)</span><b>${st.week.prayersTotal?`${st.week.prayersDone}/${st.week.prayersTotal}`:"—"}</b></div><div class="sline"><span>أيام متتالية ممتازة</span><b>🔥 ${st.streak}</b></div></div></div>
+      ${deltaHtml(st)}${weekBars(st.series,color)}<h4 class="sh">النجوم</h4>${badgesHtml(st)}</article>`;
+  }
+  function statsView(){
+    if(!ach.length)return `<article class="card"><div class="empty"><b>📊</b>لا توجد بيانات بعد. أنجزوا بعض المهام وسترى النسب هنا.</div></article>`;
+    return ach.map(statCard).join("");
+  }
+  function kidStarsFold(m){
+    const st=kidStats[m];if(!st)return "";
+    const earned=st.badges.filter(b=>b.earned);
+    return `<article class="card"><details class="fold"><summary>⭐ نجومي (${earned.length}/${st.badges.length})</summary><div style="margin-top:10px"><div class="sline"><span>إنجاز هذا الأسبوع</span><b>${rateTxt(st.week.rate)}</b></div>${deltaHtml(st)}${badgesHtml(st)}</div></details></article>`;
+  }
+  function weeklyCard(){
+    const who=a=>a==="family"?"كل العائلة":(PEOPLE[a]?.name||a);
+    const rows=weekly.filter(w=>w.enabled).map(w=>{const ty=typeOf(w.type),days=w.days.length?w.days.map(d=>DAYS_AR[d]).join("، "):"لم تُحدَّد الأيام بعد";
+      return `<div class="ev-row"><div class="av" aria-hidden="true" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,${ty.c} 16%,#fff);font-size:1.4rem">${ty.i}</div><div style="flex:1;min-width:0"><div class="t-title">${esc(w.title)}</div><div class="muted small">${esc(who(w.assignee))} · ${esc(days)} · ${esc(w.time)} · ${w.minutes} د</div></div><button class="icon-btn" data-action="weekly-edit" data-id="${w.id}" aria-label="تعديل: ${esc(w.title)}">✏️</button></div>`}).join("");
+    return `<article class="card"><div class="card-title"><h2>🗓 الالتزامات الأسبوعية</h2><span class="count">${weekly.filter(w=>w.enabled).length}</span></div>${rows||`<div class="empty"><b>🗓</b>لا توجد التزامات</div>`}<button class="btn btn-primary btn-big" style="margin-top:14px" data-action="weekly-edit" data-id="">＋ التزام جديد</button><p class="muted small" style="margin-top:8px">دروس خاصة، زيارات، أنشطة ثابتة. تظهر في البرنامج وفي التقويم، ويُرتَّب باقي اليوم حولها تلقائيًا.</p></article>`;
+  }
+  function weeklyModal(id){
+    const w=weekly.find(x=>x.id===id)||{id:"",assignee:"family",title:"",type:"outing",days:[],time:"16:30",minutes:120,note:"",checklist:[],enabled:true};
+    window.__wkDays=new Set(w.days);
+    const types=["lesson","outing","study","movement","social","other"];
+    modal(w.id?"تعديل الالتزام":"التزام أسبوعي جديد",`<form class="form" id="weeklyForm" data-id="${esc(w.id)}">
+      <label class="field"><span>لمن؟</span><select id="wkWho"><option value="family" ${w.assignee==="family"?"selected":""}>كل العائلة (يظهر لكل طفل)</option>${KIDS.map(k=>`<option value="${k}" ${w.assignee===k?"selected":""}>${esc(PEOPLE[k].name)}</option>`).join("")}</select></label>
+      <label class="field"><span>العنوان</span><input id="wkTitle" type="text" required maxlength="80" value="${esc(w.title)}" autocomplete="off"></label>
+      <label class="field"><span>النوع</span><select id="wkType">${types.map(t=>`<option value="${t}" ${w.type===t?"selected":""}>${TYPES[t].i} ${TYPES[t].l}</option>`).join("")}</select></label>
+      <div><span class="label">الأيام</span><div class="seg wrap" role="group">${DAYS_AR.map((d,i)=>`<button type="button" class="${w.days.includes(i)?"on":""}" data-action="wk-day" data-v="${i}">${d}</button>`).join("")}</div></div>
+      <div class="grid2" style="gap:12px"><label class="field"><span>الوقت</span><input id="wkTime" type="time" value="${esc(w.time)}" required></label><label class="field"><span>المدة (دقائق)</span><input id="wkMin" type="number" min="5" max="600" inputmode="numeric" value="${w.minutes}" required></label></div>
+      <label class="field"><span>ملاحظة (اختياري)</span><input id="wkNote" type="text" maxlength="300" value="${esc(w.note)}" autocomplete="off"></label>
+      <button class="btn btn-primary btn-big" type="submit">حفظ</button>
+      ${w.id?`<button class="btn btn-danger" type="button" data-action="weekly-del" data-id="${esc(w.id)}">🗑 إيقاف الالتزام</button>`:""}</form>`);
   }
   function memberModal(){
     const icons=["🦸","🦸‍♀️","🌟","🚀","🦁","🐼","🎨","📚"];
@@ -192,13 +275,15 @@
     window.__mIcon="🌟";
   }
   const DAYS_AR=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const ageOf=id=>(family.members||[]).find(m=>m.id===id)?.age||(id==="judy"?15:id==="yaman"?15:10);
   function schoolModal(id){
-    const sc=school[id]||{start:"08:00",end:"14:00",days:[0,1,2,3,4]};
+    const sc=school[id]||{start:"07:00",end:"14:00",days:[1,2,3,4,6]};
     window.__schoolDays=new Set(sc.days);
     modal(`🏫 ساعات مدرسة ${PEOPLE[id]?.name||""}`,`<form class="form" id="schoolForm" data-id="${id}">
-      <div class="grid2" style="gap:12px"><label class="field"><span>بداية الدوام</span><input id="scStart" type="time" value="${esc(sc.start)}" required></label><label class="field"><span>نهاية الدوام</span><input id="scEnd" type="time" value="${esc(sc.end)}" required></label></div>
+      <label class="field"><span>العمر (يحدد نوع البرنامج)</span><input id="scAge" type="number" min="3" max="30" inputmode="numeric" value="${ageOf(id)}" required></label>
+      <div class="grid2" style="gap:12px"><label class="field"><span>الخروج من البيت</span><input id="scStart" type="time" value="${esc(sc.start)}" required></label><label class="field"><span>العودة نحو</span><input id="scEnd" type="time" value="${esc(sc.end)}" required></label></div>
       <div><span class="label">أيام المدرسة</span><div class="seg wrap" role="group" id="scDays">${DAYS_AR.map((d,i)=>`<button type="button" class="${sc.days.includes(i)?"on":""}" data-action="sc-day" data-v="${i}">${d}</button>`).join("")}</div></div>
-      <p class="hint">يُضاف الدوام إلى برنامج اليوم، وتُرتَّب النظافة الصباحية والمراجعة حوله.</p>
+      <p class="hint">عند الحفظ يُعاد بناء برنامج اليوم والأيام القادمة تلقائيًا. المهام التي أنجزتها أو أضفتها بنفسك لا تُحذف.</p>
       <button class="btn btn-primary btn-big" type="submit">حفظ</button></form>`);
   }
   function memberPinModal(id){
@@ -254,7 +339,7 @@
     const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
     const who=cal.who&&(cal.who==="all"||KIDS.includes(cal.who))?cal.who:KIDS[0];
     const by={},tk={};for(const e of cal.events)if(who==="all"||e.assignee===who||e.assignee==="family")(by[e.date]=by[e.date]||[]).push(e);
-    if(cal.showTasks)for(const t of cal.tasks)if(t.type!=="prayer"&&(who==="all"||t.assignee===who))(tk[t.date]=tk[t.date]||[]).push(t);
+    if(cal.showTasks)for(const t of cal.tasks)if(who==="all"||t.assignee===who)(tk[t.date]=tk[t.date]||[]).push(t);
     const whoTabs=`<div class="ktabs" role="tablist">${KIDS.map(k=>`<button type="button" role="tab" aria-selected="${who===k}" class="${who===k?"on":""}" data-action="cal-who" data-k="${k}" style="--kc:${EVC(k)}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}</button>`).join("")}<button type="button" role="tab" aria-selected="${who==="all"}" class="${who==="all"?"on":""}" data-action="cal-who" data-k="all" style="--kc:var(--brand)">الكل</button></div>`;
     const names=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
     let cells=names.map(n=>`<div class="cal-h">${n}</div>`).join("");
@@ -262,8 +347,9 @@
     for(let d=1;d<=days;d++){
       const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[],ts=tk[ds]||[];
       const colors=[...new Set(ev.map(e=>e.assignee))].slice(0,4);
-      const bars=KIDS.map(k=>{const l=ts.filter(t=>t.assignee===k);if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
-      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span></button>`;
+      const fp=t=>t.type==="prayer"&&t.source==="prayer";const prDone=ts.filter(t=>fp(t)&&t.done).length,prAll=ts.filter(fp).length;
+      const bars=KIDS.map(k=>{const l=ts.filter(t=>t.assignee===k&&t.type!=="prayer"&&t.type!=="school");if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
+      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span>${prAll&&who!=="all"?`<small class="cal-pr ${prDone===prAll?"all":""}">🕌${prDone}/${prAll}</small>`:""}</button>`;
     }
     const title=first.toLocaleDateString("ar",{month:"long",year:"numeric"});
     const legend=[["family","كل العائلة"],...KIDS.map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
@@ -271,9 +357,11 @@
     const items=[...dayEv,...dayTk].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
     const row=it=>{
       if(it.k==="ev"){const e=it.o;return `<div class="cal-ev" style="--ec:${EVC(e.assignee)}"><div class="cal-t">${e.time?esc(e.time):"طوال اليوم"}</div><div style="flex:1;min-width:0"><div class="t-title">📌 ${esc(e.title)}</div><div class="muted small">${esc(evName(e.assignee))}</div></div><button class="icon-btn" data-action="delete-event" data-id="${e.id}" aria-label="حذف الموعد: ${esc(e.title)}">🗑</button></div>`}
-      const t=it.o,ty=typeOf(t.type);return `<button type="button" class="cal-ev cal-tk ${t.done?"done":""}" data-action="edit-task" data-id="${t.id}" style="--ec:${EVC(t.assignee)}" aria-label="فتح المهمة: ${esc(t.title)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span><span class="cal-go" aria-hidden="true">‹</span></button>`};
+      const t=it.o,ty=typeOf(t.type);return `<button type="button" class="cal-ev cal-tk ${t.done?"done":""} ${t.type==="prayer"?"cal-pray":""}" data-action="edit-task" data-id="${t.id}" style="--ec:${EVC(t.assignee)}" aria-label="فتح المهمة: ${esc(t.title)}"><div class="cal-t">${t.time?esc(t.time):"—"}</div><div style="flex:1;min-width:0"><div class="t-title">${ty.i} ${esc(t.title)}</div><div class="muted small">${esc(evName(t.assignee))}${t.timer?` · ${t.timer} د`:""}</div></div><span class="cal-ok" aria-label="${t.done?"منجزة":"غير منجزة"}">${t.done?"✓":""}</span><span class="cal-go" aria-hidden="true">‹</span></button>`};
+    const prs=items.filter(x=>x.k==="tk"&&x.o.type==="prayer"&&x.o.source==="prayer"),prDn=prs.filter(x=>x.o.done).length;
+    const prSum=prs.length?`<div class="cal-prsum"><span>🕌 الصلوات: ${prDn} من ${prs.length}</span><i aria-hidden="true">${prs.map(x=>`<u class="${x.o.done?"on":""}"></u>`).join("")}</i></div>`:"";
     const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
-    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${dayHtml}<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div></article>`;
+    return `<article class="card">${whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label></div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${prSum}${dayHtml}${quoteHtml(quoteFor(cal.sel,"effort"))}<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div></article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -293,8 +381,9 @@
       ${prev?.total?`<div class="soft-note">🌙 بقيت ${prev.total} ${prev.total===1?"مهمة":"مهام"} من أمس (${KIDS.map(k=>`${PEOPLE[k].name} ${prev.summary?.[k]||0}`).join("، ")}). لا نرحّلها كلها، اختاروا مهمة واحدة سهلة للبداية.</div>`:""}
       ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}${kidTabs()}${kidCard(KIDS.includes(pkid)?pkid:KIDS[0])}<button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
-    else body=membersCard()+prayerCard()+tickView();
-    const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":"الإعدادات",pview==="events"?"جدول العائلة القادم":"الصلاة والمزامنة","🏠",false);
+    else if(pview==="stats")body=statsView();
+    else body=membersCard()+weeklyCard()+prayerCard()+tickView();
+    const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":pview==="stats"?"الإنجاز":"الإعدادات",pview==="events"?"جدول العائلة القادم":pview==="stats"?"نسبة الإنجاز والنجوم لكل واحد":"الصلاة والمزامنة","🏠",false);
     return `${topbar()}${head}<div class="stack">${body}</div>`;
   }
 
@@ -324,9 +413,11 @@
     return `${topbar()}${calm?`<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>${greeting()} ${p.name}</b></div>`:hero(`${greeting()} ${p.name}`,p.sub,p.icon)}
     <div class="stack">
       ${calm?`<div class="slim" role="status"><b>${done.length?`أنجزت ${done.length}`:"لم نبدأ بعد"}</b>${open.length&&open.length<=5?`<span>بقي ${open.length}</span>`:""}<i class="slim-bar" aria-hidden="true"><u style="width:${tasks.length?Math.round(done.length/tasks.length*100):0}%"></u></i></div>`:`<article class="card"><div class="progress">${ring(done.length,tasks.length)}<div><div class="progress-msg">${msg}</div><div class="chips"><span class="chip gold">⭐ ${pts} نقطة اليوم</span>${done.length?`<span class="chip ok">✓ ${done.length} منجزة</span>`:""}</div></div></div></article>`}
+      ${quoteHtml(quoteFor(today()+m,open.length?(prayers.some(t=>!t.done)&&new Date().getHours()>=12?"prayer":["study","effort","success"][new Date().getDate()%3]):"success"))}
       ${prevN&&!done.length&&!calm?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
       ${focus}
       ${prayers.length&&calm?`<article class="card"><details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="prayers" style="margin-top:10px">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></details></article>`:prayers.length?`<article class="card"><div class="card-title"><h2>🕌 الصلوات</h2></div><div class="prayers">${prayers.map(t=>`<button class="pr ${t.done?"done":""}" data-action="complete" data-member="${m}" data-id="${t.id}" ${t.done?"disabled":""} aria-label="${esc(t.title)}">${t.done?"✓":"○"} <span>${esc(t.title.replace("صلاة ","").replace(" في وقتها",""))}</span><small>${esc(t.suggestedTime||"")}</small></button>`).join("")}</div></article>`:""}
+      ${kidStarsFold(m)}
       ${events.length?(calm?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:`<article class="card"><div class="card-title"><h2>مواعيدي اليوم</h2></div><div class="events">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></article>`):""}
       ${rest.length?`<article class="card"><div class="card-title"><h2>${calm?"التالي":"بعدها"}</h2>${calm?"":`<span class="count">${rest.length}</span>`}</div><div class="list">${listOrDetails(rest,calm?1:3,row,calm?"باقي اليوم":"عرض الباقي")}</div></article>`:""}
       ${done.length?`<article class="card"><details class="fold" ${open.length?"":"open"}><summary>أنجزت اليوم (${done.length})</summary><div class="list">${done.map(t=>{const ty=typeOf(t.type);return `<div class="task done" style="--tc:${ty.c}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta"><span>⭐ ${gain(t)}</span></span>${(t.badges||[]).length?`<span class="badges">${t.badges.map(b=>`<span>${esc(b.icon)} ${esc(b.label)}</span>`).join("")}</span>`:""}</span><span class="check on" aria-hidden="true">✓</span></div>`}).join("")}</div></details></article>`:""}
@@ -335,6 +426,9 @@
   }
 
   /* ======================= render ======================= */
+  const foldState=new Map();
+  const foldKey=d=>{if(d.dataset.ck)return"ck:"+d.dataset.ck;const sc=d.closest("[data-kid]");const sm=d.querySelector("summary");return area+"|"+pview+"|"+(sc?sc.dataset.kid:"")+"|"+(sm?sm.textContent.replace(/[\d\/()٠-٩\s]+/g," ").trim():"")};
+  document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.matches&&d.matches("details.fold"))foldState.set(foldKey(d),d.open)},true);
   function render(){
     const a=area==="home"?"parent":area;
     document.body.dataset.area=a;document.body.classList.toggle("calm",calm);
@@ -343,8 +437,9 @@
     $("root").innerHTML=loading?skeleton():(area==="home"?homeView():area==="parent"?parentView():childView(area));
     const pm=!loading&&area==="parent"&&family.parentAuthenticated&&dashboard;
     const nav=$("nav");nav.hidden=!pm;
-    nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
+    nav.innerHTML=pm?`<div class="nav-in">${[["today","📋","اليوم"],["stats","📊","الإنجاز"],["events","📅","المواعيد"],["settings","⚙️","الإعدادات"]].map(([k,i,l])=>`<button class="tab ${pview===k?"active":""}" data-pview="${k}" aria-current="${pview===k}"><span>${i}</span>${l}</button>`).join("")}</div>`:"";
     $("fabRoot").innerHTML="";
+    document.querySelectorAll("#root details.fold").forEach(d=>{if(foldState.get(foldKey(d))===true&&!d.open)d.open=true});
     scrollTo(0,y);
     const fc=document.querySelector(".focus[data-fid]"),fid=fc?fc.dataset.fid:"";
     if(calm&&fc&&lastFocus&&fid!==lastFocus){fc.style.opacity="0";requestAnimationFrame(()=>requestAnimationFrame(()=>{fc.style.transition="opacity .45s ease";fc.style.opacity="1"}))}
@@ -368,7 +463,7 @@
     const f=$("modalRoot").querySelector("input[type=text],textarea");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
   }
   function close(){$("modalRoot").innerHTML=""}
-  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=document.querySelectorAll("[data-step]");if(sp.length)draft.sl=[...sp].map(x=>x.value);if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
+  function syncDraft(){const t=$("taskTitle"),n=$("taskNote"),tm=$("taskTime"),sp=document.querySelectorAll("[data-step]");if(sp.length)draft.sl=[...sp].map((x,i)=>({t:x.value,d:Boolean((draft.sl[i]||{}).d)}));if(t)draft.title=t.value;if(n)draft.note=n.value;if(tm)draft.time=tm.value}
 
   function taskModal(){
     const ty=typeOf(draft.type),two=draft.step===2,edit=!!draft.editId;
@@ -389,7 +484,7 @@
       <label class="field"><span>الوقت المقترح (اختياري)</span><input id="taskTime" type="time" value="${esc(draft.time)}"></label>
       <div><span class="label">مؤقت (دقائق)</span><div class="seg wrap" role="group">${TIMERS.map(n=>`<button type="button" class="${draft.timer===n?"on":""}" data-action="d-timer" data-v="${n}">${n?n+" د":"بلا"}</button>`).join("")}</div></div>
       ${draft.type==="prayer"?`<p class="hint">مهام الصلاة بلا نقاط ولا مكافآت.</p>`:`<div><span class="label">النقاط</span><div class="stepper"><button type="button" data-action="d-pts" data-v="-5" aria-label="أقل">−</button><output>⭐ ${draft.points}</output><button type="button" data-action="d-pts" data-v="5" aria-label="أكثر">＋</button></div></div>`}
-      <div class="field"><span>خطوات المهمة (اختياري)</span><div class="edsteps">${(draft.sl||[]).map((x,i)=>`<div class="edrow"><i class="edbox" aria-hidden="true"></i><input type="text" data-step="${i}" maxlength="90" value="${esc(x)}" placeholder="خطوة ${i+1}" autocomplete="off"><button type="button" class="icon-btn" data-action="step-del" data-i="${i}" aria-label="حذف الخطوة ${i+1}">✕</button></div>`).join("")}<button type="button" class="btn btn-soft btn-sm edadd" data-action="step-add">＋ أضف خطوة</button>${(draft.sl||[]).length?"":`<p class="hint">إن لم تضف خطوات، نضيف تلقائيًا خطوات مناسبة لنوع المهمة.</p>`}</div></div>
+      <div class="field"><span>خطوات المهمة (اختياري)</span><div class="edsteps">${(draft.sl||[]).map((x,i)=>`<div class="edrow"><button type="button" class="edbox ${x.d?"on":""}" data-action="step-tick" data-i="${i}" aria-pressed="${Boolean(x.d)}" aria-label="تعليم الخطوة ${i+1} كمنجزة"><span>✓</span></button><input type="text" data-step="${i}" maxlength="90" value="${esc(x.t)}" placeholder="خطوة ${i+1}" autocomplete="off"><button type="button" class="icon-btn" data-action="step-del" data-i="${i}" aria-label="حذف الخطوة ${i+1}">✕</button></div>`).join("")}<button type="button" class="btn btn-soft btn-sm edadd" data-action="step-add">＋ أضف خطوة</button>${(draft.sl||[]).length?"":`<p class="hint">إن لم تضف خطوات، نضيف تلقائيًا خطوات مناسبة لنوع المهمة.</p>`}</div></div>
       <label class="field"><span>ملاحظة للطفل (اختياري)</span><input id="taskNote" type="text" maxlength="500" placeholder="مثال: بعد الغداء مباشرة" value="${esc(draft.note)}" autocomplete="off"></label>
       <div class="actions"><button class="btn btn-primary" type="submit">${edit?"حفظ التعديل":"حفظ المهمة"}</button><button class="btn btn-line" type="button" data-action="d-back">→ رجوع</button></div>
       ${edit?`<button class="btn btn-danger" type="button" data-action="delete-task" data-id="${esc(draft.editId)}" data-title="${esc(draft.title)}">🗑 حذف المهمة</button>`:""}
@@ -568,10 +663,10 @@
     if(pview==="settings"&&area==="parent")render();
   }
   function taskBody(){
-    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:draft.date||today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:(draft.sl||[]).map(x=>x.trim()).filter(Boolean).slice(0,8)};
+    return{title:draft.title.trim(),type:draft.type,points:draft.type==="prayer"?0:draft.points,date:draft.date||today(),note:draft.note,suggestedTime:draft.time,timerMinutes:draft.timer,checklist:(draft.sl||[]).filter(x=>x.t.trim()).slice(0,8).map(x=>x.t.trim()),checklistDone:(draft.sl||[]).filter(x=>x.t.trim()).slice(0,8).map((x,i)=>x.d?i:-1).filter(i=>i>=0)};
   }
 
-  document.addEventListener("keydown",e=>{const el=e.target;if(e.key==="Enter"&&el&&el.matches&&el.matches("[data-step]")){e.preventDefault();syncDraft();if(draft.sl.length<8){draft.sl.push("");taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus()}}});
+  document.addEventListener("keydown",e=>{const el=e.target;if(e.key==="Enter"&&el&&el.matches&&el.matches("[data-step]")){e.preventDefault();syncDraft();if(draft.sl.length<8){draft.sl.push({t:"",d:false});taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus()}}});
   /* ======================= events ======================= */
   document.addEventListener("click",async e=>{
     const kb=e.target.closest("[data-key]");if(kb)return pinKey(kb.dataset.key);
@@ -588,7 +683,7 @@
       case "close":return close();
       case "reload":return guard(b,()=>refresh());
       case "add-task":draft=newDraft({who:b.dataset.who||"yaman",date:b.dataset.d||""});return taskModal();
-      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>x.text),date:t.date||"",editId:t.id});return taskModal()}
+      case "edit-task":{const t=findTask(b.dataset.id);if(!t)return;draft=newDraft({step:2,who:t.assignee,type:t.type,points:t.points,title:t.title,note:t.note,time:t.suggestedTime||"",timer:t.timerMinutes||0,sl:(t.checklist||[]).map(x=>({t:x.text,d:Boolean(x.done)})),date:t.date||"",editId:t.id});return taskModal()}
       case "add-event":return eventModal(b.dataset.d);
       case "pkid":pkid=b.dataset.k;return render();
       case "cal-who":cal.who=b.dataset.k;return render();
@@ -598,7 +693,8 @@
       case "d-who":syncDraft();draft.who=b.dataset.v;return taskModal();
       case "d-type":syncDraft();draft.type=b.dataset.v;draft.points=TYPES[draft.type].p;return taskModal();
       case "d-next":draft.step=2;taskModal();return;
-      case "step-add":{syncDraft();if((draft.sl||[]).length>=8)return toast("الحد الأقصى 8 خطوات");draft.sl=[...(draft.sl||[]),""];taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus();return}
+      case "step-add":{syncDraft();if((draft.sl||[]).length>=8)return toast("الحد الأقصى 8 خطوات");draft.sl=[...(draft.sl||[]),{t:"",d:false}];taskModal();const all=document.querySelectorAll("[data-step]");all[all.length-1]?.focus();return}
+      case "step-tick":{syncDraft();const i=Number(b.dataset.i);if(draft.sl[i])draft.sl[i].d=!draft.sl[i].d;taskModal();return}
       case "step-del":{syncDraft();draft.sl.splice(Number(b.dataset.i),1);taskModal();return}
       case "d-back":syncDraft();draft.step=1;taskModal();return;
       case "d-sugg":syncDraft();draft.title=b.dataset.v;taskModal();return;
@@ -656,6 +752,9 @@
       case "add-member":return memberModal();
       case "m-icon":{window.__mIcon=b.dataset.v;document.querySelectorAll("#mIcons button").forEach(x=>x.classList.toggle("on",x===b));return}
       case "school-edit":return schoolModal(b.dataset.id);
+      case "weekly-edit":return weeklyModal(b.dataset.id);
+      case "wk-day":{const d=Number(b.dataset.v);const set=window.__wkDays;set.has(d)?set.delete(d):set.add(d);b.classList.toggle("on",set.has(d));return}
+      case "weekly-del":return guard(b,async()=>{const r=await api(`/api/family/weekly/${b.dataset.id}`,{method:"DELETE"});weekly=r.items||[];close();await refresh();toast("تم الإيقاف ✓")});
       case "sc-day":{const d=Number(b.dataset.v);const set=window.__schoolDays;set.has(d)?set.delete(d):set.add(d);b.classList.toggle("on",set.has(d));return}
       case "member-pin":return memberPinModal(b.dataset.id);
       case "member-del":return confirmModal(`حذف ${PEOPLE[b.dataset.id]?.name||"المستخدم"}؟`,"ستُحذف كل مهامه ومواعيده ولا يمكن التراجع.","do-member-del",b.dataset.id);
@@ -700,10 +799,15 @@
       const r=await api("/api/family/members",{method:"POST",body:JSON.stringify({name:$("mName").value,age:Number($("mAge").value),icon:window.__mIcon||"🌟",pin:$("mPin").value})});
       close();await refresh();toast(`أُضيف ${r.member.name} ✓`,"ok");
     });
+    if(id==="weeklyForm")return guard(btn,async()=>{
+      const wid=e.target.dataset.id,body=JSON.stringify({assignee:$("wkWho").value,title:$("wkTitle").value,type:$("wkType").value,days:[...window.__wkDays].sort(),time:$("wkTime").value,minutes:Number($("wkMin").value),note:$("wkNote").value});
+      const r=await api(wid?`/api/family/weekly/${wid}`:"/api/family/weekly",{method:wid?"PUT":"POST",body});
+      weekly=r.items||[];close();await refresh();toast("تم الحفظ ✓ وأُعيد بناء البرنامج","ok");
+    });
     if(id==="schoolForm")return guard(btn,async()=>{
       const mid=e.target.dataset.id;
-      const r=await api(`/api/family/school/${mid}`,{method:"PUT",body:JSON.stringify({start:$("scStart").value,end:$("scEnd").value,days:[...window.__schoolDays].sort()})});
-      school[mid]=r.school;close();render();toast("تم حفظ ساعات المدرسة ✓ طبّق برنامج اليوم من جديد ليظهر الدوام","ok");
+      const r=await api(`/api/family/school/${mid}`,{method:"PUT",body:JSON.stringify({start:$("scStart").value,end:$("scEnd").value,days:[...window.__schoolDays].sort(),age:Number($("scAge").value)})});
+      school[mid]=r.school;close();await refresh();toast("تم الحفظ ✓ أُعيد بناء البرنامج","ok");
     });
     if(id==="memberPinForm")return guard(btn,async()=>{
       await api(`/api/family/members/${e.target.dataset.id}/pin`,{method:"POST",body:JSON.stringify({pin:$("mNewPin").value})});

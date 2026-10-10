@@ -499,7 +499,7 @@ async function completeTickTickTaskIfPossible(req, res, task) {
 const BUILTIN_MEMBER_IDS = ["yaman", "judy"];
 const FAMILY_MEMBERS = {
   yaman: { id: "yaman", name: "يَمان", label: "منطقة يَمان", icon: "🦸‍♂️", age: 15, builtin: true },
-  judy: { id: "judy", name: "جودي", label: "منطقة جودي", icon: "🦸‍♀️", age: 8, builtin: true }
+  judy: { id: "judy", name: "جودي", label: "منطقة جودي", icon: "🦸‍♀️", age: 15, builtin: true }
 };
 const memberPinHashes = new Map();
 const MAX_FAMILY_MEMBERS = 8;
@@ -521,7 +521,29 @@ function publicMember(member) {
   return { id: member.id, name: member.name, label: member.label, icon: member.icon, age: member.age, builtin: Boolean(member.builtin) };
 }
 
+const WEEKLY_SEEDS = [
+  { key: "yaman-math-0", assignee: "yaman", title: "درس الرياضيات الخاص", type: "lesson", days: [0], time: "11:00", minutes: 60, note: "درس خاص في الرياضيات." },
+  { key: "yaman-math-1", assignee: "yaman", title: "درس الرياضيات الخاص", type: "lesson", days: [1], time: "18:00", minutes: 60, note: "درس خاص في الرياضيات." },
+  { key: "yaman-math-3", assignee: "yaman", title: "درس الرياضيات الخاص", type: "lesson", days: [3], time: "17:00", minutes: 60, note: "درس خاص في الرياضيات." },
+  { key: "yaman-jumuah", assignee: "yaman", title: "الذهاب مع أبي إلى صلاة الجمعة في المسجد", type: "prayer", days: [5], time: "11:30", minutes: 100, note: "نذهب معًا إلى المسجد ونعود بعد الصلاة.", checklist: ["الاغتسال ولبس ملابس نظيفة", "الطيب", "الخروج مع أبي في الوقت", "الجلوس بهدوء والاستماع للخطبة", "العودة إلى البيت مع أبي"] },
+  { key: "shefaram", assignee: "family", title: "زيارة الجدّين في شفاعمرو", type: "outing", days: [], time: "16:30", minutes: 180, note: "من مرتين إلى أربع مرات في الأسبوع. تُختار الأيام من الإعدادات." }
+];
+
+async function seedWeeklyCommitments() {
+  for (const w of WEEKLY_SEEDS) {
+    await pool.query(
+      `INSERT INTO hero_family_weekly (id, seed_key, assignee, title, task_type, days, start_time, minutes, note, checklist)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb) ON CONFLICT (seed_key) DO NOTHING`,
+      [crypto.randomUUID(), w.key, w.assignee, w.title, w.type, JSON.stringify(w.days), w.time, w.minutes, w.note, JSON.stringify(w.checklist || [])]
+    );
+  }
+}
+
 async function loadFamilyMembers() {
+  try {
+    const ages = await pool.query(`SELECT id, age FROM hero_family_member_age`);
+    for (const r of ages.rows) if (FAMILY_MEMBERS[r.id]) FAMILY_MEMBERS[r.id].age = Number(r.age) || FAMILY_MEMBERS[r.id].age;
+  } catch { /* table is created in ensureFamilyDatabase */ }
   const { rows } = await pool.query(`SELECT id, name, icon, age, pin_hash FROM hero_family_members ORDER BY created_at ASC`);
   for (const id of Object.keys(FAMILY_MEMBERS)) if (!BUILTIN_MEMBER_IDS.includes(id)) { delete FAMILY_MEMBERS[id]; memberPinHashes.delete(id); }
   for (const row of rows) {
@@ -608,9 +630,29 @@ async function ensureFamilyDatabase() {
 
         CREATE TABLE IF NOT EXISTS hero_family_school (
           assignee TEXT PRIMARY KEY,
-          school_start TEXT NOT NULL DEFAULT '08:00',
+          school_start TEXT NOT NULL DEFAULT '07:00',
           school_end TEXT NOT NULL DEFAULT '14:00',
-          school_days JSONB NOT NULL DEFAULT '[0,1,2,3,4]'::jsonb
+          school_days JSONB NOT NULL DEFAULT '[1,2,3,4,6]'::jsonb
+        );
+
+        CREATE TABLE IF NOT EXISTS hero_family_member_age (
+          id TEXT PRIMARY KEY,
+          age INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS hero_family_weekly (
+          id TEXT PRIMARY KEY,
+          seed_key TEXT UNIQUE,
+          assignee TEXT NOT NULL,
+          title TEXT NOT NULL,
+          task_type TEXT NOT NULL DEFAULT 'other',
+          days JSONB NOT NULL DEFAULT '[]'::jsonb,
+          start_time TEXT NOT NULL DEFAULT '16:00',
+          minutes INTEGER NOT NULL DEFAULT 60,
+          note TEXT NOT NULL DEFAULT '',
+          checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS hero_family_program_runs (
@@ -650,6 +692,7 @@ async function ensureFamilyDatabase() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      await seedWeeklyCommitments();
       await loadFamilyMembers();
     })().catch((error) => {
       familyDatabaseReady = null;
@@ -725,16 +768,20 @@ function writeChildSession(res, assignee) {
 }
 
 const DEFAULT_CHECKLISTS = {
-  study: ["جهّز الكتب والدفتر والقلم", "اقرأ المطلوب بهدوء", "ابدأ بالجزء الأول", "اكتب أو قل ما فهمته", "اطلب مساعدة إذا احتجت"],
-  prayer: ["توضأ بهدوء", "اتجه إلى القبلة", "صلِّ دون استعجال", "اذكر الله بعد الصلاة"],
-  routine: ["افعل الخطوة الأولى", "افعل الخطوة الثانية", "تأكد أنك أنهيت كل شيء"],
-  home: ["اعرف المطلوب بالضبط", "حضّر ما تحتاجه", "نفّذ المهمة", "أعد الأشياء إلى مكانها"],
-  movement: ["اشرب ماء", "ابدأ بحركة خفيفة", "استمر حتى ينتهي الوقت", "اجلس وخذ نفساً هادئاً"],
-  creative: ["اختر فكرة واحدة", "ابدأ بنسخة بسيطة", "أضف تفصيلاً واحداً", "احفظ ما أنجزته"],
-  breathing: ["اجلس بوضع مريح", "تنفّس ببطء أربع مرات", "لاحظ جسمك", "ارجع لمهامك"],
-  social: ["اختر جملة واحدة", "قلها بصوت هادئ", "استمع للرد", "انتهى"],
-  youtube: ["اختر فكرة واحدة", "اكتب الهدف في جملة", "جرّب تسجيلاً قصيراً", "راجع الخصوصية والجودة"],
-  other: ["اقرأ المطلوب", "ابدأ بخطوة صغيرة", "أكمل المهمة", "تأكد أنك انتهيت"]
+  study: ["تجهيز الكتب والدفتر والقلم", "قراءة المطلوب بهدوء", "البدء بالجزء الأول", "كتابة أو قول ما تم فهمه", "طلب المساعدة عند الحاجة"],
+  prayer: ["الوضوء بهدوء", "التوجه إلى القبلة", "الصلاة دون استعجال", "الذكر بعد الصلاة"],
+  routine: ["الخطوة الأولى", "الخطوة الثانية", "التأكد من إنهاء كل شيء"],
+  home: ["معرفة المطلوب بالضبط", "تحضير ما يلزم", "تنفيذ المهمة", "إعادة الأشياء إلى مكانها"],
+  movement: ["شرب الماء", "البدء بحركة خفيفة", "الاستمرار حتى ينتهي الوقت", "الجلوس وأخذ نفس هادئ"],
+  creative: ["اختيار فكرة واحدة", "البدء بنسخة بسيطة", "إضافة تفصيل واحد", "حفظ ما تم إنجازه"],
+  breathing: ["الجلوس بوضع مريح", "التنفس ببطء أربع مرات", "ملاحظة الجسم", "العودة إلى المهام"],
+  social: ["اختيار جملة واحدة", "قولها بصوت هادئ", "الاستماع إلى الرد", "انتهت المهمة"],
+  youtube: ["اختيار فكرة واحدة", "كتابة الهدف في جملة", "تجربة تسجيل قصير", "مراجعة الخصوصية والجودة"],
+  school: ["الحقيبة والوجبة وقارورة الماء", "المفتاح والهاتف", "الخروج في الوقت المحدد"],
+  lesson: ["تجهيز الدفتر والقلم والواجب", "كتابة الأسئلة قبل الدرس", "الانتباه أثناء الدرس", "كتابة ما تم فهمه بعد الدرس"],
+  outing: ["ملابس الخروج", "الحاجيات: ماء وشاحن وحقيبة", "معرفة وقت العودة", "الجلوس بهدوء في السيارة"],
+  rest: ["الجلوس في مكان هادئ", "شرب الماء", "نشاط هادئ: موسيقى أو رسم", "العودة إلى المهمة التالية عند انتهاء الوقت"],
+  other: ["قراءة المطلوب", "البدء بخطوة صغيرة", "إكمال المهمة", "التأكد من الانتهاء"]
 };
 
 function safeChecklist(value) {
@@ -798,7 +845,7 @@ function safeText(value, maxLength) {
 }
 
 function safeTaskType(value) {
-  return ["study", "home", "creative", "movement", "social", "routine", "breathing", "youtube", "prayer", "other"].includes(value) ? value : "other";
+  return ["study", "home", "creative", "movement", "social", "routine", "breathing", "youtube", "prayer", "school", "lesson", "outing", "rest", "other"].includes(value) ? value : "other";
 }
 
 function safeTime(value) {
@@ -903,7 +950,7 @@ function automaticSlotFallback(index) {
 }
 
 const DEFAULT_TASK_MINUTES = 15;
-const PRAYER_WINDOW_MINUTES = 10;
+const PRAYER_WINDOW_MINUTES = 7;
 const SLOT_BUFFER_MINUTES = 5;
 const LAST_START_MINUTE = 23 * 60 + 30;
 
@@ -1285,7 +1332,18 @@ async function getJerusalemPrayerTimes(date) {
   return getShobiddakPrayerTimes(date);
 }
 
+const prayerCache = new Map();
+
 async function getPrayerTimesSafely(date) {
+  const key = familyDateKey(date);
+  const hit = prayerCache.get(key);
+  if (hit && Date.now() - hit.at < (hit.ok ? 30 : 5) * 60 * 1000) return hit.value;
+  const value = await getPrayerTimesUncached(date);
+  prayerCache.set(key, { at: Date.now(), ok: !value.warning, value });
+  return value;
+}
+
+async function getPrayerTimesUncached(date) {
   const storedManual = await getStoredManualPrayerTimes(date);
   if (storedManual) {
     return { prayerTimes: storedManual, warning: "" };
@@ -1319,7 +1377,7 @@ function buildPrayerTasks(prayerTimes = {}) {
   return prayers.map(([key, title]) => {
     const time = safeTime(prayerTimes[key]);
     if (!time) return null;
-    return { title, type: "prayer", points: 0, note: "تذكير هادئ للصلاة في وقتها. الصلاة قيمة روحية وليست مرتبطة بالنقاط أو المكافآت.", suggestedTime: time, timerMinutes: 0, source: "prayer" };
+    return { title, type: "prayer", points: 0, note: "تذكير هادئ للصلاة في وقتها. الصلاة قيمة روحية وليست مرتبطة بالنقاط أو المكافآت.", suggestedTime: time, timerMinutes: PRAYER_WINDOW_MINUTES, source: "prayer" };
   }).filter(Boolean);
 }
 
@@ -1509,9 +1567,8 @@ async function insertCoachPlanTasks(req, res, plan, date) {
 /* ===================== Fixed weekly program (no AI needed) =====================
    Study days: Mon, Tue, Wed, Thu, Sat. Fri and Sun are lighter (no study block).
    Teens (13+) get a 2-hour review block; younger children get two short sessions with a break. */
-const STUDY_WEEKDAYS = new Set([1, 2, 3, 4, 6]);
-
-const DEFAULT_SCHOOL = { start: "08:00", end: "14:00", days: [0, 1, 2, 3, 4] };
+// Leave home 07:00, back about 14:00. Sunday and Friday are free days.
+const DEFAULT_SCHOOL = { start: "07:00", end: "14:00", days: [1, 2, 3, 4, 6] };
 
 function normalizeSchool(input) {
   const start = safeTime(input?.start) || DEFAULT_SCHOOL.start;
@@ -1536,76 +1593,112 @@ function weekdayOfDateKey(date) {
 }
 
 function programTask(title, type, time, timer, note, checklist, points) {
-  return { title, type, suggestedTime: time, timerMinutes: timer, note, checklist, points: points ?? (type === "prayer" ? 0 : 10), source: "program" };
+  return { title, type, suggestedTime: time, timerMinutes: timer, note, checklist: checklist || [], points: points ?? (type === "prayer" ? 0 : 10), source: "program" };
 }
 
-function buildProgramTasks(member, date, school = DEFAULT_SCHOOL) {
+function weeklyFromRow(r) {
+  return {
+    id: r.id, assignee: r.assignee, title: r.title, type: safeTaskType(r.task_type),
+    days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6),
+    time: safeTime(r.start_time) || "16:00", minutes: Math.min(600, Math.max(5, Number(r.minutes) || 60)),
+    note: r.note || "", checklist: safeChecklist(r.checklist), enabled: Boolean(r.enabled)
+  };
+}
+
+async function getWeeklyCommitments() {
+  const { rows } = await pool.query(`SELECT * FROM hero_family_weekly ORDER BY created_at ASC`);
+  return rows.map(weeklyFromRow);
+}
+
+// A predictable daily program. Wording is neutral (no gendered imperatives) and every step is short and literal.
+function buildProgramTasks(member, date, school = DEFAULT_SCHOOL, ctx = {}) {
   const info = FAMILY_MEMBERS[member];
   const teen = (info?.age || 10) >= 13;
   const day = weekdayOfDateKey(date);
-  const study = STUDY_WEEKDAYS.has(day);
-  const tasks = [];
   const atSchool = school.days.includes(day);
-  const studyStart = atSchool ? (minutesFromClock(addMinutes(school.end, teen ? 120 : 90)) < 15 * 60 + 30 ? "15:30" : addMinutes(school.end, teen ? 120 : 90)) : (teen ? "16:00" : "15:30");
+  const fixed = (ctx.commitments || []).filter((c) => c.enabled && c.days.includes(day) && (c.assignee === member || c.assignee === "family"));
+  const T = [];
 
-  tasks.push(programTask("نظافة شخصية صباحية", "routine", atSchool ? addMinutes(school.start, -70) : "08:00", 10,
-    "روتين ثابت كل صباح، بنفس الترتيب.",
-    ["اغسل وجهك بالماء والصابون", "نظّف أسنانك بالفرشاة لمدة دقيقتين", "رتّب شعرك", "البس ملابس نظيفة", "رتّب سريرك"]));
-
-  if (atSchool) {
-    tasks.push(programTask(`المدرسة (${school.start} - ${school.end})`, "other", addMinutes(school.start, -30), 0,
-      `ساعات المدرسة من ${school.start} إلى ${school.end}.`,
-      ["جهّز الحقيبة والوجبة وقارورة الماء", "اذهب إلى المدرسة في الوقت", "عُد إلى البيت وأخرج أغراضك من الحقيبة"], 0));
+  // Fixed commitments first so everything else is placed around them.
+  for (const c of fixed) {
+    T.push({ ...programTask(c.title, c.type, c.time, c.minutes, c.note, c.checklist.length ? c.checklist : null, c.type === "lesson" ? 10 : 0), source: "weekly" });
   }
 
-  if (study && teen) {
-    tasks.push(programTask("مراجعة الدروس (ساعتان)", "study", studyStart, 120,
-      "ساعتان من المراجعة، في جلستين بينهما استراحة قصيرة.",
-      ["جهّز الكتب والدفتر والقلم وكوب ماء", "ضع هاتفك بعيداً عنك", "الجلسة الأولى: راجع 50 دقيقة", "استراحة 10 دقائق: قف وتحرّك واشرب", "الجلسة الثانية: راجع 50 دقيقة", "اكتب ما راجعته في ثلاثة أسطر", "اكتب سؤالاً واحداً لتسأل عنه غداً"], 20));
-  } else if (study) {
-    tasks.push(programTask("مراجعة الدروس: الجزء الأول", "study", studyStart, 30,
+  T.push(programTask("نظافة شخصية صباحية", "routine", atSchool ? addMinutes(school.start, -60) : "08:30", 15,
+    "روتين ثابت كل صباح، بنفس الترتيب.",
+    ["غسل الوجه بالماء والصابون", "تنظيف الأسنان دقيقتين", "ترتيب الشعر", "لبس ملابس نظيفة", "ترتيب السرير"], 10));
+
+  let studyStart = teen ? "16:00" : "15:30";
+  if (atSchool) {
+    T.push(programTask("الفطور وتجهيز الحقيبة", "routine", addMinutes(school.start, -40), 15,
+      "نتأكد من الحقيبة قبل الخروج.",
+      ["الفطور", "الحقيبة والدفاتر حسب جدول اليوم", "الوجبة وقارورة الماء", "المفتاح والهاتف"], 5));
+    T.push(programTask(`الخروج إلى المدرسة (${school.start})`, "school", school.start, 0,
+      `الخروج ${school.start}، والعودة نحو ${school.end}.`,
+      ["الحقيبة والوجبة وقارورة الماء", "المفتاح والهاتف", "الخروج في الوقت المحدد"], 0));
+    T.push(programTask("العودة من المدرسة", "school", school.end, 0,
+      "بعد المدرسة: وقت هادئ قبل أي مهمة.",
+      ["إخراج الأغراض من الحقيبة", "غسل اليدين", "وضع الوجبة وقارورة الماء في المطبخ"], 0));
+    T.push(programTask("غداء واستراحة هادئة", "rest", addMinutes(school.end, 15), 45,
+      "بعد المدرسة يحتاج الجسم إلى راحة. لا مهام الآن.",
+      ["الغداء", "شرب الماء", "نشاط هادئ: موسيقى أو رسم أو راحة", "قراءة جدول بقية اليوم"], 0));
+    const base = minutesFromClock(addMinutes(school.end, 75)) ?? 15 * 60 + 15;
+    studyStart = clockFromMinutes(Math.max(base, 15 * 60));
+  }
+
+  const studyMins = teen ? 120 : 60;
+  if (atSchool && teen) {
+    const sMin = minutesFromClock(studyStart) ?? 15 * 60;
+    const clash = fixed.some((c) => c.type !== "prayer" && (minutesFromClock(c.time) ?? 0) < sMin + 135 && (minutesFromClock(c.time) ?? 0) + c.minutes > sMin);
+    if (clash) {
+      T.push(programTask("مراجعة الدروس (ساعة)", "study", studyStart, 60,
+        "ساعة واحدة فقط اليوم لأن عندنا درسًا أو التزامًا بعد الظهر.",
+        ["تجهيز الكتب والدفتر والقلم وكوب ماء", "وضع الهاتف بعيدًا", "مراجعة 50 دقيقة", "استراحة 10 دقائق: وقوف وحركة وماء", "كتابة ما تم إنجازه في سطرين"], 15));
+    } else {
+      T.push(programTask("مراجعة الدروس (ساعتان)", "study", studyStart, 120,
+        "ساعتان من المراجعة، في جلستين بينهما استراحة قصيرة.",
+        ["تجهيز الكتب والدفتر والقلم وكوب ماء", "وضع الهاتف بعيدًا", "الجلسة الأولى: مراجعة 50 دقيقة", "استراحة 10 دقائق: وقوف وحركة وماء", "الجلسة الثانية: مراجعة 50 دقيقة", "كتابة ما تم إنجازه في سطرين", "تجهيز الدفاتر لليوم التالي"], 20));
+    }
+  } else if (atSchool) {
+    T.push(programTask("مراجعة الدروس: الجزء الأول", "study", studyStart, 30,
       "ثلاثون دقيقة فقط، ثم استراحة.",
-      ["جهّز الكتاب والدفتر والقلم", "اقرأ الدرس الأول", "حلّ التمرين الأول", "ضع علامة على ما لم تفهمه"], 15));
-    tasks.push(programTask("استراحة حركة", "movement", addMinutes(studyStart, 35), 10,
-      "حركة قصيرة بين جلستين.",
-      ["اشرب ماء", "تحرّك أو اقفز عشر مرات", "اجلس وخذ نفساً هادئاً"], 5));
-    tasks.push(programTask("مراجعة الدروس: الجزء الثاني", "study", addMinutes(studyStart, 50), 30,
+      ["تجهيز الكتاب والدفتر والقلم", "قراءة الدرس الأول", "حل التمرين الأول", "وضع علامة على ما لم يُفهم"], 15));
+    T.push(programTask("استراحة حركة", "movement", addMinutes(studyStart, 35), 10,
+      "حركة قصيرة بين جلستين.", ["شرب الماء", "الحركة أو القفز عشر مرات", "الجلوس وأخذ نفس هادئ"], 5));
+    T.push(programTask("مراجعة الدروس: الجزء الثاني", "study", addMinutes(studyStart, 50), 30,
       "الجلسة الأخيرة اليوم.",
-      ["اقرأ الدرس الثاني", "حلّ التمرين الثاني", "اقرأ ما كتبته مرة واحدة", "اطلب من أحد أن يسمع ما تعلمته"], 15));
+      ["قراءة الدرس الثاني", "حل التمرين الثاني", "قراءة ما تمت كتابته مرة واحدة", "إخبار أحد بما تم تعلمه"], 15));
   } else {
-    tasks.push(programTask(teen ? "وقت هواية أو قراءة حرة" : "قراءة قصة أو رسم حر", "creative", "16:00", 30,
-      "ليس يوم مراجعة. وقت حر ومريح.",
-      ["اختر شيئاً تحبه: كتاب أو رسم أو هواية", "افعله لمدة نصف ساعة", "رتّب أدواتك بعد الانتهاء"], 10));
+    T.push(programTask(teen ? "وقت حر وهواية" : "قراءة قصة أو رسم حر", "creative", "16:00", 30,
+      "يوم بلا مدرسة. وقت حر ومريح.",
+      ["اختيار شيء محبب: كتاب أو رسم أو هواية", "نصف ساعة من النشاط", "ترتيب الأدوات بعد الانتهاء"], 10));
   }
 
   if (day === 5) {
-    tasks.push(programTask("الاستعداد لصلاة الجمعة", "prayer", "11:30", 0,
-      "الجمعة يوم مميز. اغتسل وتطيّب واذهب مع أهلك.",
-      ["اغتسل", "البس ملابس نظيفة", "تطيّب", "اذهب إلى الصلاة مع أهلك"]));
+    T.push(programTask("الاستعداد لصلاة الجمعة", "prayer", "11:00", 20,
+      "الجمعة يوم مميز.",
+      ["الاغتسال", "لبس ملابس نظيفة", "الطيب", "الاستعداد للخروج مع الأهل"], 0));
   }
 
-  const studyEnd = study ? addMinutes(studyStart, teen ? 120 : 80) : "17:00";
-  tasks.push(programTask(teen ? "رياضة أو مشي" : "لعب بالحركة", "movement", addMinutes(studyEnd, 15), 25,
+  const studyEnd = atSchool ? addMinutes(studyStart, teen ? studyMins : 80) : "17:00";
+  T.push(programTask(teen ? "رياضة أو مشي" : "لعب بالحركة", "movement", addMinutes(studyEnd, 15), 25,
     "حركة يومية خفيفة.",
-    ["اشرب ماء", "ابدأ بتمدد خفيف", teen ? "امشِ أو مارس رياضتك 20 دقيقة" : "العب بالحركة 20 دقيقة", "اجلس وخذ نفساً هادئاً"], 10));
+    ["شرب الماء", "تمدد خفيف", teen ? "المشي أو الرياضة 20 دقيقة" : "اللعب بالحركة 20 دقيقة", "الجلوس وأخذ نفس هادئ"], 10));
 
-  tasks.push(programTask(teen ? "ترتيب الغرفة وتجهيز الغد" : "ترتيب الألعاب وتجهيز الحقيبة", "home", "19:30", 15,
+  T.push(programTask(teen ? "ترتيب الغرفة وتجهيز الغد" : "ترتيب الألعاب وتجهيز الحقيبة", "home", "19:30", 15,
     "تجهيز اليوم التالي يجعل الصباح أهدأ.",
     teen
-      ? ["ضع الأشياء المبعثرة في أماكنها", "جهّز الحقيبة والكتب لغد", "حضّر ملابس الغد", "اشحن هاتفك خارج غرفة النوم"]
-      : ["ضع الألعاب في مكانها", "جهّز الحقيبة", "ضع ملابس الغد على الكرسي"]));
+      ? ["قراءة جدول الغد: ماذا سيحدث غدًا؟", "وضع الأشياء المبعثرة في أماكنها", "تجهيز الحقيبة والكتب", "تحضير ملابس الغد", "شحن الهاتف خارج غرفة النوم"]
+      : ["قراءة جدول الغد", "وضع الألعاب في مكانها", "تجهيز الحقيبة", "وضع ملابس الغد على الكرسي"], 10));
 
-  tasks.push(programTask("نظافة شخصية مسائية", "routine", "20:45", 10,
-    "روتين ثابت قبل النوم.",
-    ["نظّف أسنانك بالفرشاة", "اغسل وجهك ويديك", "البس ملابس النوم"]));
+  T.push(programTask("نظافة شخصية مسائية", "routine", "20:45", 10,
+    "روتين ثابت قبل النوم.", ["تنظيف الأسنان", "غسل الوجه واليدين", "لبس ملابس النوم"], 5));
 
-  tasks.push(programTask("أذكار النوم وقراءة القرآن", "prayer", "21:00", 15,
-    teen ? "قبل النوم: أذكار، ثم قرآن، ثم نوم. بلا نقاط." : "قبل النوم: أذكار ثم سورة قصيرة. بلا نقاط.",
-    teen
-      ? ["اقرأ آية الكرسي", "اذكر الله: تسبيح وحمد وتكبير", "اقرأ ما تيسّر من القرآن", "أطفئ الشاشة ونم"]
-      : ["اقرأ آية الكرسي مع أحد أهلك", "اقرأ سورة قصيرة", "قل: الحمد لله", "نم"]));
+  T.push(programTask("أذكار النوم وقراءة القرآن", "prayer", "21:00", 15,
+    "قبل النوم: أذكار، ثم قرآن، ثم نوم. بلا نقاط.",
+    ["قراءة آية الكرسي", "الذكر: تسبيح وحمد وتكبير", "قراءة ما تيسّر من القرآن", "إطفاء الشاشة والنوم"], 0));
 
-  return tasks;
+  return T;
 }
 
 const programLocks = new Map();
@@ -1639,7 +1732,8 @@ async function applyProgramNow(member, date, { force = false, replace = false } 
   }
   const prayerResult = await getPrayerTimesSafely(day);
   const school = await getSchoolSettings(member);
-  const tasks = [...buildPrayerTasks(prayerResult.prayerTimes), ...buildProgramTasks(member, day, school)];
+  const commitments = await getWeeklyCommitments();
+  const tasks = [...buildPrayerTasks(prayerResult.prayerTimes), ...buildProgramTasks(member, day, school, { commitments })];
   const inserted = [];
   for (const task of tasks) {
     const exists = await pool.query(`SELECT 1 FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND title = $3 LIMIT 1`, [member, day, task.title]);
@@ -1665,6 +1759,75 @@ async function ensureTodayProgram(member, date) {
   } catch (error) {
     console.warn("Could not apply the daily program:", error.message);
   }
+}
+
+// The prayer source only publishes today's times, so future days carry today's times as an estimate;
+// each day's prayer tasks are refreshed with the real times once that day arrives.
+async function ensurePrayerTasks(member, day) {
+  const isToday = day === dateKeyInTimeZone(new Date());
+  const { prayerTimes, warning } = await getPrayerTimesSafely(day);
+  if (warning) return 0;
+  const wanted = buildPrayerTasks(prayerTimes);
+  const { rows } = await pool.query(`SELECT id, title, suggested_time, done FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND task_type = 'prayer' AND source = 'prayer'`, [member, day]);
+  const have = new Map(rows.map((r) => [r.title, r]));
+  let changed = 0;
+  for (const task of wanted) {
+    const row = have.get(task.title);
+    if (!row) {
+      await pool.query(
+        `INSERT INTO hero_family_tasks (id, assignee, title, task_type, points, due_date, note, suggested_time, timer_minutes, source, checklist)
+         VALUES ($1,$2,$3,'prayer',0,$4,$5,$6,$7,'prayer',$8::jsonb)`,
+        [crypto.randomUUID(), member, task.title, day, task.note || "", task.suggestedTime, safeTimerMinutes(task.timerMinutes), JSON.stringify([])]
+      );
+      changed += 1;
+    } else if (isToday && !row.done && row.suggested_time !== task.suggestedTime) {
+      await pool.query(`UPDATE hero_family_tasks SET suggested_time = $2, updated_at = NOW() WHERE id = $1`, [row.id, task.suggestedTime]);
+      changed += 1;
+    }
+  }
+  return changed;
+}
+
+const horizonState = { inflight: null };
+
+async function ensureProgramHorizon(days = 7) {
+  if (process.env.PROGRAM_AUTO === "off") return;
+  if (horizonState.inflight) return horizonState.inflight;
+  horizonState.inflight = (async () => {
+    try {
+      await ensureFamilyDatabase();
+      const base = dateKeyInTimeZone(new Date());
+      for (const member of Object.keys(FAMILY_MEMBERS)) {
+        for (let i = 0; i < days; i += 1) {
+          const day = addDaysToDateKey(base, i);
+          await applyProgramForMember(member, day).catch((e) => console.warn("program horizon:", e.message));
+          await ensurePrayerTasks(member, day).catch((e) => console.warn("prayer horizon:", e.message));
+        }
+      }
+    } catch (error) {
+      console.warn("Could not extend the program horizon:", error.message);
+    } finally {
+      horizonState.inflight = null;
+    }
+  })();
+  return horizonState.inflight;
+}
+
+// After a settings change (school hours, age, weekly commitments): rebuild today's open program tasks
+// and drop the not-yet-started program of coming days so it is rebuilt with the new settings.
+async function regenerateProgram() {
+  await ensureFamilyDatabase();
+  const today = dateKeyInTimeZone(new Date());
+  await pool.query(`DELETE FROM hero_family_tasks WHERE due_date > $1 AND done = FALSE AND source IN ('program','weekly')`, [today]);
+  await pool.query(`DELETE FROM hero_family_program_runs WHERE run_date > $1`, [today]);
+  for (const member of Object.keys(FAMILY_MEMBERS)) {
+    await applyProgramForMember(member, today, { force: true, replace: true }).catch((e) => console.warn("regenerate today:", e.message));
+  }
+  await ensureProgramHorizon();
+}
+
+if (process.env.PROGRAM_AUTO !== "off") {
+  setInterval(() => { if (pool) ensureProgramHorizon().catch(() => {}); }, 6 * 60 * 60 * 1000).unref();
 }
 
 async function seedTodayTasksForMember(req, res, member, date) {
@@ -1896,6 +2059,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   await ensureFamilyDatabase();
   const date = familyDateKey(req.query.date);
   for (const memberId of Object.keys(FAMILY_MEMBERS)) await ensureTodayProgram(memberId, date);
+  ensureProgramHorizon().catch(() => {});
   const distribution = await autoDistributeFamilyDate(date);
   const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -2023,7 +2187,7 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
            suggested_time = $8,
            timer_minutes = $9,
            checklist = CASE WHEN $10::boolean THEN $11::jsonb ELSE checklist END,
-           checklist_done = CASE WHEN $10::boolean THEN '[]'::jsonb ELSE checklist_done END,
+           checklist_done = CASE WHEN $10::boolean THEN $12::jsonb ELSE checklist_done END,
            updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -2038,7 +2202,8 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
       suggestedTime,
       timerMinutes,
       Array.isArray(req.body?.checklist),
-      JSON.stringify(safeChecklist(req.body?.checklist))
+      JSON.stringify(safeChecklist(req.body?.checklist)),
+      JSON.stringify([...new Set((Array.isArray(req.body?.checklistDone) ? req.body.checklistDone : []).map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < safeChecklist(req.body?.checklist).length))].sort((a, b) => a - b))
     ]
   );
 
@@ -2069,6 +2234,97 @@ app.patch("/api/family/tasks/:id/check", asyncRoute(async (req, res) => {
   res.json({ task: mapFamilyTask(rows[0]) });
 }));
 
+// ---- achievements dashboard ----
+const STAR_LEVELS = [
+  { min: 5, label: "بطل", icon: "🏆" },
+  { min: 3, label: "متألق", icon: "🌟" },
+  { min: 1, label: "في الطريق", icon: "⭐" },
+  { min: 0, label: "نبدأ من جديد", icon: "🌱" }
+];
+
+function pct(done, total) {
+  return total > 0 ? Math.round((done / total) * 100) : null;
+}
+
+async function computeMemberStats(member, today) {
+  const from = addDaysToDateKey(today, -13);
+  const { rows } = await pool.query(
+    `SELECT due_date, task_type, source, done FROM hero_family_tasks WHERE assignee = $1 AND due_date BETWEEN $2 AND $3`,
+    [member, from, today]
+  );
+  const days = [];
+  for (let i = 13; i >= 0; i -= 1) days.push(addDaysToDateKey(today, -i));
+  const by = Object.fromEntries(days.map((d) => [d, { total: 0, done: 0, pTotal: 0, pDone: 0, sTotal: 0, sDone: 0 }]));
+  for (const r of rows) {
+    const d = by[pgDateKey(r.due_date)];
+    if (!d) continue;
+    const isFixedPrayer = r.task_type === "prayer" && r.source === "prayer";
+    if (isFixedPrayer) { d.pTotal += 1; if (r.done) d.pDone += 1; continue; }
+    if (r.task_type === "prayer" || r.task_type === "school") continue;
+    d.total += 1; if (r.done) d.done += 1;
+    if (r.task_type === "study" || r.task_type === "lesson") { d.sTotal += 1; if (r.done) d.sDone += 1; }
+  }
+  const sum = (list, key) => list.reduce((a, d) => a + by[d][key], 0);
+  // Today still has hours to go, so it only counts once it is finished or the evening has come.
+  const hourNow = Number(new Date().toLocaleString("en-GB", { timeZone: process.env.APP_TIME_ZONE || "Asia/Jerusalem", hour: "2-digit", hour12: false })) % 24;
+  const todayRow = by[today];
+  const includeToday = hourNow >= 21 || (todayRow.total > 0 && todayRow.done >= todayRow.total);
+  const end = includeToday ? 14 : 13;
+  const thisWeek = days.slice(end - 7, end), prevWeek = days.slice(Math.max(0, end - 14), end - 7);
+  const weekRate = pct(sum(thisWeek, "done"), sum(thisWeek, "total"));
+  const prevRate = pct(sum(prevWeek, "done"), sum(prevWeek, "total"));
+  const dayRate = (d) => pct(by[d].done, by[d].total);
+
+  let streak = 0;
+  for (let i = days.length - 1; i >= 0; i -= 1) {
+    const r = dayRate(days[i]);
+    if (r === null) continue;
+    if (r >= 70) streak += 1;
+    else if (i === days.length - 1) continue; // today still in progress
+    else break;
+  }
+  const fullPrayerDays = thisWeek.filter((d) => by[d].pTotal >= 5 && by[d].pDone >= by[d].pTotal).length;
+  const fullStudyDays = thisWeek.filter((d) => by[d].sTotal > 0 && by[d].sDone >= by[d].sTotal).length;
+  const delta = weekRate !== null && prevRate !== null ? weekRate - prevRate : null;
+
+  const badges = [
+    { id: "excel", icon: "🌟", title: "نجم التفوق", hint: "إنجاز 90% أو أكثر من مهام الأسبوع", earned: weekRate !== null && weekRate >= 90, progress: weekRate === null ? "لا مهام بعد" : `${weekRate}% من 90%` },
+    { id: "effort", icon: "⭐", title: "نجم الاجتهاد", hint: "إنجاز 75% أو أكثر من مهام الأسبوع", earned: weekRate !== null && weekRate >= 75, progress: weekRate === null ? "لا مهام بعد" : `${weekRate}% من 75%` },
+    { id: "improve", icon: "📈", title: "نجم التحسن", hint: "تحسن 10 نقاط أو أكثر عن الأسبوع الماضي", earned: delta !== null && delta >= 10, progress: delta === null ? "نقارن بعد أسبوعين" : `${delta >= 0 ? "+" : ""}${delta} نقطة من +10` },
+    { id: "streak", icon: "🔥", title: "نجم الاستمرار", hint: "ثلاثة أيام متتالية بإنجاز 70% أو أكثر", earned: streak >= 3, progress: `${Math.min(streak, 3)} من 3 أيام` },
+    { id: "prayer", icon: "🕌", title: "نجم الصلاة", hint: "الصلوات الخمس كاملة في ثلاثة أيام من الأسبوع", earned: fullPrayerDays >= 3, progress: `${Math.min(fullPrayerDays, 3)} من 3 أيام` },
+    { id: "study", icon: "📚", title: "نجم العلم", hint: "إنجاز كل مهام الدراسة في ثلاثة أيام من الأسبوع", earned: fullStudyDays >= 3, progress: `${Math.min(fullStudyDays, 3)} من 3 أيام` }
+  ];
+  const stars = badges.filter((b) => b.earned).length;
+  const level = STAR_LEVELS.find((l) => stars >= l.min);
+  const t = by[today];
+  return {
+    id: member, name: FAMILY_MEMBERS[member].name, icon: FAMILY_MEMBERS[member].icon,
+    today: { done: t.done, total: t.total, rate: pct(t.done, t.total), prayersDone: t.pDone, prayersTotal: t.pTotal },
+    week: { rate: weekRate, done: sum(thisWeek, "done"), total: sum(thisWeek, "total"), prayersDone: sum(thisWeek, "pDone"), prayersTotal: sum(thisWeek, "pTotal") },
+    prev: { rate: prevRate }, delta, streak,
+    series: days.slice(7).map((d) => ({ date: d, rate: dayRate(d), total: by[d].total, pending: d === today && !includeToday })),
+    badges, stars, level: { label: level.label, icon: level.icon }
+  };
+}
+
+app.get("/api/family/stats", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  const today = dateKeyInTimeZone(new Date());
+  const parent = hasParentSession(req);
+  const only = String(req.query.member || "").toLowerCase();
+  let ids;
+  if (parent) ids = isFamilyMember(only) ? [only] : Object.keys(FAMILY_MEMBERS);
+  else {
+    if (!isFamilyMember(only)) throw new PublicError(401, "أدخل الرمز أولًا.");
+    requireChildOrParent(req, only);
+    ids = [only];
+  }
+  const members = [];
+  for (const id of ids) members.push(await computeMemberStats(id, today));
+  res.json({ date: today, members });
+}));
+
 app.get("/api/family/school", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
@@ -2088,7 +2344,75 @@ app.put("/api/family/school/:id", asyncRoute(async (req, res) => {
      ON CONFLICT (assignee) DO UPDATE SET school_start = EXCLUDED.school_start, school_end = EXCLUDED.school_end, school_days = EXCLUDED.school_days`,
     [id, school.start, school.end, JSON.stringify(school.days)]
   );
-  res.json({ school });
+  const age = Math.round(Number(req.body?.age));
+  if (Number.isFinite(age) && age >= 3 && age <= 30 && age !== FAMILY_MEMBERS[id].age) {
+    FAMILY_MEMBERS[id].age = age;
+    if (BUILTIN_MEMBER_IDS.includes(id)) {
+      await pool.query(`INSERT INTO hero_family_member_age (id, age) VALUES ($1,$2) ON CONFLICT (id) DO UPDATE SET age = EXCLUDED.age`, [id, age]);
+    } else {
+      await pool.query(`UPDATE hero_family_members SET age = $2 WHERE id = $1`, [id, age]);
+    }
+  }
+  await regenerateProgram();
+  res.json({ school, age: FAMILY_MEMBERS[id].age });
+}));
+
+app.get("/api/family/weekly", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  res.json({ items: await getWeeklyCommitments() });
+}));
+
+function weeklyFromBody(body) {
+  const assignee = String(body?.assignee || "family").toLowerCase();
+  const title = safeText(body?.title, 80);
+  if (!title || (assignee !== "family" && !isFamilyMember(assignee))) throw new PublicError(400, "اكتب اسم الالتزام واختر لمن هو.");
+  return {
+    assignee, title, type: safeTaskType(body?.type),
+    days: [...new Set((Array.isArray(body?.days) ? body.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort(),
+    time: safeTime(body?.time) || "16:00",
+    minutes: Math.min(600, Math.max(5, Math.round(Number(body?.minutes)) || 60)),
+    note: safeText(body?.note, 300),
+    checklist: safeChecklist(body?.checklist),
+    enabled: body?.enabled !== false
+  };
+}
+
+app.post("/api/family/weekly", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const count = await pool.query(`SELECT COUNT(*)::int AS n FROM hero_family_weekly`);
+  if (count.rows[0].n >= 40) throw new PublicError(400, "وصلت إلى الحد الأقصى من الالتزامات.");
+  const w = weeklyFromBody(req.body);
+  const id = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO hero_family_weekly (id, assignee, title, task_type, days, start_time, minutes, note, checklist, enabled) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9::jsonb,$10)`,
+    [id, w.assignee, w.title, w.type, JSON.stringify(w.days), w.time, w.minutes, w.note, JSON.stringify(w.checklist), w.enabled]
+  );
+  await regenerateProgram();
+  res.status(201).json({ items: await getWeeklyCommitments() });
+}));
+
+app.put("/api/family/weekly/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const w = weeklyFromBody(req.body);
+  const { rowCount } = await pool.query(
+    `UPDATE hero_family_weekly SET assignee=$2, title=$3, task_type=$4, days=$5::jsonb, start_time=$6, minutes=$7, note=$8, checklist=$9::jsonb, enabled=$10 WHERE id=$1`,
+    [req.params.id, w.assignee, w.title, w.type, JSON.stringify(w.days), w.time, w.minutes, w.note, JSON.stringify(w.checklist), w.enabled]
+  );
+  if (!rowCount) throw new PublicError(404, "لم نجد هذا الالتزام.");
+  await regenerateProgram();
+  res.json({ items: await getWeeklyCommitments() });
+}));
+
+app.delete("/api/family/weekly/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  await pool.query(`DELETE FROM hero_family_weekly WHERE id = $1 AND seed_key IS NULL`, [req.params.id]);
+  await pool.query(`UPDATE hero_family_weekly SET enabled = FALSE WHERE id = $1 AND seed_key IS NOT NULL`, [req.params.id]);
+  await regenerateProgram();
+  res.json({ items: await getWeeklyCommitments() });
 }));
 
 app.get("/api/family/members", (req, res) => {
