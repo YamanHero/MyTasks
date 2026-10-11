@@ -599,14 +599,19 @@
   /* ---- AI tutor (math / Hebrew / French) with voice in + natural voice out ---- */
   const tutor={m:"",subject:"math",busy:false,chats:{},recLang:{},rec:null,recOn:false};
   const TUTOR_SUBJ={
-    math:{i:"🔢",n:"الرياضيات",chips:["اشرح لي درساً جديداً","أعطني تمريناً","ساعدني في مسألة"],rec:[["ar-IL","العربية"]],lat:"en-US"},
-    hebrew:{i:"🗣️",n:"עברית",chips:["علّمني كلمات جديدة","أعطني تمرين قراءة","لنتحدث بالعبرية","اشرح لي قاعدة"],rec:[["he-IL","עברית"],["ar-IL","العربية"]],lat:"en-US"},
-    french:{i:"🇫🇷",n:"Français",chips:["علّمني كلمات جديدة","لنتحدث بالفرنسية","أعطني تمريناً","كيف أنطق هذه الكلمة؟"],rec:[["fr-FR","Français"],["ar-IL","العربية"]],lat:"fr-FR"}
+    math:{i:"🔢",n:"الرياضيات",chips:["ابدأ معي درساً","عندي واجب أحتاج مساعدة فيه","أعطني تمريناً على مستواي"],rec:[["ar-IL","العربية"]],lat:"en-US"},
+    hebrew:{i:"🗣️",n:"עברית",chips:["ابدأ معي درساً","علّمني كلمات جديدة","لنتحدث بالعبرية","عندي واجب أحتاج مساعدة فيه"],rec:[["he-IL","עברית"],["ar-IL","العربية"]],lat:"en-US"},
+    french:{i:"🇫🇷",n:"Français",chips:["ابدأ معي درساً","علّمني كلمات جديدة","لنتحدث بالفرنسية"],rec:[["fr-FR","Français"],["ar-IL","العربية"]],lat:"fr-FR"}
   };
   const tkey=()=>tutor.m+":"+tutor.subject;
   function tchat(){const k=tkey();if(!tutor.chats[k]){let v=[];try{v=JSON.parse(localStorage.getItem("hero-tutor-"+k)||"[]")}catch{}tutor.chats[k]=Array.isArray(v)?v:[]}return tutor.chats[k]}
   function tsave(){try{localStorage.setItem("hero-tutor-"+tkey(),JSON.stringify(tchat().slice(-24)))}catch{}}
-  let autoSpeak=false;try{autoSpeak=localStorage.getItem("hero-tutor-auto")==="on"}catch{}
+  let autoSpeak=true;try{autoSpeak=localStorage.getItem("hero-tutor-auto")!=="off"}catch{}
+  const tprog={},tnext={};
+  const progLine=p=>{if(!p||(!p.topic&&!p.next))return "";return `<div class="tpath">${p.topic?`<div><b>📍 وصلنا إلى:</b> ${esc(p.topic)}</div>`:""}${p.next?`<div><b>➡️ الخطوة التالية:</b> ${esc(p.next)}</div>`:""}${p.mastered&&p.mastered.length?`<div class="muted small">✓ أتقنت: ${esc(p.mastered.slice(-4).join("، "))}</div>`:""}</div>`};
+  function chipsFor(){const k=tkey();if(tnext[k]&&tnext[k].length)return tnext[k];const S=TUTOR_SUBJ[tutor.subject],p=tprog[k];return p&&p.next?[`لنكمل: ${p.next}`.slice(0,60),"راجع معي ما تعلمته",...S.chips.slice(1,2)]:S.chips}
+  const chipsHtml=()=>`<div class="tchips" id="tchips">${chipsFor().map(c=>`<button type="button" class="chip" data-action="tutor-chip" data-t="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
+  async function loadProgress(){const k=tkey();try{const r=await api(`/api/family/tutor/progress?assignee=${encodeURIComponent(tutor.m)}&subject=${tutor.subject}`);tprog[k]=r.progress||null;voiceOk=r.voice!==false}catch{}if(tkey()!==k||!$("tlog"))return;const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[k]);if(!tnext[k]){const c=$("tchips");if(c)c.outerHTML=chipsHtml()}}
   const recIdx=()=>tutor.recLang[tutor.subject]||0;
   const recCur=()=>TUTOR_SUBJ[tutor.subject].rec[recIdx()%TUTOR_SUBJ[tutor.subject].rec.length];
   const tbubble=m=>`<div class="tb ${m.role==="user"?"me":"ai"}"><div class="tt" dir="auto">${esc(m.content)}</div>${m.role==="assistant"?`<button type="button" class="tsay" data-action="tutor-say" aria-label="استمع">🔊</button>`:""}</div>`;
@@ -617,29 +622,32 @@
     stopRec();stopSpeak();
     const S=TUTOR_SUBJ[tutor.subject],msgs=tchat(),rc=recCur();
     const sw=Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button type="button" class="${tutor.subject===k?"on":""}" data-action="tutor-open" data-member="${tutor.m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("");
-    modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs" role="group">${sw}</div>
-      <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. اختر ما تريد أو اكتب أو اضغط 🎤 وتكلّم.</div>`}</div>
-      <div class="tchips" id="tchips">${S.chips.map(c=>`<button type="button" class="chip" data-action="tutor-chip" data-t="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+    modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs" role="group">${sw}</div><div id="tpathbox">${progLine(tprog[tkey()])}</div>
+      <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. سأقودك خطوة خطوة. اضغط «ابدأ معي درساً» أو اكتب سؤالك أو اضغط 🎤 وتكلّم.</div>`}</div>
+      ${chipsHtml()}
       <div class="tform"><button type="button" class="tmic" id="tmic" data-action="tutor-mic" aria-label="تسجيل صوتي">🎤</button><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب أو اضغط 🎤 وتكلّم..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
       <div class="topts"><button type="button" class="chip" data-action="tutor-reclang" id="trl">🎙 لغة التسجيل: ${esc(rc[1])}</button><button type="button" class="chip ${autoSpeak?"on":""}" data-action="tutor-auto" id="tauto">${autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا"}</button>${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div></div>`);
     const lg=$("tlog");if(lg)lg.scrollTop=lg.scrollHeight;
+    loadProgress();
   }
   async function tutorSend(text){
     text=(text||"").trim();if(!text||tutor.busy)return;
-    stopRec();stopSpeak();
+    stopRec();stopSpeak();unlockAudio();
     const msgs=tchat(),lg=$("tlog");if(!lg)return;
     tutor.busy=true;msgs.push({role:"user",content:text});
     if(!lg.querySelector(".tb"))lg.innerHTML="";
     lg.insertAdjacentHTML("beforeend",tbubble(msgs[msgs.length-1])+`<div class="tb ai" id="ttyping"><div class="tt tdots"><i></i><i></i><i></i></div></div>`);
-    lg.scrollTop=lg.scrollHeight;const inp=$("tutIn");if(inp)inp.value="";const ch=$("tchips");if(ch)ch.remove();
+    lg.scrollTop=lg.scrollHeight;const inp=$("tutIn");if(inp)inp.value="";const ch=$("tchips");if(ch)ch.innerHTML="";
     const key=tkey(),subj=tutor.subject;
     try{
       const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:subj,messages:msgs.slice(-14)})});
       tutor.chats[key].push({role:"assistant",content:r.reply});tsave();
-      if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;if(autoSpeak)tutorSay(r.reply)}
+      tnext[key]=r.chips||[];if(r.progress)tprog[key]=r.progress;
+      if(tkey()===key){const c=$("tchips");if(c)c.outerHTML=chipsHtml();const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[key])}
+      if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;if(autoSpeak){const bs=$("tlog").querySelectorAll(".tsay");tutorSay(r.reply,bs[bs.length-1])}}
     }catch(err){
       tutor.chats[key].pop();
-      $("ttyping")?.remove();
+      $("ttyping")?.remove();if(tkey()===key){const c=$("tchips");if(c)c.outerHTML=chipsHtml()}
       if($("tlog"))$("tlog").insertAdjacentHTML("beforeend",`<div class="tb ai"><div class="tt terr">${esc(err.message||"تعذّر الاتصال بالمعلّم")}</div></div>`);
     }finally{tutor.busy=false}
   }
@@ -659,7 +667,11 @@
     c.sort((a,b)=>score(b)-score(a));
     return voiceCache[lang]=c[0]||null;
   }
-  function stopSpeak(){try{speechSynthesis&&speechSynthesis.cancel()}catch{}}
+  let voiceOk=true;const player=new Audio();player.preload="auto";const audioCache=new Map();let sayId=0,sayBtn=null;
+  const SILENT=(()=>{const n=800,b=new ArrayBuffer(44+n),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};w(0,"RIFF");v.setUint32(4,36+n,true);w(8,"WAVE");w(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,"data");v.setUint32(40,n,true);for(let i=0;i<n;i++)v.setUint8(44+i,128);let bin="";new Uint8Array(b).forEach(x=>bin+=String.fromCharCode(x));return "data:audio/wav;base64,"+btoa(bin)})();
+  function unlockAudio(){if(player.dataset.unlocked)return;try{player.src=SILENT;const p=player.play();if(p&&p.then)p.then(()=>{player.pause();player.dataset.unlocked="1"}).catch(()=>{})}catch{}}
+  function setSayBtn(b,state){if(sayBtn&&sayBtn!==b){sayBtn.textContent="🔊";sayBtn.classList.remove("busy","on")}sayBtn=b;if(!b)return;b.classList.toggle("busy",state==="load");b.classList.toggle("on",state==="play");b.textContent=state==="play"?"⏹":state==="load"?"⏳":"🔊"}
+  function stopSpeak(){sayId++;try{player.pause()}catch{}try{speechSynthesis&&speechSynthesis.cancel()}catch{}setSayBtn(sayBtn,"idle")}
   function speechRuns(text,latLang){
     /* the bracketed [نطق] guides are written for the eyes only */
     let t=String(text).replace(/\[[^\]]*\]/g," ").replace(/[*#_`()]/g,"");
@@ -673,7 +685,26 @@
     }
     return runs.map(r=>({lang:r.lang,text:r.text.replace(/\s+/g," ").trim()})).filter(r=>r.text&&/[\p{L}]/u.test(r.text));
   }
-  function tutorSay(text){
+  async function tutorSay(text,btn){
+    stopSpeak();const id=sayId;
+    if(voiceOk){
+      try{
+        setSayBtn(btn,"load");
+        const k=tutor.subject+"|"+text;let url=audioCache.get(k);
+        if(!url){
+          const r=await fetch("/api/family/tutor/speak",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({assignee:tutor.m,subject:tutor.subject,text})});
+          if(!r.ok){if(r.status===503)voiceOk=false;throw new Error("tts "+r.status)}
+          url=URL.createObjectURL(await r.blob());audioCache.set(k,url);
+          if(audioCache.size>30){const [ok,ou]=audioCache.entries().next().value;URL.revokeObjectURL(ou);audioCache.delete(ok)}
+        }
+        if(id!==sayId)return;
+        player.src=url;player.onended=()=>setSayBtn(btn,"idle");
+        await player.play();setSayBtn(btn,"play");return;
+      }catch(e){if(id!==sayId)return;setSayBtn(btn,"idle")}
+    }
+    browserSay(text);
+  }
+  function browserSay(text){
     try{
       const ss=window.speechSynthesis;if(!ss)return;ss.cancel();loadVoices();
       const lat=(TUTOR_SUBJ[tutor.subject]||{}).lat||"en-US";
@@ -949,8 +980,8 @@
       case "tutor-open":{tutor.m=b.dataset.member||tutor.m;tutor.subject=b.dataset.subject||"math";return tutorModal()}
       case "tutor-chip":return tutorSend(b.dataset.t);
       case "tutor-send":return tutorSend($("tutIn")?.value);
-      case "tutor-say":{const t=b.closest(".tb")?.querySelector(".tt");if(t)tutorSay(t.textContent);return}
-      case "tutor-clear":{tutor.chats[tkey()]=[];tsave();return tutorModal()}
+      case "tutor-say":{unlockAudio();if(b.classList.contains("on")||b.classList.contains("busy")){stopSpeak();return}const t=b.closest(".tb")?.querySelector(".tt");if(t)tutorSay(t.textContent,b);return}
+      case "tutor-clear":{tutor.chats[tkey()]=[];tnext[tkey()]=[];tsave();return tutorModal()}
       case "tutor-mic":return startRec();
       case "tutor-reclang":{stopRec();tutor.recLang[tutor.subject]=(recIdx()+1)%TUTOR_SUBJ[tutor.subject].rec.length;const x=$("trl");if(x)x.textContent="🎙 لغة التسجيل: "+recCur()[1];return}
       case "tutor-auto":{autoSpeak=!autoSpeak;try{localStorage.setItem("hero-tutor-auto",autoSpeak?"on":"off")}catch{}b.classList.toggle("on",autoSpeak);b.textContent=autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا";if(!autoSpeak)stopSpeak();return}

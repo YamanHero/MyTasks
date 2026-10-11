@@ -678,3 +678,7 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .ktck.on .edbox{background:var(--brand);color:#fff}
 
 .tt-rules{margin:10px 0 0;padding-inline-start:18px;display:grid;gap:4px;line-height:1.6}
+
+.tpath{margin:8px 0 2px;padding:10px 12px;border-radius:14px;background:var(--tint);display:grid;gap:3px;font-size:.92rem;line-height:1.6}
+.tsay.busy{opacity:.6}
+.tsay.on{color:var(--brand-d)}
