@@ -3621,6 +3621,7 @@ app.post("/api/family/tutor", asyncRoute(async (req, res) => {
   try {
     const raw = await claudeChat({ system: tutorSystemPrompt(subject, member, progress), messages });
     const out = parseTutorReply(raw);
+    if (out.reply && ttsAvailable()) speechScript(speechText(out.reply)).catch(() => {});
     const saved = out.progress ? await saveTutorProgress(assignee, subject, out.progress, messages.length === 1) : progress;
     res.json({ reply: out.reply || "لم أستطع الإجابة. جرّب أن تكتب سؤالك بطريقة أخرى.", chips: out.chips, progress: saved });
   } catch (error) {
@@ -3638,15 +3639,50 @@ const ttsCache = new Map();
 function ttsAvailable() {
   return Boolean(process.env.OPENAI_API_KEY) && Date.now() > ttsSkipUntil;
 }
-function speechText(text) {
+function speechText(text, max = 1800) {
   return String(text || "")
     .replace(/\[[^\]]*\]/g, " ")
     .replace(/[*#_`]/g, "")
     .replace(/\p{Extended_Pictographic}|️|‍/gu, "")
     .replace(/[ \t]+/g, " ")
     .trim()
-    .slice(0, 1800);
+    .slice(0, max);
 }
+/* The speech model guesses vowels on undiacritized Arabic and often gets them wrong, so before
+   speaking we ask Claude for a fully vowelled reading script (tashkeel, numbers and math in words). */
+const TTS_PREP_MODEL = process.env.TTS_PREP_MODEL || ANTHROPIC_MODEL;
+const scriptCache = new Map();
+const SPEECH_SCRIPT_PROMPT = [
+  "أنت محرّر نصوص للقراءة الصوتية. ستصلك رسالة معلّم لطالب، وستُقرأ بصوت آلي لا يعرف الحركات وحده.",
+  "حوّلها إلى نص قراءة صوتية بالقواعد التالية:",
+  "1) شكّل كل كلمة عربية تشكيلاً كاملاً صحيحاً على كل حرف، مع حركات الإعراب في أواخر الكلمات وفق موقعها في الجملة، والشدّة والتنوين وهمزات القطع. اعتمد العربية الفصحى المعاصرة.",
+  "2) اكتب الأرقام والكسور والرموز بكلمات عربية مشكولة حسب السياق: 3/4 ← ثَلَاثَةُ أَرْبَاعٍ، 1/2 ← نِصْفٌ، × ← ضَرْبُ، ÷ ← قِسْمَةُ، + ← زَائِدُ، − أو - في الحساب ← نَاقِصُ، = ← يُسَاوِي، x² ← إِكْس تَرْبِيعُ، √ ← الْجَذْرُ التَّرْبِيعِيُّ لِـ، ؟ في معادلة ← كَمْ؟. الأعداد الكبيرة بالكلمات.",
+  "3) أبقِ كل كلمة أو جملة عبرية أو فرنسية أو إنجليزية كما هي بحروفها الأصلية تماماً دون تغيير أو نقل حرفي.",
+  "4) احذف ما بين الأقواس المربعة [ ] (النطق المكتوب بالحروف العربية) واحذف الرموز التعبيرية والنجوم والعلامات.",
+  "5) لا تضف أي كلمة ولا تحذف أي معنى، ولا تشرح ولا تعلّق. حافظ على ترتيب الجمل وعلامات الترقيم وفواصل الأسطر.",
+  "أعد نص القراءة فقط، دون أي مقدمة."
+].join("\n");
+function speechScript(text) {
+  const key = crypto.createHash("sha256").update(text).digest("hex");
+  if (scriptCache.has(key)) return scriptCache.get(key);
+  const job = (async () => {
+    if (!isAnthropicConfigured() || !/[\u0600-\u06FF]/.test(text)) return text;
+    try {
+      const out = await claudeChat({ system: SPEECH_SCRIPT_PROMPT, messages: [{ role: "user", content: text }], maxTokens: 2000, timeoutMs: 25000, model: TTS_PREP_MODEL });
+      const clean = speechText(out, 4000);
+      // sanity: the script must keep roughly the same content
+      return clean && clean.length > text.length * 0.6 && clean.length < text.length * 3.2 ? clean : text;
+    } catch (error) {
+      console.warn("Speech script failed; reading raw text:", error.message);
+      return text;
+    }
+  })();
+  scriptCache.set(key, job);
+  job.then((v) => { if (v === text) scriptCache.delete(key); });
+  if (scriptCache.size > 200) scriptCache.delete(scriptCache.keys().next().value);
+  return job;
+}
+
 app.post("/api/family/tutor/speak", asyncRoute(async (req, res) => {
   const assignee = String(req.body?.assignee || "").toLowerCase();
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
@@ -3655,23 +3691,24 @@ app.post("/api/family/tutor/speak", asyncRoute(async (req, res) => {
   const text = speechText(req.body?.text);
   if (!text) throw new PublicError(400, "لا يوجد نص للقراءة.");
   if (!ttsAvailable()) throw new PublicError(503, "الصوت الطبيعي غير متاح الآن.");
-  const key = crypto.createHash("sha256").update(`${TTS_MODEL}|${TTS_VOICE}|${subject}|${text}`).digest("hex");
+  const key = crypto.createHash("sha256").update(`v2|${TTS_MODEL}|${TTS_VOICE}|${subject}|${text}`).digest("hex");
   let audio = ttsCache.get(key);
   if (!audio) {
     if (!rateLimit(speakHits, assignee, 150)) throw new PublicError(429, "استمعنا كثيراً في هذه الساعة. يمكنك قراءة الرد بنفسك.");
     const pr = tutorProfile(FAMILY_MEMBERS[assignee]);
     const other = TUTOR_SUBJECTS[subject].speakLang;
+    const script = await speechScript(text);
     const instructions = [
-      `You are a warm, patient Arab teacher reading your message aloud to ${pr.little ? "a young child" : "a teenage student"}.`,
-      "Speak the Arabic parts in clear, natural Modern Standard Arabic with a soft Levantine (Palestinian) accent — not a robotic or news-anchor tone. Pause naturally between sentences.",
-      other !== "Arabic" ? `Pronounce every ${other} word or sentence with native ${other} pronunciation, a little slower, as a language teacher modelling it for the student.` : "",
-      "Read math naturally in Arabic: 3/4 is «ثلاثة أرباع», × is «ضرب», ÷ is «قسمة», = is «يساوي», x² is «إكس تربيع».",
-      pr.asd ? "Use a calm, even, predictable tone with no exaggerated excitement." : "Sound friendly and encouraging."
+      "Language: Arabic. Speak as a native Arabic-speaking teacher, in clear standard Arabic (فصحى) with a native Arab accent — never an English or foreign accent.",
+      "The Arabic text is fully vowelled: pronounce every word exactly as its diacritics (tashkeel) indicate, including case endings, shadda and tanween. Pronounce ع ح ق خ غ ص ض ط ظ as true Arabic sounds.",
+      other !== "Arabic" ? `When a word or sentence is written in ${other} script, switch to native ${other} pronunciation for it, a little slower, as a language teacher modelling it, then return to Arabic.` : "",
+      `Pace: moderate and clear for ${pr.little ? "a young child" : "a teenage student"}, with natural pauses at commas and line breaks.`,
+      pr.asd ? "Tone: calm, even and predictable, no exaggerated excitement." : "Tone: warm and encouraging."
     ].filter(Boolean).join(" ");
     const response = await fetchWithTimeout("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: text, instructions, response_format: "mp3" })
+      body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: script, instructions, response_format: "mp3" })
     }, 45000);
     if (!response.ok) {
       const body = await readResponseBody(response);
