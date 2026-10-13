@@ -682,3 +682,14 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .tpath{margin:8px 0 2px;padding:10px 12px;border-radius:14px;background:var(--tint);display:grid;gap:3px;font-size:.92rem;line-height:1.6}
 .tsay.busy{opacity:.6}
 .tsay.on{color:var(--brand-d)}
+
+/* التقويم الهجري والمناسبات الإسلامية */
+.cal-hj{font-size:.62rem;font-weight:700;color:var(--muted);line-height:1;margin-top:-2px}
+.cal-hjt{display:block;font-size:.74rem;font-weight:700;color:var(--muted);margin-top:2px}
+.cal-c.oc1{background:color-mix(in srgb,#e0a100 20%,#fff);box-shadow:inset 0 0 0 1.5px #e0a100}
+.cal-c.oc2{background:color-mix(in srgb,#12a37a 10%,#fff)}
+.cal-c.oc1.sel,.cal-c.oc2.sel{box-shadow:inset 0 0 0 3px var(--brand)}
+.cal-hjday{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-weight:800;font-size:.9rem}
+.cal-hjday .chip{font-size:.8rem}
+.cal-occ{width:100%;font:inherit;text-align:right;color:inherit;cursor:pointer;background:#fff;border:1px solid var(--line);border-inline-start:5px solid #12a37a}
+.cal-occ.main{border-inline-start-color:#e0a100;background:color-mix(in srgb,#e0a100 10%,#fff)}

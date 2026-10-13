@@ -390,6 +390,37 @@
   }
   const EVC=id=>id==="yaman"?"#0891b2":id==="judy"?"#d6246e":id==="family"?"#e0a100":"#12a37a";
   const evName=id=>id==="family"?"كل العائلة":(PEOPLE[id]?.name||"");
+  /* ---- التقويم الهجري والمناسبات الإسلامية (حساب محلي بتقويم أم القرى؛ قد يختلف يومًا حسب رؤية الهلال) ---- */
+  const HJ_F=(()=>{try{return new Intl.DateTimeFormat("en-u-ca-islamic-umalqura-nu-latn",{day:"numeric",month:"numeric",year:"numeric"})}catch(e){return null}})();
+  const HJ_M=["محرم","صفر","ربيع الأول","ربيع الآخر","جمادى الأولى","جمادى الآخرة","رجب","شعبان","رمضان","شوال","ذو القعدة","ذو الحجة"];
+  const hjCache={};
+  function hj(ds){
+    if(!HJ_F)return null;if(hjCache[ds])return hjCache[ds];
+    try{const p=HJ_F.formatToParts(new Date(ds+"T12:00:00")),g=t=>+(p.find(x=>x.type===t)||{}).value;
+      const r={d:g("day"),m:g("month"),y:g("year")};return r.d&&r.m&&r.y?(hjCache[ds]=r):null}catch(e){return null}
+  }
+  const ar=n=>Number(n).toLocaleString("ar-EG",{useGrouping:false});
+  const hjText=h=>h?`${ar(h.d)} ${HJ_M[h.m-1]} ${ar(h.y)} هـ`:"";
+  /* lv 1 = رئيسية، lv 2 = إضافية */
+  function occasions(h){
+    if(!h)return[];const o=[],{d,m}=h;
+    if(m===1&&d===1)o.push({t:"رأس السنة الهجرية",i:"🌙",lv:1});
+    if(m===1&&d===9)o.push({t:"تاسوعاء",i:"🤍",lv:2});
+    if(m===1&&d===10)o.push({t:"يوم عاشوراء",i:"🌙",lv:1});
+    if(m===3&&d===12)o.push({t:"المولد النبوي الشريف",i:"🌙",lv:1});
+    if(m===7&&d===27)o.push({t:"الإسراء والمعراج",i:"🌙",lv:1});
+    if(m===8&&d===15)o.push({t:"ليلة النصف من شعبان",i:"🤍",lv:2});
+    if(m===9&&d===1)o.push({t:"أول أيام رمضان",i:"🌙",lv:1});
+    if(m===9&&d>=21&&d%2===1)o.push(d===27?{t:"ليلة القدر (ليلة ٢٧ – الأرجح)",i:"✨",lv:2}:{t:"ليلة وترية من العشر الأواخر",i:"✨",lv:2});
+    if(m===10&&d>=1&&d<=3)o.push({t:d===1?"عيد الفطر المبارك":`عيد الفطر – اليوم ${["","الأول","الثاني","الثالث"][d]}`,i:"🎉",lv:1});
+    if(m===12&&d>=1&&d<=9)o.push(d===9?{t:"يوم عرفة",i:"🌙",lv:1}:{t:d===1?"أول العشر من ذي الحجة":"من العشر الأوائل من ذي الحجة",i:"🤍",lv:2});
+    if(m===12&&d>=10&&d<=13)o.push(d===10?{t:"عيد الأضحى المبارك",i:"🎉",lv:1}:{t:`أيام التشريق (${ar(d-10)})`,i:"🤍",lv:2});
+    if(d>=13&&d<=15&&!(m===12&&d>=13)&&!(m===9&&d>15))o.push({t:`الأيام البيض – ${ar(d)} ${HJ_M[m-1]}`,i:"🤍",lv:2});
+    if(d===1&&![1,9,10,12].includes(m))o.push({t:`غرّة ${HJ_M[m-1]}`,i:"🤍",lv:2});
+    return o;
+  }
+  const islamOn=()=>{try{return localStorage.getItem("hf_islam")!=="0"}catch(e){return true}};
+  const hjMonthTitle=(a,b)=>{if(!a||!b)return"";const x=HJ_M[a.m-1],y=HJ_M[b.m-1];return a.m===b.m&&a.y===b.y?`${x} ${ar(a.y)} هـ`:(a.y===b.y?`${x} – ${y} ${ar(a.y)} هـ`:`${x} ${ar(a.y)} – ${y} ${ar(b.y)} هـ`)};
   async function loadCal(){
     const [y,m]=cal.month.split("-").map(Number);
     const from=`${cal.month}-01`,to=`${cal.month}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
@@ -408,15 +439,22 @@
     const whoTabs=`<div class="ktabs" role="tablist">${KIDS.map(k=>`<button type="button" role="tab" aria-selected="${who===k}" class="${who===k?"on":""}" data-action="cal-who" data-k="${k}" style="--kc:${EVC(k)}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}</button>`).join("")}<button type="button" role="tab" aria-selected="${who==="all"}" class="${who==="all"?"on":""}" data-action="cal-who" data-k="all" style="--kc:var(--brand)">الكل</button></div>`;
     const names=["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"];
     let cells=names.map(n=>`<div class="cal-h">${n}</div>`).join("");
+    const isl=islamOn(),monthOcc=[];
     for(let i=0;i<lead;i++)cells+=`<div class="cal-c off"></div>`;
     for(let d=1;d<=days;d++){
       const ds=`${cal.month}-${String(d).padStart(2,"0")}`,ev=by[ds]||[],ts=tk[ds]||[];
       const colors=[...new Set(ev.map(e=>e.assignee))].slice(0,4);
       const fp=t=>t.type==="prayer"&&t.source==="prayer";const prDone=ts.filter(t=>fp(t)&&t.done).length,prAll=ts.filter(fp).length;
       const bars=(kid?[kid]:KIDS).map(k=>{const l=ts.filter(t=>t.assignee===k&&t.type!=="prayer"&&t.type!=="school");if(!l.length)return"";const done=l.filter(t=>t.done).length;return `<u style="--kc:${EVC(k)};--w:${Math.round(done/l.length*100)}%" title="${esc(PEOPLE[k].name)} ${done}/${l.length}"></u>`}).join("");
-      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""}" data-action="cal-day" data-d="${ds}" aria-label="${d}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b><span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span>${prAll&&who!=="all"?`<small class="cal-pr ${prDone===prAll?"all":""}">🕌${prDone}/${prAll}</small>`:""}</button>`;
+      const hd=isl?hj(ds):null,oc=hd?occasions(hd):[],ocMain=oc.some(x=>x.lv===1),ocAny=oc.length>0;
+      if(hd&&oc.length)monthOcc.push({ds,d,hd,oc});
+      cells+=`<button type="button" class="cal-c ${ds===today()?"today":""} ${ds===cal.sel?"sel":""} ${(ev.length||ts.length)?"has":""} ${ocMain?"oc1":(ocAny?"oc2":"")}" data-action="cal-day" data-d="${ds}" aria-label="${d}${hd?`، ${hjText(hd)}`:""}${oc.length?`، ${oc.map(x=>x.t).join("، ")}`:""}، ${ev.length} مواعيد، ${ts.length} مهام"><b>${d}</b>${hd?`<small class="cal-hj">${ar(hd.d)}</small>`:""}<span class="cal-dots">${colors.map(c=>`<i style="background:${EVC(c)}"></i>`).join("")}</span><span class="cal-bars">${bars}</span>${prAll&&who!=="all"?`<small class="cal-pr ${prDone===prAll?"all":""}">🕌${prDone}/${prAll}</small>`:""}</button>`;
     }
     const title=first.toLocaleDateString("ar",{month:"long",year:"numeric"});
+    const hjSub=isl?hjMonthTitle(hj(`${cal.month}-01`),hj(`${cal.month}-${String(days).padStart(2,"0")}`)):"";
+    const monthOccHtml=isl&&monthOcc.length?`<details class="fold" style="margin-top:10px"><summary>🌙 المناسبات الإسلامية هذا الشهر (${monthOcc.length})</summary><div style="margin-top:8px">${monthOcc.map(x=>`<button type="button" class="cal-ev cal-occ ${x.oc.some(o=>o.lv===1)?"main":""}" data-action="cal-day" data-d="${x.ds}"><div class="cal-t">${x.d}</div><div style="flex:1;min-width:0"><div class="t-title">${x.oc.map(o=>`${o.i} ${esc(o.t)}`).join(" · ")}</div><div class="muted small">${esc(hjText(x.hd))}</div></div></button>`).join("")}</div></details>`:"";
+    const selH=isl?hj(cal.sel):null,selOc=selH?occasions(selH):[];
+    const selHtml=selH?`<div class="cal-hjday"><span>🌙 ${esc(hjText(selH))}</span>${selOc.map(o=>`<b class="chip ${o.lv===1?"gold":""}">${o.i} ${esc(o.t)}</b>`).join("")}</div>`:"";
     const legend=[["family","كل العائلة"],...(kid?[kid]:KIDS).map(k=>[k,PEOPLE[k].name])].map(([k,l])=>`<span class="cal-lg"><i style="background:${EVC(k)}"></i>${esc(l)}</span>`).join("");
     const dayEv=(by[cal.sel]||[]).map(e=>({k:"ev",time:e.time,o:e})),dayTk=(tk[cal.sel]||[]).map(t=>({k:"tk",time:t.time,o:t}));
     const items=[...dayEv,...dayTk].sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99")||(a.k==="ev"?-1:1));
@@ -426,7 +464,7 @@
     const prs=items.filter(x=>x.k==="tk"&&x.o.type==="prayer"&&x.o.source==="prayer"),prDn=prs.filter(x=>x.o.done).length;
     const prSum=prs.length?`<div class="cal-prsum"><span>🕌 الصلوات: ${prDn} من ${prs.length}</span><i aria-hidden="true">${prs.map(x=>`<u class="${x.o.done?"on":""}"></u>`).join("")}</i></div>`:"";
     const dayHtml=items.length?items.map(row).join(""):`<div class="empty" style="padding:14px 0"><b>🗓</b>لا مواعيد ولا مهام في هذا اليوم</div>`;
-    return `<article class="card">${kid?"":whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}${kid?"":`<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label>`}</div></article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${prSum}${dayHtml}${quoteHtml(quoteFor(cal.sel,"effort"))}${kid?"":`<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div>`}</article>`;
+    return `<article class="card">${kid?"":whoTabs}<div class="cal-nav" style="margin-top:12px"><button class="icon-btn" data-action="cal-nav" data-n="1" aria-label="الشهر التالي">›</button><h2>${title}${hjSub?`<small class="cal-hjt">${esc(hjSub)}</small>`:""}</h2><button class="icon-btn" data-action="cal-nav" data-n="-1" aria-label="الشهر السابق">‹</button></div><div class="cal-grid">${cells}</div><div class="cal-legend">${legend}<label class="cal-tg"><input type="checkbox" data-action="cal-islam" ${isl?"checked":""}> 🌙 التقويم الهجري</label>${kid?"":`<label class="cal-tg"><input type="checkbox" data-action="cal-tasks" ${cal.showTasks?"checked":""}> إظهار المهام</label>`}</div>${monthOccHtml}</article><article class="card"><div class="card-title"><h2>${dayLabel(cal.sel)}</h2><span class="count">${items.length}</span></div>${selHtml}${prSum}${dayHtml}${quoteHtml(quoteFor(cal.sel,"effort"))}${kid?"":`<div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-action="add-task" data-who="${who==="all"?KIDS[0]:who}" data-d="${cal.sel}">＋ مهمة</button><button class="btn btn-line" data-action="add-event" data-d="${cal.sel}">＋ موعد</button></div>`}</article>`;
   }
   function eventsView(){
     const events=dashboard.events||[];
@@ -931,6 +969,7 @@
       case "pkid":pkid=b.dataset.k;return render();
       case "cal-who":cal.who=b.dataset.k;return render();
       case "cal-tasks":cal.showTasks=!cal.showTasks;return render();
+      case "cal-islam":{try{localStorage.setItem("hf_islam",islamOn()?"0":"1")}catch(e){}return render()}
       case "cal-day":cal.sel=b.dataset.d;return render();
       case "kid-task":return kidTaskModal(b.dataset.id);
       case "kl-day":{const nd=dayShift(cal.sel||today(),Number(b.dataset.n));cal.sel=nd;if(nd.slice(0,7)!==cal.month){cal.month=nd.slice(0,7);render();return loadCal()}return render()}
