@@ -1000,6 +1000,17 @@ async function ensureFamilyDatabase() {
         CREATE INDEX IF NOT EXISTS hero_family_tasks_assignee_date_idx
           ON hero_family_tasks (assignee, due_date, done);
 
+        CREATE TABLE IF NOT EXISTS hero_family_manual_stars (
+          id UUID PRIMARY KEY,
+          member TEXT NOT NULL,
+          star_date DATE NOT NULL,
+          icon TEXT NOT NULL DEFAULT '⭐',
+          title TEXT NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS hero_family_manual_stars_member_date ON hero_family_manual_stars (member, star_date);
+
         CREATE TABLE IF NOT EXISTS hero_family_events (
           id UUID PRIMARY KEY,
           assignee TEXT NOT NULL CHECK (assignee IN ('yaman', 'judy', 'family')),
@@ -2635,7 +2646,14 @@ async function computeMemberStats(member, today) {
     { id: "prayer", icon: "🕌", title: "نجم الصلاة", hint: "الصلوات الخمس كاملة في ثلاثة أيام من الأسبوع", earned: fullPrayerDays >= 3, progress: `${Math.min(fullPrayerDays, 3)} من 3 أيام` },
     { id: "study", icon: "📚", title: "نجم العلم", hint: "إنجاز كل مهام الدراسة في ثلاثة أيام من الأسبوع", earned: fullStudyDays >= 3, progress: `${Math.min(fullStudyDays, 3)} من 3 أيام` }
   ];
-  const stars = badges.filter((b) => b.earned).length;
+  // Stars a parent grants by hand count for the same seven days as the automatic ones.
+  const { rows: manualRows } = await pool.query(
+    `SELECT id, star_date, icon, title, note FROM hero_family_manual_stars WHERE member = $1 AND star_date BETWEEN $2 AND $3 ORDER BY star_date DESC, created_at DESC`,
+    [member, addDaysToDateKey(today, -6), today]
+  );
+  const manual = manualRows.map((r) => ({ id: r.id, date: pgDateKey(r.star_date), icon: r.icon, title: r.title, note: r.note }));
+  const autoStars = badges.filter((b) => b.earned).length;
+  const stars = autoStars + manual.length;
   const level = STAR_LEVELS.find((l) => stars >= l.min);
   const t = by[today];
   return {
@@ -2644,7 +2662,7 @@ async function computeMemberStats(member, today) {
     week: { rate: weekRate, done: sum(thisWeek, "done"), total: sum(thisWeek, "total"), prayersDone: sum(thisWeek, "pDone"), prayersTotal: sum(thisWeek, "pTotal") },
     prev: { rate: prevRate }, delta, streak,
     series: days.slice(7).map((d) => ({ date: d, rate: dayRate(d), total: by[d].total, pending: d === today && !includeToday })),
-    badges, stars, level: { label: level.label, icon: level.icon }
+    badges, manual, autoStars, stars, level: { label: level.label, icon: level.icon }
   };
 }
 
@@ -2941,6 +2959,33 @@ app.get("/api/family/calendar-tasks", asyncRoute(async (req, res) => {
     params
   );
   res.json({ tasks: rows.map(mapFamilyTask).map((t) => ({ ...t, time: t.suggestedTime || "", timer: t.timerMinutes || 0 })) });
+}));
+
+app.post("/api/family/stars", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  const member = String(req.body?.member || "").toLowerCase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "اختر لمن النجمة.");
+  const title = String(req.body?.title || "").trim().slice(0, 80);
+  if (!title) throw new PublicError(400, "اكتب سبب النجمة.");
+  const icon = String(req.body?.icon || "⭐").trim().slice(0, 8) || "⭐";
+  const note = String(req.body?.note || "").trim().slice(0, 200);
+  const date = familyDateKey(req.body?.date);
+  const id = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO hero_family_manual_stars (id, member, star_date, icon, title, note) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, member, date, icon, title, note]
+  );
+  res.status(201).json({ star: { id, member, date, icon, title, note } });
+}));
+
+app.delete("/api/family/stars/:id", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensureFamilyDatabase();
+  if (!/^[0-9a-f-]{36}$/i.test(String(req.params.id || ""))) throw new PublicError(400, "معرّف غير صالح.");
+  const result = await pool.query("DELETE FROM hero_family_manual_stars WHERE id = $1", [req.params.id]);
+  if (!result.rowCount) throw new PublicError(404, "لم نجد هذه النجمة.");
+  res.status(204).end();
 }));
 
 app.delete("/api/family/events/:id", asyncRoute(async (req, res) => {

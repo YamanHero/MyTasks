@@ -275,12 +275,29 @@
   function weekBars(series,color){return `<div class="wbars" role="img" aria-label="إنجاز الأيام السبعة الأخيرة">${series.map(d=>{const h=d.rate===null?6:Math.max(8,d.rate);return `<div class="wb"><i style="height:${h}%;${d.rate===null?"opacity:.25;":d.pending?"opacity:.45;":""}background:${color}"></i><small>${DAY_S[new Date(d.date+"T12:00:00").getDay()]}</small><em>${d.rate===null?"":d.pending?"اليوم":d.rate+"%"}</em></div>`}).join("")}</div>`}
   function deltaHtml(st){if(st.delta===null)return `<span class="dlt flat">نقارن بالأسبوع الماضي بعد أسبوعين</span>`;if(st.delta>0)return `<span class="dlt up">▲ تحسن ${st.delta} نقطة عن الأسبوع الماضي</span>`;if(st.delta<0)return `<span class="dlt down">▼ ${Math.abs(st.delta)} نقطة أقل من الأسبوع الماضي. نبدأ يومًا جديدًا</span>`;return `<span class="dlt flat">ثبات مثل الأسبوع الماضي</span>`}
   function badgesHtml(st){return `<div class="bdg">${st.badges.map(b=>`<div class="bd ${b.earned?"on":""}" title="${esc(b.hint)}"><span class="bd-i" aria-hidden="true">${b.icon}</span><b>${esc(b.title)}</b><small>${b.earned?"حصلت عليه ✓":esc(b.progress)}</small></div>`).join("")}</div>`}
+  const STAR_PRESETS=[["⭐","تميّز"],["🤝","تعاون ومساعدة"],["🧹","مساعدة في البيت"],["💪","صبر وتحمّل"],["📚","اجتهاد في الدراسة"],["😊","أخلاق حسنة"],["🎯","التزام بالوقت"],["🌟","إنجاز خاص"]];
+  function manualStarsHtml(st,parent){
+    const list=st.manual||[];
+    const rows=list.map(x=>`<div class="mstar"><span class="bd-i" aria-hidden="true">${esc(x.icon)}</span><div style="flex:1;min-width:0"><b>${esc(x.title)}</b><small class="muted">${dayLabel(x.date)}${x.note?` · ${esc(x.note)}`:""}</small></div>${parent?`<button class="icon-btn" data-action="delete-star" data-id="${x.id}" aria-label="حذف النجمة: ${esc(x.title)}">🗑</button>`:""}</div>`).join("");
+    const add=parent?`<button class="btn btn-soft btn-sm" style="margin-top:10px" data-action="add-star" data-who="${st.id}">＋ امنح نجمة لـ${esc(st.name)}</button>`:"";
+    if(!list.length&&!parent)return "";
+    return `<h4 class="sh">نجوم من الوالدين${list.length?` (${list.length})`:""}</h4>${list.length?`<div class="mstars">${rows}</div>`:`<p class="muted small" style="margin:0">لا نجوم يدوية هذا الأسبوع.</p>`}${add}`;
+  }
+  function starModal(who){
+    const k=KIDS.includes(who)?who:KIDS[0];
+    modal("⭐ نجمة يدوية",`<form class="form" id="starForm">
+      <label class="field"><span>لمن؟</span><select id="starMember">${KIDS.map(x=>`<option value="${x}" ${x===k?"selected":""}>${esc(PEOPLE[x].name)}</option>`).join("")}</select></label>
+      <div><span class="label">نوع النجمة</span><div class="starpick" role="radiogroup">${STAR_PRESETS.map(([i,t],n)=>`<label><input type="radio" name="starPreset" value="${n}" ${n===0?"checked":""}><span><b aria-hidden="true">${i}</b>${esc(t)}</span></label>`).join("")}</div></div>
+      <label class="field"><span>السبب (اختياري)</span><input id="starNote" type="text" maxlength="200" placeholder="مثال: ساعد أخته في الواجب" autocomplete="off"></label>
+      <button class="btn btn-primary btn-big" type="submit">امنح النجمة</button>
+    </form>`);
+  }
   function statCard(st){
     const color=PEOPLE[st.id]?.color||"#4f46e5";
-    return `<article class="card stat" style="--sc:${color}"><div class="kid-head"><div class="av" aria-hidden="true" style="background:${color}">${st.icon}</div><div style="flex:1;min-width:0"><h3>${esc(st.name)}</h3><div class="muted small">${st.level.icon} ${esc(st.level.label)} · ${st.stars} من ${st.badges.length} نجوم</div></div></div>
+    return `<article class="card stat" style="--sc:${color}"><div class="kid-head"><div class="av" aria-hidden="true" style="background:${color}">${st.icon}</div><div style="flex:1;min-width:0"><h3>${esc(st.name)}</h3><div class="muted small">${st.level.icon} ${esc(st.level.label)} · ${st.stars} ${st.stars===1?"نجمة":"نجوم"} هذا الأسبوع${st.manual?.length?` (منها ${st.manual.length} من الوالدين)`:""}</div></div></div>
       <div class="stat-top"><div class="ringbox">${bigRing(st.week.rate,color)}<b>${rateTxt(st.week.rate)}</b><small>هذا الأسبوع</small></div>
       <div class="stat-side"><div class="sline"><span>اليوم</span><b>${st.today.total?`${st.today.done}/${st.today.total} · ${rateTxt(st.today.rate)}`:"لا مهام"}</b></div><div class="sline"><span>الصلوات (الأسبوع)</span><b>${st.week.prayersTotal?`${st.week.prayersDone}/${st.week.prayersTotal}`:"—"}</b></div><div class="sline"><span>أيام متتالية ممتازة</span><b>🔥 ${st.streak}</b></div></div></div>
-      ${deltaHtml(st)}${weekBars(st.series,color)}<h4 class="sh">النجوم</h4>${badgesHtml(st)}</article>`;
+      ${deltaHtml(st)}${weekBars(st.series,color)}<h4 class="sh">النجوم التلقائية</h4>${badgesHtml(st)}${manualStarsHtml(st,true)}</article>`;
   }
   function statsView(){
     if(!ach.length)return `<article class="card"><div class="empty"><b>📊</b>لا توجد بيانات بعد. أنجزوا بعض المهام وسترى النسب هنا.</div></article>`;
@@ -288,8 +305,7 @@
   }
   function kidStarsFold(m){
     const st=kidStats[m];if(!st)return "";
-    const earned=st.badges.filter(b=>b.earned);
-    return `<article class="card"><details class="fold"><summary>⭐ نجومي (${earned.length}/${st.badges.length})</summary><div style="margin-top:10px"><div class="sline"><span>إنجاز هذا الأسبوع</span><b>${rateTxt(st.week.rate)}</b></div>${deltaHtml(st)}${badgesHtml(st)}</div></details></article>`;
+    return `<article class="card"><details class="fold"><summary>⭐ نجومي هذا الأسبوع (${st.stars})</summary><div style="margin-top:10px"><div class="sline"><span>إنجاز هذا الأسبوع</span><b>${rateTxt(st.week.rate)}</b></div>${deltaHtml(st)}${badgesHtml(st)}${manualStarsHtml(st,false)}</div></details></article>`;
   }
   function appsCard(){
     if(!apps)return `<article class="card"><div class="card-title"><h2>🔒 خصوصية تطبيقاتي</h2></div><p class="muted">جارٍ التحميل…</p></article>`;
@@ -1022,6 +1038,9 @@
       });
       case "delete-task":return confirmModal("حذف المهمة؟",`«${b.dataset.title}» ستُحذف نهائياً.`,"do-delete-task",b.dataset.id);
       case "do-delete-task":return guard(b,async()=>{await api(`/api/family/tasks/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
+      case "add-star":return starModal(b.dataset.who);
+      case "delete-star":return confirmModal("حذف النجمة؟","ستُحذف هذه النجمة اليدوية من إنجاز الأسبوع.","do-delete-star",b.dataset.id);
+      case "do-delete-star":return guard(b,async()=>{await api(`/api/family/stars/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
       case "delete-event":return confirmModal("حذف الموعد؟","سيُحذف هذا الموعد من جدول العائلة.","do-delete-event",b.dataset.id);
       case "do-delete-event":return guard(b,async()=>{await api(`/api/family/events/${b.dataset.id}`,{method:"DELETE"});close();await refresh();toast("تم الحذف")});
       case "plan":return planModal();
@@ -1073,7 +1092,7 @@
   });
 
   document.addEventListener("submit",async e=>{
-    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm","memberForm","memberPinForm","schoolForm"].includes(id))return;
+    const id=e.target.id;if(!["taskForm","eventForm","planForm","prayerForm","memberForm","memberPinForm","schoolForm","starForm"].includes(id))return;
     e.preventDefault();const btn=e.target.querySelector("[type=submit]");
     if(id==="taskForm")return guard(btn,async()=>{
       syncDraft();if(!draft.title.trim())return toast("اكتب المهمة أولاً.","err");
@@ -1103,6 +1122,11 @@
     if(id==="memberPinForm")return guard(btn,async()=>{
       await api(`/api/family/members/${e.target.dataset.id}/pin`,{method:"POST",body:JSON.stringify({pin:$("mNewPin").value})});
       close();toast("تم تغيير الرمز ✓","ok");
+    });
+    if(id==="starForm")return guard(btn,async()=>{
+      const n=Number(e.target.querySelector("input[name=starPreset]:checked")?.value||0),[icon,title]=STAR_PRESETS[n]||STAR_PRESETS[0],who=$("starMember").value;
+      await api("/api/family/stars",{method:"POST",body:JSON.stringify({member:who,icon,title,note:$("starNote").value,date:today()})});
+      close();await refresh();toast(`مُنحت نجمة ${icon} لـ${PEOPLE[who]?.name||""} ✓`,"gold");
     });
     if(id==="eventForm")return guard(btn,async()=>{
       await api("/api/family/events",{method:"POST",body:JSON.stringify({assignee:$("eventMember").value,title:$("eventTitle").value,date:$("eventDate").value,time:$("eventTime").value})});
