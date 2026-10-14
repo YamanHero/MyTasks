@@ -3781,6 +3781,7 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Hero Family is running on port ${PORT}`);
+  try { require("./bedtime-whatsapp").startBedtimeWhatsApp({ pool, timeZone: APP_TIME_ZONE }); } catch (e) { console.warn("bedtime whatsapp not started:", e.message); }
   loadServerTickTokens().then(() => {
     setTimeout(() => tickTickSync().catch(() => {}), 15000);
     setInterval(() => tickTickSync().catch(() => {}), TT_SYNC_MS);
