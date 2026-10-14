@@ -389,7 +389,7 @@
   let pkid=null;
   function kidTabs(){
     const cur=KIDS.includes(pkid)?pkid:KIDS[0];
-    return `<div class="ktabs" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em></button>`}).join("")}</div>`;
+    return `<div class="ktabs" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em>${st.total?`<small class="ktpct">${Math.round(st.done/st.total*100)}%</small>`:""}</button>`}).join("")}</div>`;
   }
   function kidCard(m,kid){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
@@ -402,7 +402,7 @@
       +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(R).join("")}</div></details>`:"")
       +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(R).join("")}</div></details>`:"")
       :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم${kid?"":`<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div>`}</div>`;
-    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div><span class="chip gold">⭐ ${pts}</span>${kid?"":`<button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button>`}</div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div>${kid?"":`<div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div>`}</article>`;
+    return `<article class="card kid-card" data-kid="${m}"><div class="kid-head"><div class="av" aria-hidden="true">${p.icon}</div><div style="flex:1"><h3>${p.name}</h3><div class="muted">${s.total?`${s.done} من ${s.total} منجزة`:"لا توجد مهام اليوم"}</div></div>${s.total?`<span class="chip ok pctchip" title="نسبة المهام المنجزة اليوم">${pct}%</span>`:""}<span class="chip gold">⭐ ${pts}</span>${kid?"":`<button class="pill pill-sm" data-area="${m}" aria-label="فتح شاشة ${p.name}">فتح ←</button>`}</div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="--w:${pct}%"></i></div><div class="list">${body}</div>${kid?"":`<div class="actions"><button class="btn btn-soft btn-sm" data-action="add-task" data-who="${m}">＋ مهمة لـ${p.name}</button><button class="btn btn-line btn-sm" data-area="${m}">شاهد كما يراها ←</button></div><div class="actions"><button class="btn btn-line btn-sm" data-action="program" data-who="${m}">📅 برنامج اليوم</button><button class="btn btn-line btn-sm" data-action="endday" data-member="${m}">🌙 تقرير نهاية اليوم</button></div>`}</article>`;
   }
   /* ---- Hijri (Umm al-Qura) dates and central religious occasions ---- */
   const HIJ=(()=>{try{return new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{day:"numeric",month:"numeric",year:"numeric",timeZone:"UTC"})}catch(e){return null}})();
@@ -502,7 +502,7 @@
     const isToday=d===today();
     return `<article class="card"><div class="cal-nav"><button class="icon-btn" data-action="kl-day" data-n="1" aria-label="اليوم التالي">›</button><h2>${isToday?"اليوم":dayLabel(d)}</h2><button class="icon-btn" data-action="kl-day" data-n="-1" aria-label="اليوم السابق">‹</button></div>
       ${isToday?"":`<button class="btn btn-soft btn-sm" style="margin:0 auto 8px;display:block" data-action="kl-today">العودة إلى اليوم</button>`}
-      ${real.length?`<div class="slim" role="status"><b>أنجزت ${done} من ${real.length}</b><i class="slim-bar" aria-hidden="true"><u style="width:${Math.round(done/real.length*100)}%"></u></i></div>`:""}
+      ${real.length?`<div class="slim" role="status"><b>أنجزت ${done} من ${real.length} · ${Math.round(done/real.length*100)}%</b><i class="slim-bar" aria-hidden="true"><u style="width:${Math.round(done/real.length*100)}%"></u></i></div>`:""}
       <div class="kl">${html||`<div class="empty" style="padding:18px 0"><b>🗓</b>لا مهام ولا مواعيد في هذا اليوم</div>`}</div></article>`;
   }
   function kidTaskModal(id){

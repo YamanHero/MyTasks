@@ -705,3 +705,6 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .starpick b{font-size:1.2rem}
 .starpick input:checked+span{border-color:var(--brand);background:var(--tint);box-shadow:inset 0 0 0 1.5px var(--brand)}
 .starpick input:focus-visible+span{outline:2px solid var(--brand);outline-offset:2px}
+
+.pctchip{font-size:1rem;font-weight:900}
+.ktabs .ktpct{margin-inline-start:6px;font-size:.78rem;font-weight:900;opacity:.75}
