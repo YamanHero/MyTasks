@@ -300,8 +300,8 @@
       ${deltaHtml(st)}${weekBars(st.series,color)}<h4 class="sh">النجوم التلقائية</h4>${badgesHtml(st)}${manualStarsHtml(st,true)}</article>`;
   }
   function statsView(){
-    if(!ach.length)return `<article class="card"><div class="empty"><b>📊</b>لا توجد بيانات بعد. أنجزوا بعض المهام وسترى النسب هنا.</div></article>`;
-    return ach.map(statCard).join("");
+    if(!ach.length)return `<article class="card"><div class="empty"><b>📊</b>لا توجد بيانات بعد. أنجزوا بعض المهام وسترى النسب هنا.</div></article>`+reportCard();
+    return ach.map(statCard).join("")+reportCard();
   }
   function kidStarsFold(m){
     const st=kidStats[m];if(!st)return "";
@@ -627,13 +627,17 @@
     const tones=soundOn?TONE_EVENTS.map(e=>`<div class="tonebox"><b>${e.n}</b><div class="muted small">${e.d}</div><div class="tonechips">${Object.entries(TONES).map(([id,t])=>`<button type="button" class="chip ${toneSel[e.k]===id?"on":""}" data-action="tone-pick" data-ev="${e.k}" data-id="${id}" aria-pressed="${toneSel[e.k]===id}">${t.n}</button>`).join("")}</div></div>`).join(""):"";
     modal("الإعدادات",`<div class="form">${row("calm",calm,"الوضع الهادئ","بدون حركة أو احتفالات، وبأقل قدر من المعلومات على الشاشة")}${row("sound",soundOn,"الأصوات","تشغيل أصوات الإنجاز والتنبيهات")}${tones?`<h4 class="tonehd">اختيار النغمات</h4><p class="muted small">اضغط على نغمة لسماعها واختيارها. «تلقائي» يتبع الوضع الهادئ.</p>${tones}`:""}</div>`);
   }
-  /* ---- AI tutor (math / Hebrew / French) with voice in + natural voice out ---- */
-  const tutor={m:"",subject:"math",busy:false,chats:{},recLang:{},rec:null,recOn:false};
+  /* ---- AI tutor: lessons, written practice (auto-graded), homework photo, voice in + natural voice out ---- */
+  const tutor={m:"",subject:"math",view:"chat",brk:false,img:"",busy:false,chats:{},recLang:{},rec:null,recOn:false};
   const TUTOR_SUBJ={
     math:{i:"🔢",n:"الرياضيات",chips:["ابدأ معي درساً","عندي واجب أحتاج مساعدة فيه","أعطني تمريناً على مستواي"],rec:[["ar-IL","العربية"]],lat:"en-US"},
+    science:{i:"🔬",n:"العلوم",chips:["ابدأ معي درساً","اشرح لي موضوعاً","عندي واجب أحتاج مساعدة فيه"],rec:[["ar-IL","العربية"]],lat:"en-US"},
+    arabic:{i:"📖",n:"العربية",chips:["ابدأ معي درساً","درّبني على القراءة والفهم","ساعدني في الإملاء","عندي واجب أحتاج مساعدة فيه"],rec:[["ar-IL","العربية"]],lat:"en-US"},
     hebrew:{i:"🗣️",n:"עברית",chips:["ابدأ معي درساً","علّمني كلمات جديدة","لنتحدث بالعبرية","عندي واجب أحتاج مساعدة فيه"],rec:[["he-IL","עברית"],["ar-IL","العربية"]],lat:"en-US"},
+    english:{i:"🇬🇧",n:"English",chips:["ابدأ معي درساً","علّمني كلمات جديدة","لنتحدث بالإنجليزية","عندي واجب أحتاج مساعدة فيه"],rec:[["en-US","English"],["ar-IL","العربية"]],lat:"en-US"},
     french:{i:"🇫🇷",n:"Français",chips:["ابدأ معي درساً","علّمني كلمات جديدة","لنتحدث بالفرنسية"],rec:[["fr-FR","Français"],["ar-IL","العربية"]],lat:"fr-FR"}
   };
+  const SAYS_LANG=["hebrew","french","english"];
   const tkey=()=>tutor.m+":"+tutor.subject;
   function tchat(){const k=tkey();if(!tutor.chats[k]){let v=[];try{v=JSON.parse(localStorage.getItem("hero-tutor-"+k)||"[]")}catch{}tutor.chats[k]=Array.isArray(v)?v:[]}return tutor.chats[k]}
   function tsave(){try{localStorage.setItem("hero-tutor-"+tkey(),JSON.stringify(tchat().slice(-24)))}catch{}}
@@ -642,45 +646,177 @@
   const progLine=p=>{if(!p||(!p.topic&&!p.next))return "";return `<div class="tpath">${p.topic?`<div><b>📍 وصلنا إلى:</b> ${esc(p.topic)}</div>`:""}${p.next?`<div><b>➡️ الخطوة التالية:</b> ${esc(p.next)}</div>`:""}${p.mastered&&p.mastered.length?`<div class="muted small">✓ أتقنت: ${esc(p.mastered.slice(-4).join("، "))}</div>`:""}</div>`};
   function chipsFor(){const k=tkey();if(tnext[k]&&tnext[k].length)return tnext[k];const S=TUTOR_SUBJ[tutor.subject],p=tprog[k];return p&&p.next?[`لنكمل: ${p.next}`.slice(0,60),"راجع معي ما تعلمته",...S.chips.slice(1,2)]:S.chips}
   const chipsHtml=()=>`<div class="tchips" id="tchips">${chipsFor().map(c=>`<button type="button" class="chip" data-action="tutor-chip" data-t="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
-  async function loadProgress(){const k=tkey();try{const r=await api(`/api/family/tutor/progress?assignee=${encodeURIComponent(tutor.m)}&subject=${tutor.subject}`);tprog[k]=r.progress||null;voiceOk=r.voice!==false}catch{}if(tkey()!==k||!$("tlog"))return;const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[k]);if(!tnext[k]){const c=$("tchips");if(c)c.outerHTML=chipsHtml()}}
+  async function loadProgress(){const k=tkey();try{const r=await api(`/api/family/tutor/progress?assignee=${encodeURIComponent(tutor.m)}&subject=${tutor.subject}`);tprog[k]=r.progress||null;voiceOk=r.voice!==false}catch{}if(tkey()!==k)return;if($("tlog")){const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[k]);if(!tnext[k]){const c=$("tchips");if(c)c.outerHTML=chipsHtml()}}const ps=$("pstart");if(ps&&pst().phase==="start")ps.outerHTML=pstartHtml()}
   const recIdx=()=>tutor.recLang[tutor.subject]||0;
   const recCur=()=>TUTOR_SUBJ[tutor.subject].rec[recIdx()%TUTOR_SUBJ[tutor.subject].rec.length];
   const tbubble=m=>`<div class="tb ${m.role==="user"?"me":"ai"}"><div class="tt" dir="auto">${esc(m.content)}</div>${m.role==="assistant"?`<button type="button" class="tsay" data-action="tutor-say" aria-label="استمع">🔊</button>`:""}</div>`;
   function tutorCard(m){
-    return `<article class="card tutorcard"><div class="card-title"><h2>🧑‍🏫 معلّمي الذكي</h2></div><p class="muted small">اسأل بالكتابة أو بالصوت 🎤 واختر المادة:</p><div class="tutbtns">${Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button class="btn btn-soft" data-action="tutor-open" data-member="${m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("")}</div></article>`;
+    return `<article class="card tutorcard"><div class="card-title"><h2>🧑‍🏫 معلّمي الذكي</h2></div><p class="muted small">اسأل بالكتابة أو بالصوت 🎤 أو صوّر صفحة الواجب 📷 واختر المادة:</p><div class="tutbtns">${Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button class="btn btn-soft" data-action="tutor-open" data-fresh="1" data-member="${m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("")}</div></article>`;
   }
-  function tutorModal(){
-    stopRec();stopSpeak();
-    const S=TUTOR_SUBJ[tutor.subject],msgs=tchat(),rc=recCur();
-    const sw=Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button type="button" class="${tutor.subject===k?"on":""}" data-action="tutor-open" data-member="${tutor.m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("");
-    modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs" role="group">${sw}</div><div id="tpathbox">${progLine(tprog[tkey()])}</div>
+
+  /* Yaman gets the same five session steps every time, shown on screen so nothing is a surprise. */
+  const isAsd=()=>tutor.m==="yaman";
+  const STEPS=["مراجعة","شرح","معاً","وحدك","ملخص"],tstep={};
+  const stepGet=k=>{if(tstep[k]===undefined){let v=0;try{v=Number(localStorage.getItem("hero-tutor-step-"+k))||0}catch{}tstep[k]=v}return tstep[k]};
+  const stepSet=(k,v)=>{tstep[k]=v;try{localStorage.setItem("hero-tutor-step-"+k,String(v))}catch{}};
+  const stepsHtml=()=>{if(!isAsd())return "";const c=stepGet(tkey());return `<div class="tsteps" id="tsteps" role="list" aria-label="خطوات الجلسة">${STEPS.map((s,i)=>`<span role="listitem" class="${i+1===c?"on":i+1<c?"done":""}"><b>${i+1}</b>${s}</span>`).join("")}</div>`};
+
+  /* ---- written practice: questions are generated and graded on the server ---- */
+  const prac={};
+  const pst=()=>prac[tkey()]||(prac[tkey()]={phase:"start",items:[],res:[],fbs:[],i:0,topic:"",id:"",busy:false,err:""});
+  const pdots=p=>`<div class="pdots" aria-hidden="true">${p.items.map((_,i)=>`<i class="${p.res[i]===true?"ok":p.res[i]===false?"no":i===p.i&&p.phase!=="sum"?"cur":""}"></i>`).join("")}</div>`;
+  function pstartHtml(){
+    const k=tkey(),S=TUTOR_SUBJ[tutor.subject],pr=tprog[k]||{},asd=isAsd(),p=pst();
+    const sugg=[pr.next,pr.topic].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).slice(0,2);
+    return `<div class="pbox" id="pstart"><div class="pt">${S.i} تمرين في ${esc(S.n)}</div>
+      <p class="muted">${asd?"٥ أسئلة بالضبط. بعد كل سؤال ترى الجواب الصحيح والشرح. لا يوجد وقت محدد.":"أسئلة قصيرة يُصحَّح جوابها فوراً، ثم ترى الشرح."}</p>
+      ${pr.lastPractice?`<div class="muted small">آخر تمرين: ${esc(pr.lastPractice)}</div>`:""}
+      ${pr.practiceMistakes&&pr.practiceMistakes.length?`<div class="muted small">سنضيف أسئلة تراجع بها ما أخطأت فيه سابقاً.</div>`:""}
+      ${p.err?`<div class="tt terr">${esc(p.err)}</div>`:""}
+      ${asd?"":`<input id="pTopic" class="pin" type="search" enterkeyhint="go" maxlength="80" placeholder="موضوع التمرين (اختياري)، مثل: الكسور" dir="auto" aria-label="موضوع التمرين"/>${sugg.length?`<div class="tchips">${sugg.map(t=>`<button type="button" class="chip" data-action="prac-topic" data-t="${esc(t)}">${esc(t.slice(0,40))}</button>`).join("")}</div>`:""}`}
+      <button type="button" class="btn btn-primary btn-big" data-action="prac-start">▶ ابدأ التمرين</button></div>`;
+  }
+  function pqHtml(){
+    const p=pst(),it=p.items[p.i],n=p.items.length;
+    const letters=["أ","ب","ج","د"];
+    const speak=SAYS_LANG.includes(tutor.subject)?`<button type="button" class="tsay" data-action="prac-say" aria-label="استمع إلى السؤال">🔊</button>`:"";
+    const inp=it.type==="choice"
+      ?`<div class="pchoices">${it.choices.map((c,i)=>`<button type="button" class="popt" data-action="prac-pick" data-i="${i}" ${p.busy?"disabled":""}><span class="pn">${letters[i]||i+1}</span><span dir="auto">${esc(c)}</span></button>`).join("")}</div>`
+      :`<div class="pans"><input id="pAns" type="text" class="pin" autocomplete="off" autocapitalize="off" spellcheck="false" dir="${it.type==="number"?"ltr":"auto"}" placeholder="اكتب الجواب" maxlength="80" aria-label="جوابك"/><button type="button" class="btn btn-primary" data-action="prac-check" ${p.busy?"disabled":""}>تحقّق</button></div>`;
+    return `<div class="pbox"><div class="pmeta"><b>السؤال ${p.i+1} من ${n}</b>${pdots(p)}</div><div class="pq"><div class="ptxt" dir="auto">${esc(it.q)}</div>${speak}</div>${inp}</div>`;
+  }
+  function pfbHtml(){
+    const p=pst(),f=p.fbs[p.i],n=p.items.length,last=p.i>=n-1,asd=isAsd(),ok=f.correct;
+    const head=ok?(asd?"✓ صحيح.":"✓ صحيح! أحسنت."):(asd?"✗ غير صحيح.":"✗ ليست صحيحة هذه المرة.");
+    return `<div class="pbox"><div class="pmeta"><b>السؤال ${p.i+1} من ${n}</b>${pdots(p)}</div><div class="pq"><div class="ptxt" dir="auto">${esc(p.items[p.i].q)}</div></div>
+      <div class="pfb ${ok?"ok":"no"}" role="status"><b>${head}</b>${ok?"":`${f.given?`<div>جوابك: <span dir="auto">${esc(f.given)}</span></div>`:""}<div>الجواب الصحيح: <span dir="auto">${esc(f.expected)}</span></div>`}${f.explain?`<div class="pexp">الشرح: ${esc(f.explain)}</div>`:""}</div>
+      <button type="button" class="btn btn-primary btn-big" data-action="prac-next">${last?"عرض النتيجة":"السؤال التالي"}</button></div>`;
+  }
+  function psumHtml(){
+    const p=pst(),n=p.items.length,c=p.res.filter(Boolean).length,asd=isAsd();
+    const miss=p.items.map((it,i)=>({it,f:p.fbs[i]})).filter(x=>x.f&&!x.f.correct);
+    const msg=asd?`أنهيت ${n} أسئلة. أجبت ${c} منها بشكل صحيح. تقدّمك محفوظ.`:c===n?"ممتاز! أجبت عن كل الأسئلة بشكل صحيح.":c/n>=.6?"جيد! وسنراجع الأسئلة التي أخطأت فيها.":"لا بأس. التمرين يزيد الفهم، وسنراجع معاً ما أخطأت فيه.";
+    return `<div class="pbox"><div class="pt">${asd?"انتهى التمرين":"🏁 انتهى التمرين"}</div><div class="pscore"><b>${c}</b><span>من ${n}</span></div><p>${esc(msg)}</p>${pdots(p)}
+      ${miss.length?`<div class="pmiss"><b>${asd?"الأسئلة التي نراجعها:":"ما نراجعه:"}</b>${miss.map(x=>`<div><span dir="auto">${esc(x.it.q)}</span><small>الصحيح: <span dir="auto">${esc(x.f.expected)}</span></small></div>`).join("")}</div>`:""}
+      <div class="actions" ${miss.length?"":`style="grid-template-columns:1fr"`}>${miss.length?`<button type="button" class="btn btn-soft" data-action="prac-review">💬 نراجع مع المعلّم</button>`:""}<button type="button" class="btn btn-primary" data-action="prac-again">تمرين آخر</button></div></div>`;
+  }
+  function pracHtml(){
+    const p=pst();
+    if(p.phase==="load")return `<div class="pbox"><div class="tb ai"><div class="tt tdots"><i></i><i></i><i></i></div></div><p class="muted" style="text-align:center">جارٍ تجهيز التمرين…</p></div>`;
+    if(p.phase==="q")return pqHtml();
+    if(p.phase==="fb")return pfbHtml();
+    if(p.phase==="sum")return psumHtml();
+    return pstartHtml();
+  }
+  async function pracStart(topic){
+    const p=pst(),k=tkey(),subj=tutor.subject,m=tutor.m;
+    p.phase="load";p.err="";tutorModal(true);
+    try{
+      const r=await api("/api/family/tutor/practice",{method:"POST",body:JSON.stringify({assignee:m,subject:subj,topic})});
+      Object.assign(p,{id:r.id,topic:r.topic,items:r.items,res:[],fbs:[],i:0,phase:"q",busy:false});
+    }catch(e){p.phase="start";p.err=e.message||"تعذّر تجهيز التمرين."}
+    if(tkey()===k&&document.querySelector(".tutor"))tutorModal(true);
+  }
+  async function pracAnswer(answer){
+    const p=pst(),k=tkey();if(p.busy||p.phase!=="q")return;
+    p.busy=true;
+    try{
+      const r=await api(`/api/family/tutor/practice/${encodeURIComponent(p.id)}/answer`,{method:"POST",body:JSON.stringify({index:p.i,answer})});
+      p.res[p.i]=Boolean(r.correct);p.fbs[p.i]={correct:Boolean(r.correct),expected:r.expected,given:r.given,explain:r.explain};p.phase="fb";
+    }catch(e){toast(e.message||"تعذّر تصحيح الجواب","err")}
+    p.busy=false;if(tkey()===k&&document.querySelector(".tutor"))tutorModal(true);
+  }
+
+  /* ---- homework photo: shrunk on the device, sent for one turn only, never stored ---- */
+  function shrinkImage(file,max,q){return new Promise((res,rej)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{try{let w=im.naturalWidth,h=im.naturalHeight;const k=Math.min(1,max/Math.max(w,h));w=Math.max(1,Math.round(w*k));h=Math.max(1,Math.round(h*k));const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",q))}catch(e){rej(e)}};im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("img"))};im.src=u})}
+  function showImg(){const el=$("timg");if(el)el.innerHTML=tutor.img?`<div class="timg"><img src="${tutor.img}" alt="الصورة المرفقة"/><span>📷 الصورة جاهزة. اكتب سؤالك أو اضغط «إرسال».</span><button type="button" class="linkbtn" data-action="tutor-photo-clear" aria-label="إزالة الصورة">✕</button></div>`:""}
+  async function onPhoto(f){
+    if(!f)return;
+    if(!/^image\//.test(f.type||"")){toast("اختر صورة من فضلك.","err");return}
+    try{
+      let url=await shrinkImage(f,1400,.72);
+      if(url.length>1500000)url=await shrinkImage(f,1000,.6);
+      if(url.length>1800000){toast("الصورة كبيرة. قرّب الكاميرا من الصفحة وحاول مجدداً.","err");return}
+      tutor.img=url;showImg();
+    }catch{toast("تعذّر قراءة الصورة. جرّب صورة أخرى.","err")}
+  }
+  document.addEventListener("change",e=>{if(e.target&&e.target.id==="tfile"){const f=e.target.files&&e.target.files[0];e.target.value="";onPhoto(f)}});
+
+  function chatHtml(){
+    const S=TUTOR_SUBJ[tutor.subject],msgs=tchat(),rc=recCur(),asd=isAsd();
+    const opts=`<div class="topts"><button type="button" class="chip" data-action="tutor-reclang" id="trl">🎙 لغة التسجيل: ${esc(rc[1])}</button><button type="button" class="chip ${autoSpeak?"on":""}" data-action="tutor-auto" id="tauto">${autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا"}</button>${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div>`;
+    return `${stepsHtml()}<div id="tpathbox">${progLine(tprog[tkey()])}</div>
       <div class="tlog" id="tlog" aria-live="polite">${msgs.length?msgs.map(tbubble).join(""):`<div class="tempty">${S.i} أهلاً! أنا معلّمك في ${S.n}. سأقودك خطوة خطوة. اضغط «ابدأ معي درساً» أو اكتب سؤالك أو اضغط 🎤 وتكلّم.</div>`}</div>
-      ${chipsHtml()}
-      <div class="tform"><button type="button" class="tmic" id="tmic" data-action="tutor-mic" aria-label="تسجيل صوتي">🎤</button><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب أو اضغط 🎤 وتكلّم..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
-      <div class="topts"><button type="button" class="chip" data-action="tutor-reclang" id="trl">🎙 لغة التسجيل: ${esc(rc[1])}</button><button type="button" class="chip ${autoSpeak?"on":""}" data-action="tutor-auto" id="tauto">${autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا"}</button>${msgs.length?`<button type="button" class="linkbtn" data-action="tutor-clear">🗑 محادثة جديدة</button>`:""}</div></div>`);
+      ${chipsHtml()}<div id="timg"></div>
+      <div class="tform"><button type="button" class="tmic" id="tmic" data-action="tutor-mic" aria-label="تسجيل صوتي">🎤</button><button type="button" class="tmic tcam" id="tcam" data-action="tutor-photo" aria-label="تصوير صفحة من الكتاب أو الواجب">📷</button><input type="file" id="tfile" accept="image/*" hidden/><textarea id="tutIn" rows="2" maxlength="1500" placeholder="اكتب أو اضغط 🎤 وتكلّم..." dir="auto"></textarea><button type="button" class="btn btn-primary" data-action="tutor-send" aria-label="إرسال">إرسال</button></div>
+      ${asd?`<details class="fold tmore"><summary>خيارات</summary>${opts}</details>`:opts}`;
+  }
+  function tutorModal(noload){
+    stopRec();stopSpeak();
+    if(tutor.brk){
+      modal("استراحة",`<div class="tutor"><div class="pbox tbreak"><div class="pt">⏸ استراحة</div><p>تقدّمك محفوظ. خذ وقتك. عندما تكون جاهزاً اضغط «أكمل».</p><div class="actions"><button type="button" class="btn btn-primary" data-action="tutor-resume">أكمل</button><button type="button" class="btn btn-line" data-action="close">إغلاق</button></div></div></div>`);
+      return;
+    }
+    const sw=Object.entries(TUTOR_SUBJ).map(([k,v])=>`<button type="button" class="${tutor.subject===k?"on":""}" data-action="tutor-open" data-member="${tutor.m}" data-subject="${k}">${v.i} ${v.n}</button>`).join("");
+    const vw=`<div class="tview" role="group"><button type="button" class="${tutor.view==="chat"?"on":""}" data-action="tutor-view" data-v="chat">💬 محادثة</button><button type="button" class="${tutor.view==="practice"?"on":""}" data-action="tutor-view" data-v="practice">📝 تمرين</button></div>`;
+    const pause=isAsd()?`<button type="button" class="linkbtn tpause" data-action="tutor-break">⏸ أريد استراحة</button>`:"";
+    modal("🧑‍🏫 المعلّم الذكي",`<div class="tutor"><div class="ktabs tsub" role="group">${sw}</div>${vw}${tutor.view==="practice"?pracHtml():chatHtml()}${pause}</div>`);
     const lg=$("tlog");if(lg)lg.scrollTop=lg.scrollHeight;
-    loadProgress();
+    showImg();
+    if(!noload)loadProgress();
   }
   async function tutorSend(text){
-    text=(text||"").trim();if(!text||tutor.busy)return;
+    text=(text||"").trim();if((!text&&!tutor.img)||tutor.busy)return;
     stopRec();stopSpeak();unlockAudio();
     const msgs=tchat(),lg=$("tlog");if(!lg)return;
-    tutor.busy=true;msgs.push({role:"user",content:text});
+    const img=tutor.img;if(!text)text="ساعدني في هذه الصفحة";
+    tutor.busy=true;msgs.push({role:"user",content:img?"📷 "+text:text});
     if(!lg.querySelector(".tb"))lg.innerHTML="";
     lg.insertAdjacentHTML("beforeend",tbubble(msgs[msgs.length-1])+`<div class="tb ai" id="ttyping"><div class="tt tdots"><i></i><i></i><i></i></div></div>`);
     lg.scrollTop=lg.scrollHeight;const inp=$("tutIn");if(inp)inp.value="";const ch=$("tchips");if(ch)ch.innerHTML="";
+    if(img){tutor.img="";showImg()}
     const key=tkey(),subj=tutor.subject;
     try{
-      const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:subj,messages:msgs.slice(-14)})});
+      const r=await api("/api/family/tutor",{method:"POST",body:JSON.stringify({assignee:tutor.m,subject:subj,messages:msgs.slice(-14),...(img?{image:img}:{})})});
       tutor.chats[key].push({role:"assistant",content:r.reply});tsave();
       tnext[key]=r.chips||[];if(r.progress)tprog[key]=r.progress;
-      if(tkey()===key){const c=$("tchips");if(c)c.outerHTML=chipsHtml();const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[key])}
+      if(r.step)stepSet(key,r.step);
+      if(tkey()===key){const c=$("tchips");if(c)c.outerHTML=chipsHtml();const h=$("tpathbox");if(h)h.innerHTML=progLine(tprog[key]);const st=$("tsteps");if(st)st.outerHTML=stepsHtml()}
       if(tkey()===key&&$("tlog")){$("ttyping")?.remove();$("tlog").insertAdjacentHTML("beforeend",tbubble(tutor.chats[key][tutor.chats[key].length-1]));$("tlog").scrollTop=$("tlog").scrollHeight;if(autoSpeak){const bs=$("tlog").querySelectorAll(".tsay");tutorSay(r.reply,bs[bs.length-1])}}
     }catch(err){
       tutor.chats[key].pop();
+      if(img&&tkey()===key&&!tutor.img){tutor.img=img;showImg()}
       $("ttyping")?.remove();if(tkey()===key){const c=$("tchips");if(c)c.outerHTML=chipsHtml()}
       if($("tlog"))$("tlog").insertAdjacentHTML("beforeend",`<div class="tb ai"><div class="tt terr">${esc(err.message||"تعذّر الاتصال بالمعلّم")}</div></div>`);
     }finally{tutor.busy=false}
+  }
+
+  /* ---- parent report: what each child studied, accuracy, what needs support ---- */
+  const rep={kid:"",days:7,data:null,loading:false,err:""};
+  function reportCard(){
+    return `<article class="card"><div class="card-title"><h2>🧑‍🏫 تقرير المعلّم الذكي</h2></div><p class="muted small">ماذا درس كل طفل، ونسبة صحة تمارينه، وما يحتاج دعماً.</p><div class="actions">${KIDS.map(k=>`<button type="button" class="btn btn-soft" data-action="report-open" data-kid="${k}">${PEOPLE[k].icon} ${esc(PEOPLE[k].name)}</button>`).join("")}</div></article>`;
+  }
+  function reportHtml(){
+    if(rep.loading)return `<div id="repbox"><div class="tb ai"><div class="tt tdots"><i></i><i></i><i></i></div></div><p class="muted" style="text-align:center">جارٍ إعداد التقرير…</p></div>`;
+    if(rep.err)return `<div id="repbox"><div class="tt terr">${esc(rep.err)}</div><button type="button" class="btn btn-soft" style="margin-top:10px" data-action="report-days" data-d="${rep.days}">إعادة المحاولة</button></div>`;
+    const d=rep.data;if(!d)return `<div id="repbox"></div>`;
+    const t=d.totals,acc=t.answered?Math.round(t.correct/t.answered*100):null;
+    const max=Math.max(1,...d.daily.map(x=>x.practice+x.chat+x.photo));
+    const bars=d.daily.map(x=>{const n=x.practice+x.chat+x.photo,hh=Math.round(n/max*100);return `<div class="rbar" title="${esc(x.date)}: ${n}"><u style="height:${n?Math.max(8,hh):3}%"></u><small>${esc(new Date(x.date+"T12:00:00").toLocaleDateString("ar",{weekday:"narrow"}))}</small></div>`}).join("");
+    const subs=d.subjects.length?d.subjects.map(s=>`<div class="rsub"><div class="rsh"><b>${esc(s.label)}</b><span class="muted small">${s.accuracy===null?"لا تمارين في هذه الفترة":`${s.correct} من ${s.answered} صحيح · ${s.accuracy}%`}</span></div>${s.accuracy===null?"":`<i class="rmeter"><u style="width:${s.accuracy}%"></u></i>`}${s.topic?`<div class="small"><b>الموضوع الحالي:</b> ${esc(s.topic)}</div>`:""}${s.mastered.length?`<div class="small"><b>أتقن:</b> ${esc(s.mastered.slice(-5).join("، "))}</div>`:""}${s.struggles.length?`<div class="small"><b>يحتاج تقوية:</b> ${esc(s.struggles.join("، "))}</div>`:""}${s.next?`<div class="small"><b>الخطوة التالية:</b> ${esc(s.next)}</div>`:""}</div>`).join(""):`<div class="empty" style="padding:12px 0"><b>📚</b>لم يبدأ أي مادة بعد</div>`;
+    const miss=d.mistakes.length?`<div class="rmiss"><b>أخطاء حديثة في التمارين</b>${d.mistakes.map(m=>`<div><small>${esc(m.label)}</small><span dir="auto">${esc(m.question)}</span><small>جوابه: <span dir="auto">${esc(m.given||"—")}</span> · الصحيح: <span dir="auto">${esc(m.expected)}</span></small></div>`).join("")}</div>`:"";
+    return `<div id="repbox"><div class="tview rdays" role="group">${[7,14,30].map(n=>`<button type="button" class="${rep.days===n?"on":""}" data-action="report-days" data-d="${n}">${n} يوماً</button>`).join("")}</div>
+      <div class="rsum">${esc(d.summary)}</div>
+      <div class="rtotals"><div><b>${t.chat+t.photo}</b><small>رسائل للمعلّم</small></div><div><b>${t.practiceSessions}</b><small>تمارين أُنجزت</small></div><div><b>${acc===null?"—":acc+"%"}</b><small>صحة الإجابات</small></div></div>
+      <div class="rbars" aria-label="النشاط اليومي">${bars}</div>
+      ${subs}${miss}
+      <button type="button" class="btn btn-line" style="margin-top:12px" data-action="report-refresh">↻ تحديث الملخص</button></div>`;
+  }
+  function reportModal(){const nm=(PEOPLE[rep.kid]||{}).name||"";modal(`تقرير المعلّم: ${nm}`,reportHtml())}
+  async function openReport(kid,days,refresh){
+    rep.kid=kid;rep.days=days||7;rep.loading=true;rep.err="";reportModal();
+    try{rep.data=await api(`/api/family/tutor/report?assignee=${encodeURIComponent(kid)}&days=${rep.days}${refresh?"&refresh=1":""}`)}catch(e){rep.err=e.message||"تعذّر تحميل التقرير."}
+    rep.loading=false;if($("repbox"))reportModal();
   }
   /* ---- natural voice out: pick the best installed voice per language, speak each script run in its own language ---- */
   let voices=[];
@@ -763,6 +899,7 @@
     try{rec.start();tutor.rec=rec;tutor.recOn=true;$("tmic")?.classList.add("rec")}catch{toast("تعذّر بدء التسجيل.","err")}
   }
   document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="tutIn"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();tutorSend(e.target.value)}});
+  document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="pAns"&&e.key==="Enter"&&!e.isComposing){e.preventDefault();const v=e.target.value.trim();if(v)pracAnswer(v)}else if(e.target&&e.target.id==="pTopic"&&e.key==="Enter"&&!e.isComposing){e.preventDefault();pracStart(e.target.value.trim())}});
   /* ---- bedtime message via WhatsApp (opens WhatsApp with the text ready; the parent presses send) ---- */
   const WA_DEFAULT="0515800799";
   /* plain, literal, predictable wording for a 15-year-old on the autism spectrum: numbered steps, no idioms, no pressure, same structure every night */
@@ -1008,11 +1145,27 @@
         else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
         render();return prefsSheet();
       }
-      case "tutor-open":{tutor.m=b.dataset.member||tutor.m;tutor.subject=b.dataset.subject||"math";return tutorModal()}
+      case "tutor-open":{tutor.m=b.dataset.member||tutor.m;tutor.subject=b.dataset.subject||"math";tutor.img="";if(b.dataset.fresh){tutor.view="chat";tutor.brk=false}return tutorModal()}
+      case "tutor-view":{if(tutor.view!==b.dataset.v){tutor.view=b.dataset.v==="practice"?"practice":"chat";tutorModal()}return}
+      case "tutor-break":{tutor.brk=true;return tutorModal(true)}
+      case "tutor-resume":{tutor.brk=false;return tutorModal()}
+      case "tutor-photo":{const f=$("tfile");if(f)f.click();return}
+      case "tutor-photo-clear":{tutor.img="";showImg();return}
+      case "prac-topic":{const i=$("pTopic");if(i)i.value=b.dataset.t||"";return}
+      case "prac-start":return pracStart(($("pTopic")?.value||"").trim());
+      case "prac-pick":return pracAnswer(Number(b.dataset.i));
+      case "prac-check":{const v=($("pAns")?.value||"").trim();if(!v){toast("اكتب جوابك أولاً.","err");return}return pracAnswer(v)}
+      case "prac-next":{const p=pst();if(p.i>=p.items.length-1)p.phase="sum";else{p.i++;p.phase="q"}return tutorModal(true)}
+      case "prac-again":{const p=pst();p.phase="start";p.err="";return tutorModal()}
+      case "prac-say":{unlockAudio();const p=pst(),it=p.items[p.i];if(it)tutorSay(it.q,b);return}
+      case "prac-review":{const p=pst(),miss=p.items.map((it,i)=>({it,f:p.fbs[i]})).filter(x=>x.f&&!x.f.correct).slice(0,4);tutor.view="chat";tutorModal(true);return tutorSend("راجع معي الأسئلة التي أخطأت فيها في التمرين:\n"+miss.map((x,i)=>`${i+1}) ${x.it.q.slice(0,120)} (الصحيح: ${String(x.f.expected).slice(0,60)})`).join("\n"))}
+      case "report-open":return openReport(b.dataset.kid,7);
+      case "report-days":return openReport(rep.kid,Number(b.dataset.d)||7);
+      case "report-refresh":return openReport(rep.kid,rep.days,true);
       case "tutor-chip":return tutorSend(b.dataset.t);
       case "tutor-send":return tutorSend($("tutIn")?.value);
       case "tutor-say":{unlockAudio();if(b.classList.contains("on")||b.classList.contains("busy")){stopSpeak();return}const t=b.closest(".tb")?.querySelector(".tt");if(t)tutorSay(t.textContent,b);return}
-      case "tutor-clear":{tutor.chats[tkey()]=[];tnext[tkey()]=[];tsave();return tutorModal()}
+      case "tutor-clear":{tutor.chats[tkey()]=[];tnext[tkey()]=[];stepSet(tkey(),0);tsave();return tutorModal()}
       case "tutor-mic":return startRec();
       case "tutor-reclang":{stopRec();tutor.recLang[tutor.subject]=(recIdx()+1)%TUTOR_SUBJ[tutor.subject].rec.length;const x=$("trl");if(x)x.textContent="🎙 لغة التسجيل: "+recCur()[1];return}
       case "tutor-auto":{autoSpeak=!autoSpeak;try{localStorage.setItem("hero-tutor-auto",autoSpeak?"on":"off")}catch{}b.classList.toggle("on",autoSpeak);b.textContent=autoSpeak?"🔊 قراءة الرد تلقائياً: نعم":"🔇 قراءة الرد تلقائياً: لا";if(!autoSpeak)stopSpeak();return}
