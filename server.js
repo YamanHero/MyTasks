@@ -708,10 +708,10 @@ async function tickTickSync() {
       await pool.query(`UPDATE hero_ticktick_tombstones SET removed = TRUE WHERE ticktick_task_id = $1`, [t.ticktick_task_id]);
     }
 
-    // 2) Make sure today's tasks exist in TickTick.
-    const unlinked = await pool.query(`SELECT * FROM hero_family_tasks WHERE done = FALSE AND ticktick_task_id IS NULL AND due_date = $1 AND task_type NOT IN ('prayer','school') ORDER BY suggested_time LIMIT 40`, [today]);
+    // 2) Make sure today's and the next two days' tasks exist in TickTick.
+    const unlinked = await pool.query(`SELECT * FROM hero_family_tasks WHERE done = FALSE AND ticktick_task_id IS NULL AND due_date BETWEEN $1 AND $2 AND task_type NOT IN ('prayer','school') ORDER BY due_date, suggested_time LIMIT 60`, [today, addDaysToDateKey(today, 2)]);
     for (const row of unlinked.rows) {
-      const tick = await createTickTickTaskIfPossible(null, null, { assignee: row.assignee, title: row.title, type: row.task_type, note: row.note, dueDate: today, suggestedTime: row.suggested_time, checklist: checklistFromRow(row).map((x) => x.text) });
+      const tick = await createTickTickTaskIfPossible(null, null, { assignee: row.assignee, title: row.title, type: row.task_type, note: row.note, dueDate: pgDateKey(row.due_date), suggestedTime: row.suggested_time, checklist: checklistFromRow(row).map((x) => x.text) });
       if (!tick) continue;
       await pool.query(`UPDATE hero_family_tasks SET ticktick_task_id = $2, ticktick_project_id = $3, ticktick_project_name = $4, ticktick_sig = $5 WHERE id = $1`, [row.id, tick.ticktickTaskId, tick.ticktickProjectId, tick.ticktickProjectName, tick.ticktickSig]);
       out.linked++;
