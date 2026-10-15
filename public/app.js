@@ -639,7 +639,13 @@
 
   /* ======================= modals ======================= */
   function modal(title,html){
-    $("modalRoot").innerHTML=`<section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="x" data-action="close" aria-label="إغلاق">✕</button></div>${html}</section>`;
+    /* Re-drawing the same dialog (ticking a step, changing points…) must not jump to the top, replay the
+       slide-in animation, or pop the keyboard: keep the scroll position and skip the entrance effects. */
+    const old=$("modalRoot").querySelector(".sheet");
+    const again=Boolean(old&&old.getAttribute("aria-label")===title);
+    const keep=again?old.scrollTop:0;
+    $("modalRoot").innerHTML=`<section class="sheet${again?" again":""}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="grab"></div><div class="sheet-head"><h2>${esc(title)}</h2><button class="x" data-action="close" aria-label="إغلاق">✕</button></div>${html}</section>`;
+    if(again){const sh=$("modalRoot").querySelector(".sheet");if(sh){sh.scrollTop=keep;requestAnimationFrame(()=>{sh.scrollTop=keep})}return}
     const f=$("modalRoot").querySelector("input[type=text],textarea");f&&setTimeout(()=>f.focus({preventScroll:true}),60);
   }
   function close(){try{stopRec();stopSpeak()}catch{}$("modalRoot").innerHTML=""}
