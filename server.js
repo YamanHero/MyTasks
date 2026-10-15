@@ -540,7 +540,8 @@ async function completeTickTickTaskIfPossible(req, res, task) {
  * moved away from it wins; if both moved, TickTick wins.
  */
 const TT_SKIP_TYPES = new Set(["prayer", "school"]);
-const TT_SYNC_MS = 2 * 60 * 1000;
+// TickTick has no push/webhook in its open API, so changes made there are picked up by frequent polling.
+const TT_SYNC_MS = Math.max(10, Math.min(300, Number(process.env.TICKTICK_SYNC_SECONDS) || 15)) * 1000;
 
 function ttOffsetMs(date, tz) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -2410,7 +2411,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.query.date);
   for (const memberId of Object.keys(FAMILY_MEMBERS)) await ensureTodayProgram(memberId, date);
   ensureProgramHorizon().catch(() => {});
-  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > 45000) tickTickSync().catch(() => {});
+  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > TT_SYNC_MS) tickTickSync().catch(() => {});
   const distribution = await autoDistributeFamilyDate(date);
   const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -2444,6 +2445,7 @@ app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
   requireChildOrParent(req, assignee);
   const date = familyDateKey(req.query.date);
   await ensureTodayProgram(assignee, date);
+  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > TT_SYNC_MS) tickTickSync().catch(() => {});
   const [tasks, events, previousIncomplete] = await Promise.all([getFamilyTasks(assignee, date), getFamilyEvents(assignee, date), previousIncompleteForMember(date, assignee)]);
   res.json({ member: publicMember(FAMILY_MEMBERS[assignee]), date, todayStart: true, previousIncomplete, tasks, events, parentAuthenticated: hasParentSession(req) });
 }));
@@ -3346,7 +3348,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 app.get("/api/ticktick/status", (req, res) => {
   const configured = isTickTickConfigured();
   const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
-  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE, sync: { everyMinutes: TT_SYNC_MS / 60000, last: hasParentSession(req) ? ttLastSync : null } });
+  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE, sync: { everyMinutes: TT_SYNC_MS / 60000, everySeconds: TT_SYNC_MS / 1000, last: hasParentSession(req) ? ttLastSync : null } });
 });
 
 app.get("/api/ticktick/diagnostics", (req, res) => {
@@ -3776,6 +3778,67 @@ function speechScript(text) {
   return job;
 }
 
+const TTS_URL = process.env.OPENAI_SPEECH_URL || "https://api.openai.com/v1/audio/speech";
+const TTS_MAX_RUNS = 10;
+const runCache = new Map();
+
+/* Splits the reading script into runs by writing system: Arabic, Hebrew, or Latin (French/English). */
+function speechLangRuns(script, latinLang) {
+  const latin = latinLang === "French" ? "fr" : "en";
+  const kind = (ch) => /[֐-׿]/.test(ch) ? "he" : /[؀-ۿݐ-ݿ]/.test(ch) ? "ar" : /[A-Za-zÀ-ɏ]/.test(ch) ? latin : null;
+  let runs = [];
+  let cur = null;
+  let lead = "";
+  for (const ch of String(script)) {
+    const k = kind(ch);
+    if (k && (!cur || cur.lang !== k)) { cur = { lang: k, text: lead }; lead = ""; runs.push(cur); }
+    if (cur) cur.text += ch; else lead += ch;
+  }
+  runs = runs.map((r) => ({ lang: r.lang, text: r.text.replace(/\s+/g, " ").trim() })).filter((r) => /\p{L}/u.test(r.text));
+  // Too many tiny switches: fold the shortest run into its neighbour so the request count stays bounded.
+  while (runs.length > TTS_MAX_RUNS) {
+    let i = 0;
+    for (let j = 1; j < runs.length; j++) if (runs[j].text.length < runs[i].text.length) i = j;
+    const to = i > 0 ? i - 1 : 1;
+    const a = Math.min(i, to), b = Math.max(i, to);
+    runs.splice(a, 2, { lang: runs[to].lang, text: `${runs[a].text} ${runs[b].text}` });
+  }
+  return runs.length ? runs : [{ lang: "ar", text: String(script).trim() }];
+}
+
+function ttsInstructions(lang, pr) {
+  const pace = `Pace: ${pr.little ? "slow and clear for a young child" : "moderate and clear for a teenage student"}, with natural pauses at commas.`;
+  const tone = pr.asd ? "Tone: calm, even and predictable, no exaggerated excitement." : "Tone: warm and encouraging.";
+  const native = {
+    ar: "Language: Arabic. Speak as a native Arabic-speaking teacher, in clear standard Arabic (فصحى) with a native Arab accent — never an English or foreign accent. The text is fully vowelled: pronounce every word exactly as its diacritics (tashkeel) indicate, including case endings, shadda and tanween. Pronounce ع ح ق خ غ ص ض ط ظ as true Arabic sounds.",
+    he: "Language: Hebrew. Speak as a native Israeli Hebrew speaker in standard modern Israeli Hebrew, with natural Hebrew phonology (the ר, ח, ע and כ/ק sounds as in Israeli Hebrew). If vowel marks (nikud) are present, follow them. Never use an Arabic or English accent. Speak slightly slowly, as a language teacher modelling the words for a learner.",
+    fr: "Language: French. Speak as a native speaker of standard Parisian French: French nasal vowels, the uvular r, correct liaisons and silent final letters. Never use an Arabic or English accent. Speak slightly slowly and distinctly, as a language teacher modelling the words for a learner.",
+    en: "Language: English. Speak as a native speaker of clear, neutral American English. Never use an Arabic accent. Speak slightly slowly and distinctly, as a language teacher modelling the words for a learner."
+  }[lang];
+  return `${native} ${pace} ${tone}`;
+}
+
+async function synthesizeSpeechRun(run, pr) {
+  const key = crypto.createHash("sha256").update(`${TTS_MODEL}|${TTS_VOICE}|${run.lang}|${pr.asd ? 1 : 0}${pr.little ? 1 : 0}|${run.text}`).digest("hex");
+  const hit = runCache.get(key);
+  if (hit) return hit;
+  const response = await fetchWithTimeout(TTS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: run.text, instructions: ttsInstructions(run.lang, pr), response_format: "mp3" })
+  }, 45000);
+  if (!response.ok) {
+    const body = await readResponseBody(response);
+    console.warn("TTS failed:", response.status, body?.error?.message || body);
+    if ([401, 403, 429].includes(response.status) || isModelAccessError(response.status, body?.error?.message)) ttsSkipUntil = Date.now() + 30 * 60 * 1000;
+    throw new PublicError(503, "الصوت الطبيعي غير متاح الآن.");
+  }
+  const buf = Buffer.from(await response.arrayBuffer());
+  runCache.set(key, buf);
+  if (runCache.size > 300) runCache.delete(runCache.keys().next().value);
+  return buf;
+}
+
 app.post("/api/family/tutor/speak", asyncRoute(async (req, res) => {
   const assignee = String(req.body?.assignee || "").toLowerCase();
   if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
@@ -3784,32 +3847,17 @@ app.post("/api/family/tutor/speak", asyncRoute(async (req, res) => {
   const text = speechText(req.body?.text);
   if (!text) throw new PublicError(400, "لا يوجد نص للقراءة.");
   if (!ttsAvailable()) throw new PublicError(503, "الصوت الطبيعي غير متاح الآن.");
-  const key = crypto.createHash("sha256").update(`v2|${TTS_MODEL}|${TTS_VOICE}|${subject}|${text}`).digest("hex");
+  const key = crypto.createHash("sha256").update(`v3|${TTS_MODEL}|${TTS_VOICE}|${subject}|${assignee}|${text}`).digest("hex");
   let audio = ttsCache.get(key);
   if (!audio) {
     if (!rateLimit(speakHits, assignee, 150)) throw new PublicError(429, "استمعنا كثيراً في هذه الساعة. يمكنك قراءة الرد بنفسك.");
     const pr = tutorProfile(FAMILY_MEMBERS[assignee]);
-    const other = TUTOR_SUBJECTS[subject].speakLang;
     const script = await speechScript(text);
-    const instructions = [
-      "Language: Arabic. Speak as a native Arabic-speaking teacher, in clear standard Arabic (فصحى) with a native Arab accent — never an English or foreign accent.",
-      "The Arabic text is fully vowelled: pronounce every word exactly as its diacritics (tashkeel) indicate, including case endings, shadda and tanween. Pronounce ع ح ق خ غ ص ض ط ظ as true Arabic sounds.",
-      other !== "Arabic" ? `When a word or sentence is written in ${other} script, switch to native ${other} pronunciation for it, a little slower, as a language teacher modelling it, then return to Arabic.` : "",
-      `Pace: moderate and clear for ${pr.little ? "a young child" : "a teenage student"}, with natural pauses at commas and line breaks.`,
-      pr.asd ? "Tone: calm, even and predictable, no exaggerated excitement." : "Tone: warm and encouraging."
-    ].filter(Boolean).join(" ");
-    const response = await fetchWithTimeout("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: script, instructions, response_format: "mp3" })
-    }, 45000);
-    if (!response.ok) {
-      const body = await readResponseBody(response);
-      console.warn("TTS failed:", response.status, body?.error?.message || body);
-      if ([401, 403, 429].includes(response.status) || isModelAccessError(response.status, body?.error?.message)) ttsSkipUntil = Date.now() + 30 * 60 * 1000;
-      throw new PublicError(503, "الصوت الطبيعي غير متاح الآن.");
-    }
-    audio = Buffer.from(await response.arrayBuffer());
+    // One request per language run, each with its own native-speaker instructions, then joined.
+    // (A single request with "Arabic" instructions made Hebrew, French and English sound Arabic-accented.)
+    const runs = speechLangRuns(script, TUTOR_SUBJECTS[subject].speakLang);
+    const parts = await Promise.all(runs.map((run) => synthesizeSpeechRun(run, pr)));
+    audio = Buffer.concat(parts);
     ttsCache.set(key, audio);
     if (ttsCache.size > 120) ttsCache.delete(ttsCache.keys().next().value);
   }
@@ -4156,6 +4204,13 @@ app.get("/api/family/tutor/report", asyncRoute(async (req, res) => {
   const summary = await reportSummary(assignee, name, data, req.query.refresh === "1");
   res.json({ ...data, summary });
 }));
+
+try {
+  require("./task-nudges").setupNudges({
+    app, pool, timeZone: APP_TIME_ZONE, asyncRoute, isFamilyMember, requireChildOrParent, requireFamilyDatabase,
+    ensureFamilyDatabase, ensureTodayProgram, getSchoolSettings, members: FAMILY_MEMBERS
+  });
+} catch (e) { console.warn("task nudges not started:", e.message); }
 
 app.use(express.static(path.join(__dirname, "public")));
 

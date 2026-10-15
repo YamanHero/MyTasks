@@ -781,3 +781,9 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .rmiss{display:grid;gap:8px;padding:12px;border-radius:16px;background:var(--gold-tint,#fff6dc)}
 .rmiss div{display:grid;gap:2px;line-height:1.6}
 .rmiss small{color:#6d4d00}
+
+/* ---- gentle reminder (before leaving / before bed) ---- */
+.nudge{border:2px solid var(--line,#d9e2ec);background:color-mix(in srgb,#f5b301 12%,var(--card,#fff));padding:14px 16px}
+.nudge-h{display:flex;align-items:center;gap:8px;font-size:1.05rem;margin-bottom:6px}
+.nudge p{margin:0 0 10px;line-height:1.7}
+.nudge .actions{display:flex;gap:8px;flex-wrap:wrap}

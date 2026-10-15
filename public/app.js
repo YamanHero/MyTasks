@@ -212,7 +212,54 @@
     await Promise.all(jobs);
     for(const id of pending.keys()){const t=findTask(id);if(t)t.done=true}
   }
-  async function refresh(){await load();loading=false;render();if(pview==="events"&&family.parentAuthenticated)loadCal()}
+  async function refresh(){await load();loading=false;render();if(pview==="events"&&family.parentAuthenticated)loadCal();pollNudge()}
+
+  /* ---- one calm reminder before leaving for school / before bed, while the child's app is open ---- */
+  const nudge={},nudgeSig={},nudgeHidden=new Set();
+  const nudgeKey=(m,k)=>`hero-nudge-${m}-${k}-${today()}`;
+  const nudgeIsHidden=(m,k)=>{if(nudgeHidden.has(nudgeKey(m,k)))return true;try{return localStorage.getItem(nudgeKey(m,k))==="1"}catch{return false}};
+  const nudgeHide=(m,k)=>{nudgeHidden.add(nudgeKey(m,k));try{localStorage.setItem(nudgeKey(m,k),"1")}catch{}};
+  function nudgeHtml(m){
+    const n=nudge[m];if(!n||!n.kind||nudgeIsHidden(m,n.kind))return "";
+    const leave=n.kind==="leave",names=n.tasks.map(t=>esc(t.title)).join("، ");
+    const lead=leave?"اقترب وقت الخروج إلى المدرسة.":"اقترب وقت النوم.";
+    const what=n.count===1?"بقيت مهمة واحدة":n.count===2?"بقيت مهمتان":`بقيت ${n.count} مهام`;
+    return `<article class="card nudge" role="status" data-kind="${n.kind}"><div class="nudge-h"><span aria-hidden="true">${leave?"⏰":"🌙"}</span><b>${leave?"قبل الخروج":"قبل النوم"}</b></div><p>${lead} ${what}: ${names}.</p><div class="actions"><button type="button" class="btn btn-ok btn-sm" data-action="nudge-go" data-member="${m}" data-id="${esc(n.tasks[0]?.id||"")}">أبدأ الآن</button><button type="button" class="btn btn-quiet btn-sm" data-action="nudge-hide" data-member="${m}" data-kind="${n.kind}">حسناً</button></div></article>`;
+  }
+  async function pollNudge(){
+    if(document.hidden||loading||!KIDS.includes(area))return;
+    const m=area;if(!(family.parentAuthenticated||family[`${m}Authenticated`]))return;
+    try{
+      const d=await api(`/api/family/nudge?assignee=${encodeURIComponent(m)}`);
+      const sig=`${d.kind||""}|${d.count||0}|${(d.tasks||[]).map(t=>t.id).join(",")}`;
+      if(sig===nudgeSig[m])return;
+      const prev=nudge[m];nudgeSig[m]=sig;nudge[m]=d;
+      if(d.kind&&!nudgeIsHidden(m,d.kind)&&(!prev||prev.kind!==d.kind))playEvent("prayer"); /* the soft tone, only if sounds are on */
+      if(!document.querySelector(".sheet"))render();
+    }catch{}
+  }
+  setInterval(pollNudge,60000);
+  /* ---- near-real-time: re-read the open screen every 15 s and redraw only when something changed ---- */
+  async function liveRefresh(){
+    if(document.hidden||loading||document.querySelector(".sheet"))return;
+    const ae=document.activeElement;if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;
+    try{
+      if(KIDS.includes(area)){
+        if(!(family.parentAuthenticated||family[`${area}Authenticated`]))return;
+        const d=await api(`/api/family/child/${area}?date=${today()}`);
+        for(const id of pending.keys()){const t=(d.tasks||[]).find(x=>x.id===id);if(t)t.done=true}
+        const cur=child[area];
+        if(cur&&JSON.stringify([d.tasks,d.events])===JSON.stringify([cur.tasks,cur.events]))return;
+        child[area]=d;if(!document.querySelector(".sheet"))render();
+      }else if(area==="parent"&&family.parentAuthenticated&&pview==="today"){
+        const d=await api(`/api/family/dashboard?date=${today()}`);
+        if(dashboard&&JSON.stringify(d)===JSON.stringify(dashboard))return;
+        dashboard=d;if(!document.querySelector(".sheet"))render();
+      }
+    }catch{}
+  }
+  setInterval(liveRefresh,15000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollNudge()});
 
   /* ======================= components ======================= */
   function ring(done,total){
@@ -371,7 +418,7 @@
     const status=!tick.configured?`<div class="tt"><span class="dot"></span><div><b>TickTick غير مهيأ</b><div class="muted">التطبيق يعمل بشكل طبيعي. أكمل متغيرات TickTick في Railway لتفعيل المزامنة.</div></div></div>`
       :!tick.connected?`<div class="tt"><span class="dot"></span><div style="flex:1"><b>TickTick غير متصل</b><div class="muted">اربطه لاستيراد مهام اليوم وإرسال مهام Hero إليه.</div></div></div><a class="btn btn-primary btn-big" style="margin-top:14px" href="/auth/ticktick">ربط TickTick</a>`
       :`<div class="tt"><span class="dot on"></span><div style="flex:1"><b>TickTick متصل · مزامنة بالاتجاهين</b><div class="muted">${ttLastLine()}</div></div></div>
-      <ul class="tt-rules muted small"><li>مهام اليوم وكل مهمة تضيفها أو تعدّلها هنا تظهر في قائمة «${esc(tick.projectName||"Hero")}» مع الوقت والخطوات واسم الطفل.</li><li>ما يُنجَز أو يُحذف أو يُعدَّل أو تُعلَّم خطواته في TickTick يتحدث هنا تلقائياً كل ${tick.sync?.everyMinutes||2} دقيقة.</li><li>مهمة جديدة تكتبها في قائمة Hero وفيها اسم الطفل (مثلاً «يمان: ترتيب الغرفة») تُضاف له هنا.</li></ul>
+      <ul class="tt-rules muted small"><li>مهام اليوم وكل مهمة تضيفها أو تعدّلها هنا تظهر في قائمة «${esc(tick.projectName||"Hero")}» مع الوقت والخطوات واسم الطفل.</li><li>ما يُنجَز أو يُحذف أو يُعدَّل أو تُعلَّم خطواته في TickTick يتحدث هنا تلقائياً خلال نحو ${tick.sync?.everySeconds||15} ثانية.</li><li>مهمة جديدة تكتبها في قائمة Hero وفيها اسم الطفل (مثلاً «يمان: ترتيب الغرفة») تُضاف له هنا.</li></ul>
       <button class="btn btn-soft btn-sm" style="margin-top:10px" data-action="tt-sync">🔄 زامن الآن</button>`;
     const steps=tick.connected?`<ol class="howto" style="margin-top:16px"><li><b>اختر القوائم</b><div class="muted">حدد القوائم التي تريد الاستيراد منها.</div><button class="btn btn-line btn-sm" style="margin-top:8px" data-action="projects">📋 اختيار القوائم</button></li><li><b>استورد مهام اليوم</b><div class="muted">اختر المهام وحدد لمن تُضاف.</div><button class="btn btn-soft btn-sm" style="margin-top:8px" data-action="import">⬇️ استيراد مهام اليوم</button></li></ol>`:"";
     return `<article class="card"><div class="card-title"><h2>🔗 TickTick</h2></div>${status}${steps}</article>`;
@@ -543,6 +590,7 @@
     const prevN=d.previousIncomplete?.incomplete||0;
     const row=t=>{const ty=typeOf(t.type);return `<button class="task" style="--tc:${ty.c}" data-action="focus" data-member="${m}" data-id="${t.id}" aria-label="ابدأ: ${esc(t.title)}"><span class="t-ico" aria-hidden="true">${ty.i}</span><span class="t-body"><span class="t-title">${esc(t.title)}</span><span class="t-meta">${timeChip(t)}${timerChip(t)}<span>⭐ ${t.points}</span></span></span><span aria-hidden="true">←</span></button>`};
     return `${topbar()}<div class="stack">
+      ${nudgeHtml(m)}
       ${prevN&&!done.length?`<div class="soft-note">🌙 أمس بقيت بعض المهام. لا بأس! نبدأ اليوم بخطوة صغيرة واحدة.</div>`:""}
       ${kidCard(m,true)}
       ${events.length?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:""}
@@ -1175,6 +1223,8 @@
       case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
       case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
+      case "nudge-hide":nudgeHide(b.dataset.member,b.dataset.kind);render();return;
+      case "nudge-go":{const m=b.dataset.member;if(b.dataset.id)focusId[m]=b.dataset.id;kview="today";const n=nudge[m];if(n&&n.kind)nudgeHide(m,n.kind);render();scrollTo({top:0,behavior:"smooth"});return}
       case "projects":return guard(b,projectsModal);
       case "import":return guard(b,importModal);
       case "tt-sync":return guard(b,async()=>{const r=await api("/api/ticktick/sync",{method:"POST"});const x=r.result||{};const n=(x.pulled||0)+(x.completedHere||0)+(x.deletedHere||0)+(x.imported||0);const m=(x.pushed||0)+(x.linked||0)+(x.completedThere||0)+(x.deletedThere||0);

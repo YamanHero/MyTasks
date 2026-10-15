@@ -209,4 +209,4 @@ function startBedtimeWhatsApp({ pool, timeZone }) {
   return true;
 }
 
-module.exports = { startBedtimeWhatsApp, normalizeWhatsAppNumber, parseSendTime, parseDays, BEDTIME_MESSAGE, MORNING_MESSAGE };
+module.exports = { startBedtimeWhatsApp, normalizeWhatsAppNumber, parseSendTime, parseDays, localClock, sendViaTwilio, BEDTIME_MESSAGE, MORNING_MESSAGE };
