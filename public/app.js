@@ -239,6 +239,26 @@
     }catch{}
   }
   setInterval(pollNudge,60000);
+  /* ---- near-real-time: re-read the open screen every 15 s and redraw only when something changed ---- */
+  async function liveRefresh(){
+    if(document.hidden||loading||document.querySelector(".sheet"))return;
+    const ae=document.activeElement;if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;
+    try{
+      if(KIDS.includes(area)){
+        if(!(family.parentAuthenticated||family[`${area}Authenticated`]))return;
+        const d=await api(`/api/family/child/${area}?date=${today()}`);
+        for(const id of pending.keys()){const t=(d.tasks||[]).find(x=>x.id===id);if(t)t.done=true}
+        const cur=child[area];
+        if(cur&&JSON.stringify([d.tasks,d.events])===JSON.stringify([cur.tasks,cur.events]))return;
+        child[area]=d;if(!document.querySelector(".sheet"))render();
+      }else if(area==="parent"&&family.parentAuthenticated&&pview==="today"){
+        const d=await api(`/api/family/dashboard?date=${today()}`);
+        if(dashboard&&JSON.stringify(d)===JSON.stringify(dashboard))return;
+        dashboard=d;if(!document.querySelector(".sheet"))render();
+      }
+    }catch{}
+  }
+  setInterval(liveRefresh,15000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollNudge()});
 
   /* ======================= components ======================= */
@@ -398,7 +418,7 @@
     const status=!tick.configured?`<div class="tt"><span class="dot"></span><div><b>TickTick غير مهيأ</b><div class="muted">التطبيق يعمل بشكل طبيعي. أكمل متغيرات TickTick في Railway لتفعيل المزامنة.</div></div></div>`
       :!tick.connected?`<div class="tt"><span class="dot"></span><div style="flex:1"><b>TickTick غير متصل</b><div class="muted">اربطه لاستيراد مهام اليوم وإرسال مهام Hero إليه.</div></div></div><a class="btn btn-primary btn-big" style="margin-top:14px" href="/auth/ticktick">ربط TickTick</a>`
       :`<div class="tt"><span class="dot on"></span><div style="flex:1"><b>TickTick متصل · مزامنة بالاتجاهين</b><div class="muted">${ttLastLine()}</div></div></div>
-      <ul class="tt-rules muted small"><li>مهام اليوم وكل مهمة تضيفها أو تعدّلها هنا تظهر في قائمة «${esc(tick.projectName||"Hero")}» مع الوقت والخطوات واسم الطفل.</li><li>ما يُنجَز أو يُحذف أو يُعدَّل أو تُعلَّم خطواته في TickTick يتحدث هنا تلقائياً كل ${tick.sync?.everyMinutes||2} دقيقة.</li><li>مهمة جديدة تكتبها في قائمة Hero وفيها اسم الطفل (مثلاً «يمان: ترتيب الغرفة») تُضاف له هنا.</li></ul>
+      <ul class="tt-rules muted small"><li>مهام اليوم وكل مهمة تضيفها أو تعدّلها هنا تظهر في قائمة «${esc(tick.projectName||"Hero")}» مع الوقت والخطوات واسم الطفل.</li><li>ما يُنجَز أو يُحذف أو يُعدَّل أو تُعلَّم خطواته في TickTick يتحدث هنا تلقائياً خلال نحو ${tick.sync?.everySeconds||15} ثانية.</li><li>مهمة جديدة تكتبها في قائمة Hero وفيها اسم الطفل (مثلاً «يمان: ترتيب الغرفة») تُضاف له هنا.</li></ul>
       <button class="btn btn-soft btn-sm" style="margin-top:10px" data-action="tt-sync">🔄 زامن الآن</button>`;
     const steps=tick.connected?`<ol class="howto" style="margin-top:16px"><li><b>اختر القوائم</b><div class="muted">حدد القوائم التي تريد الاستيراد منها.</div><button class="btn btn-line btn-sm" style="margin-top:8px" data-action="projects">📋 اختيار القوائم</button></li><li><b>استورد مهام اليوم</b><div class="muted">اختر المهام وحدد لمن تُضاف.</div><button class="btn btn-soft btn-sm" style="margin-top:8px" data-action="import">⬇️ استيراد مهام اليوم</button></li></ol>`:"";
     return `<article class="card"><div class="card-title"><h2>🔗 TickTick</h2></div>${status}${steps}</article>`;

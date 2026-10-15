@@ -540,7 +540,8 @@ async function completeTickTickTaskIfPossible(req, res, task) {
  * moved away from it wins; if both moved, TickTick wins.
  */
 const TT_SKIP_TYPES = new Set(["prayer", "school"]);
-const TT_SYNC_MS = 2 * 60 * 1000;
+// TickTick has no push/webhook in its open API, so changes made there are picked up by frequent polling.
+const TT_SYNC_MS = Math.max(10, Math.min(300, Number(process.env.TICKTICK_SYNC_SECONDS) || 15)) * 1000;
 
 function ttOffsetMs(date, tz) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -2410,7 +2411,7 @@ app.get("/api/family/dashboard", asyncRoute(async (req, res) => {
   const date = familyDateKey(req.query.date);
   for (const memberId of Object.keys(FAMILY_MEMBERS)) await ensureTodayProgram(memberId, date);
   ensureProgramHorizon().catch(() => {});
-  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > 45000) tickTickSync().catch(() => {});
+  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > TT_SYNC_MS) tickTickSync().catch(() => {});
   const distribution = await autoDistributeFamilyDate(date);
   const previousIncomplete = await previousIncompleteSummary(date);
   const [{ rows: tasks }, { rows: events }] = await Promise.all([
@@ -2444,6 +2445,7 @@ app.get("/api/family/child/:assignee", asyncRoute(async (req, res) => {
   requireChildOrParent(req, assignee);
   const date = familyDateKey(req.query.date);
   await ensureTodayProgram(assignee, date);
+  if (!ttLastSync.at || Date.now() - Date.parse(ttLastSync.at) > TT_SYNC_MS) tickTickSync().catch(() => {});
   const [tasks, events, previousIncomplete] = await Promise.all([getFamilyTasks(assignee, date), getFamilyEvents(assignee, date), previousIncompleteForMember(date, assignee)]);
   res.json({ member: publicMember(FAMILY_MEMBERS[assignee]), date, todayStart: true, previousIncomplete, tasks, events, parentAuthenticated: hasParentSession(req) });
 }));
@@ -3346,7 +3348,7 @@ app.post("/api/ai/task-help", asyncRoute(async (req, res) => {
 app.get("/api/ticktick/status", (req, res) => {
   const configured = isTickTickConfigured();
   const connected = configured && Boolean(getStoredTokens(req)?.accessToken);
-  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE, sync: { everyMinutes: TT_SYNC_MS / 60000, last: hasParentSession(req) ? ttLastSync : null } });
+  res.json({ configured, connected, projectName: HERO_PROJECT_NAME, timeZone: APP_TIME_ZONE, sync: { everyMinutes: TT_SYNC_MS / 60000, everySeconds: TT_SYNC_MS / 1000, last: hasParentSession(req) ? ttLastSync : null } });
 });
 
 app.get("/api/ticktick/diagnostics", (req, res) => {
