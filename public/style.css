@@ -787,3 +787,9 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .nudge-h{display:flex;align-items:center;gap:8px;font-size:1.05rem;margin-bottom:6px}
 .nudge p{margin:0 0 10px;line-height:1.7}
 .nudge .actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---- stable dialogs on iPhone (incl. 17 Pro Max) ---- */
+.sheet.again{animation:none}
+.sheet{overflow-x:hidden}
+.sheet .form input,.sheet .form select,.sheet .form textarea{max-width:100%;min-width:0;box-sizing:border-box}
+.sheet input[type=time],.sheet input[type=date]{width:100%;-webkit-appearance:none;appearance:none;min-height:52px}
