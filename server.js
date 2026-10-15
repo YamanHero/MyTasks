@@ -173,6 +173,8 @@ async function openAIResponsesRequest(payload, timeoutMs = OPENAI_TIMEOUT_MS) {
 }
 
 app.set("trust proxy", 1);
+// Only the tutor chat route accepts a larger body (a compressed homework photo); everything else keeps 200kb.
+app.use("/api/family/tutor", (req, res, next) => (req.path === "/" ? express.json({ limit: "3mb" })(req, res, next) : next()));
 app.use(express.json({ limit: "200kb" }));
 app.use(express.urlencoded({ extended: false, limit: "50kb" }));
 
@@ -3465,7 +3467,10 @@ app.get("/api/ticktick/sync", (req, res) => {
 const TUTOR_SUBJECTS = {
   math: { label: "الرياضيات", speakLang: "Arabic" },
   hebrew: { label: "اللغة العبرية", speakLang: "Hebrew" },
-  french: { label: "اللغة الفرنسية", speakLang: "French" }
+  french: { label: "اللغة الفرنسية", speakLang: "French" },
+  arabic: { label: "اللغة العربية", speakLang: "Arabic" },
+  english: { label: "اللغة الإنجليزية", speakLang: "English" },
+  science: { label: "العلوم", speakLang: "Arabic" }
 };
 const TUTOR_MODEL = process.env.TUTOR_MODEL || "claude-opus-5-5";
 const tutorHits = new Map();
@@ -3506,11 +3511,13 @@ function tutorProgressText(p) {
     line("أتقنه", p.mastered),
     line("يحتاج تقوية", p.struggles),
     line("الخطوة التالية التي خططتَ لها", p.next),
+    line("نتيجة آخر تمرين مكتوب", p.lastPractice),
+    line("أسئلة أخطأ فيها في التمارين الأخيرة (راجعها معه بلطف)", p.practiceMistakes),
     p.sessions ? `عدد الجلسات السابقة: ${p.sessions}` : ""
   ].filter(Boolean).join("\n");
 }
 
-function tutorSystemPrompt(subject, member, progress) {
+function tutorSystemPrompt(subject, member, progress, opts = {}) {
   const pr = tutorProfile(member);
   const S = TUTOR_SUBJECTS[subject];
   const common = [
@@ -3524,6 +3531,15 @@ function tutorSystemPrompt(subject, member, progress) {
     "الشكل: نص عادي فقط، بلا Markdown ولا ** ولا # ولا جداول ولا LaTeX. استعمل × و ÷ و ² و √ والكسور مثل 3/4. ضع كل معادلة أو جملة بلغة أجنبية في سطر مستقل.",
     "ردودك تُقرأ بصوت معلّم، فاكتب بطريقة تُسمع بشكل طبيعي. رسالة الطالب قد تأتي من تسجيل صوتي وفيها أخطاء؛ افهم قصده ولا تحاسبه على أخطاء التفريغ.",
     "أنت معلّم ذكاء اصطناعي ولست إنساناً، وقل ذلك إن سُئلت. التزم بالمادة وأعد الحديث إليها بلطف. لا تطلب معلومات شخصية. لا تناقش السياسة أو العنف أو ما لا يناسب الأطفال. إن قال الطالب إنه حزين أو خائف أو تعرّض لأذى، فاطلب منه بلطف أن يخبر والديه الآن وتوقّف عن الدرس.",
+    "للتأكد من الفهم الحقيقي: بعد الشرح لا تسأل «هل فهمت؟»، بل اطلب منه أن يطبّق على مثال جديد أو يشرح الفكرة بكلماته. وعند الخطأ حدّد نوعه (خطأ حساب، أو سوء فهم للمفهوم، أو قراءة غير دقيقة للسؤال) وعالج السبب لا النتيجة فقط.",
+    "حين تكتمل فكرة، يمكنك أن تقترح عليه بجملة واحدة أن يضغط «📝 تمرين» في أعلى الشاشة ليختبر نفسه بأسئلة مكتوبة يُصحَّح جوابها فوراً.",
+    ...(pr.asd ? [
+      "في أول رد من كل جلسة اكتب خطة قصيرة: «اليوم سنفعل: ١) … ٢) … ٣) …» ثم ابدأ بالأولى. لا تغيّر الموضوع فجأة، ولا تُدخل نكتة أو سؤالاً غير متوقع.",
+      "السطر الأول من كل رد هو رقم الخطوة الحالية بهذا الشكل بالضبط: «الخطوة 2 من 5: الشرح». أسماء الخطوات الخمس: 1 المراجعة، 2 الشرح، 3 معاً، 4 وحدك، 5 الملخص. حافظ على هذا الترتيب."
+    ] : []),
+    ...(opts.hasImage ? [
+      "أرفق الطالب صورة لصفحة من كتابه أو واجبه. اقرأها بعناية. في ردك: (1) جملة واحدة تقول ماذا رأيت، (2) قائمة مرقّمة مختصرة بنص الأسئلة أو التمارين التي تظهر في الصورة (لأنك لن ترى الصورة في الرسائل القادمة، فاكتب ما تحتاجه منها هنا)، (3) ثم ابدأ بالسؤال الأول فقط بتلميح لا بحلّ كامل. يجوز أن يطول هذا الرد حتى 14 سطراً. إن كانت الصورة غير واضحة فاطلب منه تصويرها مرة أخرى بإضاءة أفضل. وإن لم تكن من مادة دراسية فأعد الحديث بلطف إلى الدرس ولا تصف الأشخاص في الصورة."
+    ] : []),
     `سجلّ تقدّم الطالب في هذه المادة (استعمله لتكمل من حيث توقفتما، ولا تكرر ما أتقنه):\n${tutorProgressText(progress)}`
   ];
   const math = [
@@ -3544,33 +3560,48 @@ function tutorSystemPrompt(subject, member, progress) {
     ...langRules("الفرنسية", "Bonjour [بونجور] (مرحباً)"),
     "نبّه بشكل مبسّط إلى الحروف التي لا تُلفظ وإلى الأصوات الصعبة (r، u، on، an، ou). " + (pr.little ? "المواضيع: التحيات، الأرقام حتى 20، الألوان، الحيوانات، العائلة." : "المواضيع: التعريف بالنفس، الأرقام، الأفعال الشائعة (être، avoir، aller، والأفعال المنتهية بـ -er)، المذكر والمؤنث، النفي والأسئلة، القراءة، والمحادثة.")
   ];
+  const english = [
+    ...langRules("الإنجليزية", "Hello [هالو] (مرحباً)"),
+    "علّم الجملة الكاملة لا الكلمة المنفردة، ونبّه إلى الفرق بين الكتابة والنطق في الكلمات الشائعة. " + (pr.little ? "المواضيع: الحروف، الألوان، الأرقام، الحيوانات، العائلة، التحيات." : "المواضيع: المفردات، الأزمنة البسيطة، القراءة والفهم، الكتابة، والمحادثة.")
+  ];
+  const arabic = [
+    "في اللغة العربية: المواضيع حسب مستواه تشمل القراءة والفهم، والنحو والصرف، والإملاء، والتعبير الكتابي، والنصوص الأدبية. اشرح القاعدة بجملة مثال قصيرة قبل ذكر اسمها، ثم اطلب منه تطبيقاً واحداً. في الإعراب اسأله عن موقع الكلمة وعلّته قبل أن تعطيه الحكم. شكّل الكلمات التي قد يخطئ في قراءتها فقط.",
+    "في التعبير الكتابي: لا تكتب الموضوع بدلاً منه، بل ساعده على ترتيب أفكاره (مقدمة، عرض، خاتمة)، وصحّح جملة جملة مع ذكر السبب."
+  ];
+  const science = [
+    "في العلوم: ابدأ بظاهرة يراها في حياته، واطلب منه توقّعه قبل أن تشرح السبب، ثم اشرح في خطوات قصيرة. اذكر المصطلح العلمي بالعربية، ومعه المقابل بالعبرية بين قوسين عند المفاهيم المهمة لأن الامتحانات قد تكون بالعبرية. لا تقترح تجارب فيها مواد خطرة أو نار أو كهرباء منزلية."
+  ];
+  const byId = { math, hebrew, french, english, arabic, science };
   const meta = [
     "بعد انتهاء ردك على الطالب، اكتب سطراً فيه ###META فقط، ثم في السطر التالي JSON واحد صالح (لن يراه الطالب) بهذا الشكل:",
-    '{"chips":["…","…","…"],"progress":{"level":"…","topic":"…","mastered":["…"],"struggles":["…"],"next":"…"}}',
+    '{"chips":["…","…","…"],"step":2,"progress":{"level":"…","topic":"…","mastered":["…"],"struggles":["…"],"next":"…"}}',
+    "step: رقم من 1 إلى 5 لمرحلة الدرس التي يقف عندها الطالب بعد ردك (1 مراجعة، 2 شرح، 3 تمرين معاً، 4 تمرين وحده، 5 ملخص).",
     "chips: من 2 إلى 3 ردود قصيرة جداً (حتى 5 كلمات) يمكن للطالب أن يضغطها ليجيبك أو يتقدّم، بالعربية ومن منظور الطالب، مثل «أعطني تلميحاً» أو «فهمت، التالي» أو «اشرح مرة أخرى». لا تضع فيها جواب التمرين.",
     "progress: حدّث سجلّ الطالب بإيجاز حسب ما ظهر في هذه المحادثة (المستوى بكلمات قليلة، الموضوع الحالي، ما أتقنه، ما يحتاج تقوية، والخطوة التالية للدرس القادم)."
   ];
-  return [...common, ...(subject === "math" ? math : subject === "french" ? french : hebrew), ...meta].join("\n\n");
+  return [...common, ...(byId[subject] || hebrew), ...meta].join("\n\n");
 }
 
 function parseTutorReply(raw) {
   const text = String(raw || "");
   const at = text.indexOf("###META");
-  if (at < 0) return { reply: text.trim(), chips: [], progress: null };
+  if (at < 0) return { reply: text.trim(), chips: [], progress: null, step: 0 };
   const reply = text.slice(0, at).trim();
-  let chips = [], progress = null;
+  let chips = [], progress = null, step = 0;
   try {
     const tail = text.slice(at + 7);
     const a = tail.indexOf("{"), b = tail.lastIndexOf("}");
     const data = JSON.parse(tail.slice(a, b + 1));
     chips = (Array.isArray(data.chips) ? data.chips : []).map((c) => safeText(c, 40)).filter(Boolean).slice(0, 3);
+    const st = Number(data.step);
+    step = Number.isInteger(st) && st >= 1 && st <= 5 ? st : 0;
     const p = data.progress && typeof data.progress === "object" ? data.progress : null;
     if (p) {
       const list = (v) => (Array.isArray(v) ? v : []).map((x) => safeText(x, 80)).filter(Boolean).slice(0, 8);
       progress = { level: safeText(p.level, 80), topic: safeText(p.topic, 120), mastered: list(p.mastered), struggles: list(p.struggles), next: safeText(p.next, 160) };
     }
   } catch {}
-  return { reply, chips, progress };
+  return { reply, chips, progress, step };
 }
 
 async function ensureTutorTable() {
@@ -3629,6 +3660,13 @@ function rateLimit(map, key, max, windowMs = 3600_000) {
   return true;
 }
 
+const tutorPhotoHits = new Map();
+function parseTutorImage(value) {
+  if (typeof value !== "string" || value.length > 2_400_000) return null;
+  const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(value);
+  return m ? { mediaType: `image/${m[1]}`, data: m[2] } : null;
+}
+
 app.get("/api/family/tutor/progress", asyncRoute(async (req, res) => {
   await ensureFamilyDatabase();
   const assignee = String(req.query.assignee || "").toLowerCase();
@@ -3661,14 +3699,24 @@ app.post("/api/family/tutor", asyncRoute(async (req, res) => {
   if (!messages.length || messages[messages.length - 1].role !== "user") throw new PublicError(400, "اكتب سؤالك أولاً.");
   if (!rateLimit(tutorHits, assignee, 80)) throw new PublicError(429, "استخدمنا المعلّم كثيراً في هذه الساعة. خذ استراحة قصيرة ثم عد لنكمل.");
 
+  // Optional homework photo: sent to Claude for this one turn only, never stored.
+  const image = parseTutorImage(req.body?.image);
+  if (req.body?.image && !image) throw new PublicError(400, "تعذّر قراءة الصورة. صوّر الصفحة مرة أخرى.");
+  if (image) {
+    if (!rateLimit(tutorPhotoHits, assignee, 12)) throw new PublicError(429, "أرسلنا صوراً كثيرة في هذه الساعة. اكتب السؤال بدل الصورة أو انتظر قليلاً.");
+    const last = messages[messages.length - 1];
+    last.content = [{ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } }, { type: "text", text: last.content }];
+  }
+
   const member = FAMILY_MEMBERS[assignee];
   const progress = await getTutorProgress(assignee, subject);
   try {
-    const raw = await claudeChat({ system: tutorSystemPrompt(subject, member, progress), messages });
+    const raw = await claudeChat({ system: tutorSystemPrompt(subject, member, progress, { hasImage: Boolean(image) }), messages, maxTokens: image ? 1800 : 1200 });
     const out = parseTutorReply(raw);
     if (out.reply && ttsAvailable()) speechScript(speechText(out.reply)).catch(() => {});
     const saved = out.progress ? await saveTutorProgress(assignee, subject, out.progress, messages.length === 1) : progress;
-    res.json({ reply: out.reply || "لم أستطع الإجابة. جرّب أن تكتب سؤالك بطريقة أخرى.", chips: out.chips, progress: saved });
+    logTutorActivity(assignee, subject, image ? "photo" : "chat");
+    res.json({ reply: out.reply || "لم أستطع الإجابة. جرّب أن تكتب سؤالك بطريقة أخرى.", chips: out.chips, step: out.step, progress: saved });
   } catch (error) {
     console.warn("Tutor request failed:", error.message, error.cause?.message || "");
     throw new PublicError(502, "تعذّر الوصول إلى المعلّم الآن. حاول بعد قليل.");
@@ -3767,6 +3815,346 @@ app.post("/api/family/tutor/speak", asyncRoute(async (req, res) => {
   }
   res.set({ "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400", "Content-Length": audio.length });
   res.end(audio);
+}));
+
+/* ===================== AI tutor: written practice (auto-graded), activity log, parent report ===================== */
+let practiceTablesReady = null;
+function ensurePracticeTables() {
+  if (!practiceTablesReady) {
+    practiceTablesReady = (async () => {
+      await ensureTutorTable();
+      await pool.query(`CREATE TABLE IF NOT EXISTS hero_tutor_practice (
+        id TEXT PRIMARY KEY, assignee TEXT NOT NULL, subject TEXT NOT NULL, topic TEXT NOT NULL DEFAULT '',
+        items JSONB NOT NULL, answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), finished_at TIMESTAMPTZ)`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS hero_tutor_log (
+        id BIGSERIAL PRIMARY KEY, assignee TEXT NOT NULL, subject TEXT NOT NULL, topic TEXT NOT NULL DEFAULT '',
+        practice_id TEXT, question TEXT NOT NULL, given TEXT NOT NULL DEFAULT '', expected TEXT NOT NULL DEFAULT '',
+        correct BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS hero_tutor_log_idx ON hero_tutor_log (assignee, created_at DESC)`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS hero_tutor_activity (
+        id BIGSERIAL PRIMARY KEY, assignee TEXT NOT NULL, subject TEXT NOT NULL, kind TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS hero_tutor_activity_idx ON hero_tutor_activity (assignee, created_at DESC)`);
+    })().catch((error) => { practiceTablesReady = null; throw error; });
+  }
+  return practiceTablesReady;
+}
+
+// Only counts and timestamps are stored here, never the conversation or any photo.
+function logTutorActivity(assignee, subject, kind) {
+  if (!pool) return;
+  ensurePracticeTables()
+    .then(() => pool.query(`INSERT INTO hero_tutor_activity (assignee, subject, kind) VALUES ($1,$2,$3)`, [assignee, subject, kind]))
+    .catch((error) => console.warn("Tutor activity log failed:", error.message));
+}
+
+async function patchTutorState(assignee, subject, patch) {
+  try {
+    await ensureTutorTable();
+    await pool.query(
+      `INSERT INTO hero_tutor_progress (assignee, subject, state) VALUES ($1,$2,$3::jsonb)
+       ON CONFLICT (assignee, subject) DO UPDATE SET state = hero_tutor_progress.state || EXCLUDED.state, updated_at = NOW()`,
+      [assignee, subject, JSON.stringify(patch)]
+    );
+  } catch (error) {
+    console.warn("Tutor state patch failed:", error.message);
+  }
+}
+
+const practiceHits = new Map();
+const practiceCount = (pr) => (pr.asd || pr.little ? 5 : 6);
+
+function practicePrompt(subject, member, progress, mistakes, topic, count) {
+  const pr = tutorProfile(member);
+  const S = TUTOR_SUBJECTS[subject];
+  const lines = [
+    `أنت معلّم ${S.label} يُعدّ تمريناً مكتوباً قصيراً للطالب ${pr.name} (مستواه التقريبي ${pr.grade} وفق المنهاج في إسرائيل، المدارس العربية).`,
+    `أعدّ ${count} أسئلة متدرّجة من السهل إلى الأصعب قليلاً. يكون أول سؤال سهلاً مضمون النجاح لبناء الثقة.${pr.asd ? " صياغة الأسئلة حرفية ومباشرة بلا مجاز ولا أسئلة غامضة." : ""}${pr.little ? " كلمات بسيطة جداً وجمل قصيرة." : ""}`,
+    topic ? `الموضوع المطلوب: ${topic}` : "اختر الموضوع من سجلّ التقدّم التالي (الموضوع الحالي ثم الخطوة التالية)، وإن لم يوجد سجلّ فاختر موضوعاً مناسباً لمستواه.",
+    `سجلّ التقدّم:\n${tutorProgressText(progress)}`
+  ];
+  if (mistakes.length) {
+    lines.push(`أخطأ مؤخراً في أسئلة من هذا النوع، فاجعل ${Math.min(2, mistakes.length)} من الأسئلة مراجعة لنفس المفاهيم بأرقام أو جمل مختلفة (لا تكرّر السؤال نفسه):\n- ${mistakes.join("\n- ")}`);
+  }
+  lines.push(
+    "كل سؤال مستقل ومفهوم دون صورة أو رسم. نص عادي بلا Markdown ولا LaTeX. استعمل × و ÷ والكسور مثل 3/4. الأسئلة والتعليمات بالعربية، وما كان بلغة أجنبية فاكتبه بحروفه الأصلية.",
+    "أنواع الأسئلة المسموحة: choice (اختيار من 3 إلى 4 إجابات، وأحدها فقط صحيح، و correct هو رقم الإجابة الصحيحة بدءاً من 0)، number (جوابه رقم واحد فقط بأرقام لاتينية، ويقبل كسراً مثل 3/4)، text (جوابه كلمة أو عبارة قصيرة جداً بلغة المادة). فضّل choice في اللغات و number في الرياضيات، واخلط الأنواع. وزّع مواضع الإجابة الصحيحة في choice بشكل عشوائي.",
+    "تحقّق من صحة كل جواب مرتين قبل كتابته. لكل سؤال شرح قصير (جملة أو جملتان) يظهر بعد الجواب ويبيّن الطريقة أو القاعدة.",
+    "أعد JSON واحداً صالحاً فقط بلا أي نص قبله أو بعده، بهذا الشكل:",
+    '{"topic":"اسم الموضوع بكلمات قليلة","items":[{"type":"choice","q":"…","choices":["…","…","…"],"correct":1,"explain":"…"},{"type":"number","q":"…","answer":"12","explain":"…"},{"type":"text","q":"…","answer":"…","alt":["…"],"explain":"…"}]}'
+  );
+  return lines.join("\n\n");
+}
+
+function normalizeDigits(value) {
+  return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
+}
+function parseNumberAnswer(value) {
+  const t = normalizeDigits(value).replace(/\s+/g, "").replace(/[٫,]/g, ".").replace(/[−–]/g, "-");
+  const frac = /^(-?\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/.exec(t);
+  if (frac) {
+    const d = Number(frac[2]);
+    return d ? Number(frac[1]) / d : null;
+  }
+  return /^-?\d+(?:\.\d+)?$/.test(t) ? Number(t) : null;
+}
+function normalizeAnswerText(value) {
+  return String(value ?? "")
+    .normalize("NFC")
+    .replace(/[֑-ׇً-ٰٟـ]/g, "") // niqqud, tashkeel, tatweel
+    .toLowerCase()
+    .replace(/[.,!?;:"'“”«»()\-–—،؟]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parsePractice(raw, count) {
+  const text = String(raw || "");
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b <= a) return null;
+  let data;
+  try { data = JSON.parse(text.slice(a, b + 1)); } catch { return null; }
+  const items = [];
+  for (const it of Array.isArray(data.items) ? data.items : []) {
+    const q = safeText(String(it?.q ?? ""), 320);
+    const explain = safeText(String(it?.explain ?? ""), 300);
+    if (!q) continue;
+    if (it.type === "choice") {
+      const choices = (Array.isArray(it.choices) ? it.choices : []).map((c) => safeText(String(c ?? ""), 90)).filter(Boolean).slice(0, 4);
+      const correct = Number(it.correct);
+      if (choices.length < 2 || !Number.isInteger(correct) || correct < 0 || correct >= choices.length) continue;
+      if (new Set(choices).size !== choices.length) continue;
+      items.push({ type: "choice", q, choices, correct, explain });
+    } else if (it.type === "number") {
+      const answer = safeText(String(it.answer ?? ""), 30);
+      if (parseNumberAnswer(answer) === null) continue;
+      items.push({ type: "number", q, answer, explain });
+    } else if (it.type === "text") {
+      const answer = safeText(String(it.answer ?? ""), 80);
+      const alt = (Array.isArray(it.alt) ? it.alt : []).map((x) => safeText(String(x ?? ""), 80)).filter(Boolean).slice(0, 5);
+      if (!answer) continue;
+      items.push({ type: "text", q, answer, alt, explain });
+    }
+  }
+  return items.length >= 3 ? { topic: safeText(String(data.topic ?? ""), 80), items: items.slice(0, count) } : null;
+}
+
+function gradePracticeItem(item, answer) {
+  if (item.type === "choice") {
+    const idx = Number(answer);
+    const valid = Number.isInteger(idx) && idx >= 0 && idx < item.choices.length;
+    return { correct: valid && idx === item.correct, expected: item.choices[item.correct], given: valid ? item.choices[idx] : "" };
+  }
+  const given = safeText(String(answer ?? ""), 120);
+  if (item.type === "number") {
+    const g = parseNumberAnswer(given), e = parseNumberAnswer(item.answer);
+    return { correct: g !== null && e !== null && Math.abs(g - e) <= 1e-6 * Math.max(1, Math.abs(e)), expected: item.answer, given };
+  }
+  const g = normalizeAnswerText(given);
+  return { correct: Boolean(g) && [item.answer, ...(item.alt || [])].some((x) => normalizeAnswerText(x) === g), expected: item.answer, given };
+}
+
+function publicPracticeItems(items) {
+  return items.map((it) => (it.type === "choice" ? { type: it.type, q: it.q, choices: it.choices } : { type: it.type, q: it.q }));
+}
+
+app.post("/api/family/tutor/practice", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  const assignee = String(req.body?.assignee || "").toLowerCase();
+  if (!isFamilyMember(assignee)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  requireChildOrParent(req, assignee);
+  const subject = String(req.body?.subject || "");
+  if (!TUTOR_SUBJECTS[subject]) throw new PublicError(400, "اختر المادة أولاً.");
+  if (!isAnthropicConfigured()) throw new PublicError(503, "المعلّم الذكي غير مفعّل بعد. على الوالدين إضافة مفتاح Claude في إعدادات الخادم.");
+  if (!rateLimit(practiceHits, assignee, 15)) throw new PublicError(429, "أنجزنا تمارين كثيرة في هذه الساعة. خذ استراحة قصيرة ثم عد.");
+
+  const topic = safeText(String(req.body?.topic ?? ""), 80);
+  const member = FAMILY_MEMBERS[assignee];
+  const count = practiceCount(tutorProfile(member));
+  await ensurePracticeTables();
+  const progress = await getTutorProgress(assignee, subject);
+  const { rows: wrongRows } = await pool.query(
+    `SELECT question FROM hero_tutor_log WHERE assignee = $1 AND subject = $2 AND correct = FALSE AND created_at > NOW() - INTERVAL '21 days' ORDER BY created_at DESC LIMIT 20`,
+    [assignee, subject]
+  );
+  const mistakes = [...new Set(wrongRows.map((r) => r.question))].slice(0, 4);
+
+  let parsed = null;
+  try {
+    for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+      const raw = await claudeChat({
+        system: practicePrompt(subject, member, progress, mistakes, topic, count),
+        messages: [{ role: "user", content: "أعدّ التمرين الآن." }],
+        maxTokens: 2600,
+        timeoutMs: 75000
+      });
+      parsed = parsePractice(raw, count);
+    }
+  } catch (error) {
+    console.warn("Practice generation failed:", error.message, error.cause?.message || "");
+    throw new PublicError(502, "تعذّر تجهيز التمرين الآن. حاول بعد قليل.");
+  }
+  if (!parsed) throw new PublicError(502, "لم يكتمل تجهيز التمرين. اضغط «ابدأ» مرة أخرى.");
+
+  const id = crypto.randomUUID();
+  const finalTopic = parsed.topic || topic || (progress?.topic ? safeText(String(progress.topic), 80) : TUTOR_SUBJECTS[subject].label);
+  await pool.query(`INSERT INTO hero_tutor_practice (id, assignee, subject, topic, items) VALUES ($1,$2,$3,$4,$5::jsonb)`, [id, assignee, subject, finalTopic, JSON.stringify(parsed.items)]);
+  res.json({ id, topic: finalTopic, total: parsed.items.length, review: mistakes.length > 0, items: publicPracticeItems(parsed.items) });
+}));
+
+app.post("/api/family/tutor/practice/:id/answer", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  await ensurePracticeTables();
+  const { rows } = await pool.query(`SELECT * FROM hero_tutor_practice WHERE id = $1`, [String(req.params.id || "")]);
+  const row = rows[0];
+  if (!row) throw new PublicError(404, "لم أجد هذا التمرين. ابدأ تمريناً جديداً.");
+  requireChildOrParent(req, row.assignee);
+  const items = Array.isArray(row.items) ? row.items : [];
+  const index = Number(req.body?.index);
+  if (!Number.isInteger(index) || index < 0 || index >= items.length) throw new PublicError(400, "رقم السؤال غير صحيح.");
+  const item = items[index];
+  const result = gradePracticeItem(item, req.body?.answer);
+
+  // Atomic and idempotent: a question is graded and logged once, repeating the request returns the stored result.
+  const update = await pool.query(
+    `UPDATE hero_tutor_practice SET answers = answers || $2::jsonb WHERE id = $1 AND NOT (answers ? $3) RETURNING answers`,
+    [row.id, JSON.stringify({ [index]: { c: result.correct, g: result.given } }), String(index)]
+  );
+  let answers = row.answers || {};
+  let repeated = false;
+  if (update.rowCount) {
+    answers = update.rows[0].answers;
+    await pool.query(
+      `INSERT INTO hero_tutor_log (assignee, subject, topic, practice_id, question, given, expected, correct) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [row.assignee, row.subject, row.topic, row.id, item.q, result.given, result.expected, result.correct]
+    );
+  } else {
+    repeated = true;
+    const stored = answers[String(index)] || {};
+    result.correct = Boolean(stored.c);
+    result.given = String(stored.g ?? "");
+  }
+
+  const answered = Object.keys(answers).length;
+  const done = answered >= items.length;
+  const score = { correct: Object.values(answers).filter((a) => a && a.c).length, total: items.length };
+  if (done && !repeated) {
+    await pool.query(`UPDATE hero_tutor_practice SET finished_at = NOW() WHERE id = $1`, [row.id]);
+    const wrongQuestions = items.filter((_, i) => answers[String(i)] && !answers[String(i)].c).map((it) => safeText(it.q, 80)).slice(0, 5);
+    await patchTutorState(row.assignee, row.subject, {
+      lastPractice: `${score.correct} من ${score.total} في «${row.topic}»`,
+      practiceMistakes: wrongQuestions
+    });
+  }
+  res.json({ correct: result.correct, expected: result.expected, given: result.given, explain: item.explain || "", done, score, topic: row.topic });
+}));
+
+/* ---- parent report ---- */
+const reportSummaryCache = new Map();
+
+function basicReportSummary(name, data) {
+  const t = data.totals;
+  if (!t.answered && !t.chat && !t.photo) return `لم يستعمل ${name} المعلّم الذكي في هذه الفترة. يكفي أن يبدأ بجلسة قصيرة واحدة ثم تمرين من 5 أسئلة.`;
+  const parts = [`في هذه الفترة: ${t.chat + t.photo} رسالة للمعلّم، و${t.answered} سؤالاً في التمارين أجاب منها ${t.correct} بشكل صحيح.`];
+  const weak = data.subjects.filter((s) => s.struggles.length).map((s) => `${s.label}: ${s.struggles.slice(0, 3).join("، ")}`);
+  if (weak.length) parts.push(`يحتاج تقوية في: ${weak.join(" · ")}.`);
+  return parts.join(" ");
+}
+
+async function reportSummary(assignee, name, data, refresh) {
+  const signature = crypto.createHash("sha256").update(JSON.stringify({ t: data.totals, s: data.subjects.map((s) => [s.subject, s.topic, s.struggles, s.mastered, s.next, s.answered, s.correct]), m: data.mistakes.map((m) => m.question) })).digest("hex");
+  const key = `${assignee}|${data.days}`;
+  const hit = reportSummaryCache.get(key);
+  if (!refresh && hit && hit.signature === signature && Date.now() - hit.at < 6 * 3600_000) return hit.text;
+  if (!isAnthropicConfigured() || (!data.totals.answered && !data.totals.chat && !data.totals.photo && !data.subjects.length)) return basicReportSummary(name, data);
+  const pr = tutorProfile(FAMILY_MEMBERS[assignee]);
+  const system = [
+    "أنت مستشار تعليمي يكتب تقريراً قصيراً لوالدَي طالب عن استعماله للمعلّم الذكي في تطبيق العائلة.",
+    "اعتمد على البيانات المعطاة فقط ولا تخترع أرقاماً أو مواضيع. إن كانت البيانات قليلة فقل ذلك بصراحة ولا تبالغ في الاستنتاج.",
+    "الأسلوب: عربية واضحة وبسيطة بنبرة محترمة وداعمة، نص عادي بلا Markdown ولا رموز تعبيرية، من 6 إلى 9 أسطر قصيرة.",
+    "اكتب بهذا الترتيب: (1) ماذا عمل في هذه الفترة وعلى ماذا يعمل الآن، (2) نقاط القوة، (3) ما يحتاج دعماً مع ذكر أمثلة من أخطائه إن وُجدت، (4) توصية واحدة محددة وسهلة للوالدين هذا الأسبوع.",
+    pr.asd ? "اجعل التوصية مناسبة لطفل يحتاج إلى روتين ثابت وجلسات قصيرة متوقعة (مثلاً الوقت نفسه كل يوم وعدد أسئلة محدد)، دون ذكر أي تشخيص في التقرير." : "",
+    pr.little ? "الطالب صغير، فاجعل التوصية قصيرة ومرحة ومبنية على اللعب والمحاولة." : ""
+  ].filter(Boolean).join("\n");
+  const compact = {
+    الطالب: name,
+    الفترة_بالأيام: data.days,
+    المجاميع: data.totals,
+    المواد: data.subjects.map((s) => ({ المادة: s.label, الموضوع_الحالي: s.topic, أتقن: s.mastered, يحتاج_تقوية: s.struggles, الخطوة_التالية: s.next, أسئلة_التمارين: s.answered, الصحيح: s.correct, آخر_تمرين: s.lastPractice })),
+    أخطاء_حديثة: data.mistakes.map((m) => ({ المادة: m.label, السؤال: m.question, جوابه: m.given, الصحيح: m.expected }))
+  };
+  try {
+    const text = await claudeChat({ system, messages: [{ role: "user", content: JSON.stringify(compact) }], maxTokens: 700, timeoutMs: 45000, model: ANTHROPIC_MODEL });
+    const clean = text.replace(/[*#]/g, "").trim();
+    if (!clean) throw new Error("empty summary");
+    reportSummaryCache.set(key, { signature, text: clean, at: Date.now() });
+    return clean;
+  } catch (error) {
+    console.warn("Report summary failed:", error.message);
+    return basicReportSummary(name, data);
+  }
+}
+
+app.get("/api/family/tutor/report", asyncRoute(async (req, res) => {
+  await ensureFamilyDatabase();
+  requireParent(req);
+  const assignee = String(req.query.assignee || "").toLowerCase();
+  if (!isFamilyMember(assignee)) throw new PublicError(400, "اختر الطفل أولاً.");
+  const days = [7, 14, 30].includes(Number(req.query.days)) ? Number(req.query.days) : 7;
+  await ensurePracticeTables();
+  const name = FAMILY_MEMBERS[assignee]?.name || assignee;
+  const tz = APP_TIME_ZONE;
+
+  const [prog, stats, sessions, dailyLog, dailyAct, mistakeRows] = await Promise.all([
+    pool.query(`SELECT subject, state, updated_at FROM hero_tutor_progress WHERE assignee = $1`, [assignee]),
+    pool.query(`SELECT subject, COUNT(*)::int AS answered, COALESCE(SUM(CASE WHEN correct THEN 1 ELSE 0 END),0)::int AS correct FROM hero_tutor_log WHERE assignee = $1 AND created_at > NOW() - make_interval(days => $2::int) GROUP BY subject`, [assignee, days]),
+    pool.query(`SELECT subject, COUNT(*)::int AS n FROM hero_tutor_practice WHERE assignee = $1 AND finished_at IS NOT NULL AND finished_at > NOW() - make_interval(days => $2::int) GROUP BY subject`, [assignee, days]),
+    pool.query(`SELECT to_char((created_at AT TIME ZONE $3)::date, 'YYYY-MM-DD') AS d, COUNT(*)::int AS n FROM hero_tutor_log WHERE assignee = $1 AND created_at > NOW() - make_interval(days => $2::int) GROUP BY d`, [assignee, days + 1, tz]),
+    pool.query(`SELECT to_char((created_at AT TIME ZONE $3)::date, 'YYYY-MM-DD') AS d, kind, COUNT(*)::int AS n FROM hero_tutor_activity WHERE assignee = $1 AND created_at > NOW() - make_interval(days => $2::int) GROUP BY d, kind`, [assignee, days + 1, tz]),
+    pool.query(`SELECT subject, question, given, expected FROM hero_tutor_log WHERE assignee = $1 AND correct = FALSE AND created_at > NOW() - make_interval(days => $2::int) ORDER BY created_at DESC LIMIT 8`, [assignee, days])
+  ]);
+
+  const statBy = Object.fromEntries(stats.rows.map((r) => [r.subject, r]));
+  const sessBy = Object.fromEntries(sessions.rows.map((r) => [r.subject, r.n]));
+  const progBy = Object.fromEntries(prog.rows.map((r) => [r.subject, r]));
+  const list = (v) => (Array.isArray(v) ? v.map((x) => safeText(String(x ?? ""), 100)).filter(Boolean).slice(0, 8) : []);
+  const subjects = Object.keys(TUTOR_SUBJECTS)
+    .filter((k) => progBy[k] || statBy[k])
+    .map((k) => {
+      const st = progBy[k]?.state || {};
+      const answered = statBy[k]?.answered || 0, correct = statBy[k]?.correct || 0;
+      return {
+        subject: k, label: TUTOR_SUBJECTS[k].label,
+        level: safeText(String(st.level ?? ""), 80), topic: safeText(String(st.topic ?? ""), 120), next: safeText(String(st.next ?? ""), 160),
+        mastered: list(st.mastered), struggles: list(st.struggles), sessions: Number(st.sessions) || 0,
+        lastPractice: safeText(String(st.lastPractice ?? ""), 120),
+        updatedAt: progBy[k]?.updated_at || null,
+        answered, correct, accuracy: answered ? Math.round((correct / answered) * 100) : null, practiceSessions: sessBy[k] || 0
+      };
+    });
+
+  const dateKey = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = dateKey(new Date(Date.now() - i * 86400000));
+    const act = (kind) => dailyAct.rows.filter((r) => r.d === date && r.kind === kind).reduce((n, r) => n + r.n, 0);
+    daily.push({ date, practice: dailyLog.rows.filter((r) => r.d === date).reduce((n, r) => n + r.n, 0), chat: act("chat"), photo: act("photo") });
+  }
+
+  const totals = {
+    answered: subjects.reduce((n, s) => n + s.answered, 0),
+    correct: subjects.reduce((n, s) => n + s.correct, 0),
+    practiceSessions: subjects.reduce((n, s) => n + s.practiceSessions, 0),
+    chat: daily.reduce((n, d) => n + d.chat, 0),
+    photo: daily.reduce((n, d) => n + d.photo, 0)
+  };
+  const mistakes = mistakeRows.rows.map((r) => ({ subject: r.subject, label: TUTOR_SUBJECTS[r.subject]?.label || r.subject, question: r.question, given: r.given, expected: r.expected }));
+  const data = { assignee, name, days, subjects, daily, totals, mistakes };
+  const summary = await reportSummary(assignee, name, data, req.query.refresh === "1");
+  res.json({ ...data, summary });
 }));
 
 app.use(express.static(path.join(__dirname, "public")));
