@@ -455,6 +455,15 @@
     const cur=KIDS.includes(pkid)?pkid:KIDS[0];
     return `<div class="ktabs" role="tablist">${KIDS.map(k=>{const st=stats(k);return `<button type="button" role="tab" aria-selected="${k===cur}" class="${k===cur?"on":""}" data-action="pkid" data-k="${k}" style="--kc:${PEOPLE[k].color||"var(--brand)"}"><span aria-hidden="true">${PEOPLE[k].icon}</span>${esc(PEOPLE[k].name)}<em>${st.open}</em>${st.total?`<small class="ktpct">${Math.round(st.done/st.total*100)}%</small>`:""}</button>`}).join("")}</div>`;
   }
+  /* Today's open tasks split by the clock: what is now/coming first, what already passed folded away. */
+  function splitByNow(list,day){
+    if(day&&day!==today())return {up:list,past:[]};
+    const n=new Date(),now=n.getHours()*60+n.getMinutes();
+    const mins=t=>{const x=/^(\d{1,2}):(\d{2})/.exec(t.suggestedTime||"");return x?(+x[1])*60+(+x[2]):null};
+    const past=[],up=[];
+    for(const t of list){const a=mins(t);if(a!==null&&a+Math.max(15,Number(t.timerMinutes)||0)<=now&&t.status!=="in_progress"&&!t.startedAt)past.push(t);else up.push(t)}
+    return {up,past};
+  }
   function kidCard(m,kid){
     const s=stats(m),tasks=child[m]?.tasks||[],pts=pointsOf(tasks),p=PEOPLE[m];
     const R=t=>parentTaskRow(t,m,kid);
@@ -462,7 +471,7 @@
     const prayers=tasks.filter(isPrayer),rest=tasks.filter(t=>!isPrayer(t));
     const open=rest.filter(t=>!t.done),done=rest.filter(t=>t.done);
     const body=rest.length||prayers.length?
-      (open.length?listOrDetails(open,4,R,"باقي المهام"):(rest.length?`<div class="empty"><b>🏆</b>${kid?`أحسنت يا ${p.name}! أنجزت كل المهام`:`أنجز ${p.name} كل المهام`}</div>`:""))
+      (open.length?(()=>{const sp=splitByNow(open,child[m]?.date);return (sp.up.length?listOrDetails(sp.up,4,R,"باقي المهام"):`<div class="empty" style="padding:12px 0"><b>🌙</b>لا مهام قادمة الآن</div>`)+(sp.past.length?`<details class="fold"><summary>⏳ فات وقتها اليوم (${sp.past.length})</summary><div class="list">${sp.past.map(R).join("")}</div></details>`:"")})():(rest.length?`<div class="empty"><b>🏆</b>${kid?`أحسنت يا ${p.name}! أنجزت كل المهام`:`أنجز ${p.name} كل المهام`}</div>`:""))
       +(done.length?`<details class="fold"><summary>المنجزة (${done.length})</summary><div class="list">${done.map(R).join("")}</div></details>`:"")
       +(prayers.length?`<details class="fold"><summary>🕌 الصلوات (${prayers.filter(t=>t.done).length}/${prayers.length})</summary><div class="list">${prayers.map(R).join("")}</div></details>`:"")
       :`<div class="empty"><b>🌱</b>لا توجد مهام لـ${p.name} اليوم${kid?"":`<div style="margin-top:10px"><button class="btn btn-soft btn-sm" data-action="seed" data-who="${m}">📅 طبّق برنامج اليوم</button></div>`}</div>`;
