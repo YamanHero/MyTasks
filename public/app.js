@@ -74,6 +74,23 @@
   let family={},tick={},dashboard=null,child={},prayer=null,school={},weekly=[],ach=[],kidStats={},apps=null;
   let loading=true,pin="",pinBusy=false,pinError="";
   let focusId={};
+  /* On re-entry, continue where the child left off instead of jumping back to the first open task of the day:
+     chosen task this session → task chosen earlier today on this device → task already started → task due now → next upcoming. */
+  const FKEY=m=>`hero.focus.${m}.${today()}`;
+  function saveFocus(m,id){focusId[m]=id;try{localStorage.setItem(FKEY(m),id)}catch(e){}}
+  function pickFocus(m,open){
+    if(!open.length)return null;
+    const byId=id=>id?open.find(t=>t.id===id):null;
+    let saved=null;try{saved=localStorage.getItem(FKEY(m))}catch(e){}
+    const started=open.filter(t=>t.status==="in_progress"||t.startedAt).sort((a,b)=>String(b.startedAt||"").localeCompare(String(a.startedAt||"")))[0];
+    const mins=t=>{const x=/^(\d{1,2}):(\d{2})/.exec(t.suggestedTime||"");return x?(+x[1])*60+(+x[2]):null};
+    const n=new Date(),now=n.getHours()*60+n.getMinutes();
+    const timed=open.filter(t=>mins(t)!==null).sort((a,b)=>mins(a)-mins(b));
+    const current=timed.find(t=>mins(t)<=now&&now<mins(t)+Math.max(15,Number(t.timerMinutes)||30));
+    const next=timed.find(t=>mins(t)>now);
+    const lastPast=[...timed].reverse().find(t=>mins(t)<=now);
+    return byId(focusId[m])||byId(saved)||started||current||next||lastPast||open[0];
+  }
   let projects=[],chosenProjects=new Set(),importTasks=[],chosenTasks=new Set();
   let draft=newDraft();
   let help={task:null,member:"",mode:"full",question:"",loading:false,result:null,checked:new Set()};
@@ -574,7 +591,7 @@
     if(!d)return `${topbar()}<div class="stack"><article class="card login"><h2>تعذر تحميل مهامك</h2><div class="row" style="justify-content:center;margin-top:12px"><button class="btn btn-primary" data-action="reload">إعادة المحاولة</button></div></article></div>`;
     const all=d.tasks||[],tasks=all.filter(t=>!isPrayer(t)),prayers=all.filter(isPrayer);
     const open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done),pts=pointsOf(tasks);
-    const cur=open.find(t=>t.id===focusId[m])||open[0];
+    const cur=pickFocus(m,open);
     const rest=open.filter(t=>t!==cur);
     let msg;
     if(!tasks.length)msg="لا توجد مهام اليوم. استمتع بوقتك!";
@@ -1179,14 +1196,14 @@
       case "d-sugg":syncDraft();draft.title=b.dataset.v;taskModal();return;
       case "d-timer":syncDraft();draft.timer=Number(b.dataset.v);return taskModal();
       case "d-pts":syncDraft();draft.points=Math.min(50,Math.max(0,draft.points+Number(b.dataset.v)));return taskModal();
-      case "later":{const l=child[b.dataset.member].tasks.filter(t=>!t.done&&!isPrayer(t));const i=l.findIndex(t=>t.id===b.dataset.id);focusId[b.dataset.member]=l[(i+1)%l.length].id;render();return}
+      case "later":{const l=child[b.dataset.member].tasks.filter(t=>!t.done&&!isPrayer(t));const i=l.findIndex(t=>t.id===b.dataset.id);saveFocus(b.dataset.member,l[(i+1)%l.length].id);render();return}
       case "lock":return guard(b,async()=>{
         if(area==="parent")await api("/api/family/parent/logout",{method:"POST"});
         else await api(`/api/family/child/${area}/logout`,{method:"POST"});
         area="home";history.replaceState(null,"","?area=home");await refresh();toast("تم القفل 🔒");
       });
       case "start":return guard(b,async()=>{
-        const t=findTask(b.dataset.id);if(!t)return;
+        const t=findTask(b.dataset.id);if(!t)return;if(b.dataset.member)saveFocus(b.dataset.member,t.id);
         const r=await api(`/api/family/tasks/${t.id}/start`,{method:"PATCH",body:JSON.stringify({assignee:b.dataset.member})});
         Object.assign(t,r.task||{status:"in_progress",startedAt:new Date().toISOString()});render();calm?toast("بدأنا ✓","ok",null,2500):toast("بدأت! مكافأة البداية +2 ⭐","gold");
       });
@@ -1228,9 +1245,9 @@
         return prefsSheet()}
       case "sound":{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task");return render()}
       case "complete":return completeTask(b);
-      case "focus":focusId[b.dataset.member]=b.dataset.id;render();scrollTo({top:0,behavior:"smooth"});return;
+      case "focus":saveFocus(b.dataset.member,b.dataset.id);render();scrollTo({top:0,behavior:"smooth"});return;
       case "nudge-hide":nudgeHide(b.dataset.member,b.dataset.kind);render();return;
-      case "nudge-go":{const m=b.dataset.member;if(b.dataset.id)focusId[m]=b.dataset.id;kview="today";const n=nudge[m];if(n&&n.kind)nudgeHide(m,n.kind);render();scrollTo({top:0,behavior:"smooth"});return}
+      case "nudge-go":{const m=b.dataset.member;if(b.dataset.id)saveFocus(m,b.dataset.id);kview="today";const n=nudge[m];if(n&&n.kind)nudgeHide(m,n.kind);render();scrollTo({top:0,behavior:"smooth"});return}
       case "projects":return guard(b,projectsModal);
       case "import":return guard(b,importModal);
       case "tt-sync":return guard(b,async()=>{const r=await api("/api/ticktick/sync",{method:"POST"});const x=r.result||{};const n=(x.pulled||0)+(x.completedHere||0)+(x.deletedHere||0)+(x.imported||0);const m=(x.pushed||0)+(x.linked||0)+(x.completedThere||0)+(x.deletedThere||0);
