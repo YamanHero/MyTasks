@@ -551,7 +551,7 @@
       ${nextEv?`<div class="event" style="width:100%">📌 اليوم${nextEv.time?` ${esc(nextEv.time)}`:""}: ${esc(nextEv.title)}</div>`:""}${kidTabs()}${kidCard(KIDS.includes(pkid)?pkid:KIDS[0])}<button class="btn btn-line" data-action="bedtime">🌙 رسالة قبل النوم ليَمان</button>`;
     }else if(pview==="events")body=eventsView();
     else if(pview==="stats")body=statsView();
-    else body=membersCard()+weeklyCard()+appsCard()+prayerCard()+tickView();
+    else body=membersCard()+pushCard()+weeklyCard()+appsCard()+prayerCard()+tickView();
     const head=pview==="today"?hero(greeting(),openAll?`بقي ${openAll} ${openAll===1?"مهمة":"مهام"} مفتوحة لليوم`:(doneAll?"أنجز الجميع كل المهام. يوم رائع!":"لا توجد مهام لليوم بعد."),"🏠"):hero(pview==="events"?"المواعيد":pview==="stats"?"الإنجاز":"الإعدادات",pview==="events"?"جدول العائلة القادم":pview==="stats"?"نسبة الإنجاز والنجوم لكل واحد":"الصلاة والمزامنة","🏠",false);
     return `${topbar()}${head}<div class="stack">${body}</div>`;
   }
@@ -592,7 +592,7 @@
 
   /* ---- child ---- */
   function childView(m){
-    const p=PEOPLE[m];
+    const p=PEOPLE[m];checkPush(m);
     if(!family.parentAuthenticated&&!family[`${m}Authenticated`])return `${topbar()}<div class="stack">${loginCard(m)}</div>`;
     const d=child[m];
     if(d&&kview==="cal")return `${topbar()}<div class="greet"><span class="g-ico" aria-hidden="true">${p.icon}</span><b>تقويمي</b></div><div class="stack">${calendarHtml()}</div>`;
@@ -621,6 +621,7 @@
       ${kidCard(m,true)}
       ${events.length?`<article class="card"><details class="fold"><summary>📅 مواعيدي اليوم (${events.length})</summary><div class="events" style="margin-top:10px">${events.map(e=>`<div class="event">${e.time?`<time>${esc(e.time)}</time>`:"📌"}${esc(e.title)}</div>`).join("")}</div></details></article>`:""}
       ${tutorCard(m)}
+      ${remindCard(m)}
       ${kidStarsFold(m)}
       ${quoteHtml(quoteFor(today()+m,open.length?"effort":"success"))}
       ${tasks.length&&(open.length===0||new Date().getHours()>=17)?`<button class="btn btn-line" data-action="endday" data-member="${m}">🌙 تقرير يومي</button>`:""}
@@ -1142,6 +1143,61 @@
     }catch(err){pinError=err.message;pin="";paintPin(true)}
     finally{pinBusy=false;go?.classList.remove("busy")}
   }
+  /* ---- phone reminders (Web Push) ---- */
+  const push={subscribed:{},checked:{},st:null};
+  const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+  const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const b64ToU8=b=>{const p="=".repeat((4-b.length%4)%4),r=atob((b+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
+  if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+  async function checkPush(m){
+    if(push.checked[m]||!pushSupported())return;
+    push.checked[m]=true;
+    try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();push.subscribed[m]=Boolean(sub)&&Notification.permission==="granted";if(push.subscribed[m])render()}catch{}
+  }
+  function remindCard(m){
+    const p=PEOPLE[m];let inner;
+    if(!pushSupported())inner=isIOS()&&!isStandalone()
+      ?`<p class="muted small">على iPhone: افتح الموقع في Safari ← زر المشاركة ← «إضافة إلى الشاشة الرئيسية»، ثم افتح التطبيق من الأيقونة الجديدة وفعّل التذكيرات من هنا.</p>`
+      :`<p class="muted small">هذا المتصفح لا يدعم التذكيرات. جرّب Chrome على أندرويد أو Safari على iPhone بعد إضافة التطبيق للشاشة الرئيسية.</p>`;
+    else if(Notification.permission==="denied")inner=`<p class="muted small">التذكيرات محظورة لهذا الموقع. فعّل الإشعارات له من إعدادات المتصفح ثم أعد المحاولة.</p>`;
+    else if(push.subscribed[m])inner=`<p class="muted small">🔔 التذكيرات مفعّلة على هذا الجهاز. ستصلك رسالة عند وقت كل مهمة وكل صلاة.</p><div class="row" style="gap:8px;margin-top:8px"><button class="btn btn-soft btn-sm" data-action="push-test" data-member="${m}">إرسال تجربة</button><button class="btn btn-line btn-sm" data-action="push-off" data-member="${m}">إيقاف</button></div>`;
+    else inner=`<p class="muted small">يصلك تذكير على الهاتف عند وقت كل مهمة وكل صلاة.</p><button class="btn btn-primary" style="margin-top:8px" data-action="push-on" data-member="${m}">🔔 تفعيل التذكيرات على هاتفي</button>`;
+    return `<article class="card remindcard"><div class="card-title"><h2>🔔 تذكيراتي</h2></div>${inner}</article>`;
+  }
+  async function pushOn(m){
+    if(Notification.permission==="default"){const r=await Notification.requestPermission();if(r!=="granted")return toast("لم يُسمح بالإشعارات.","err")}
+    if(Notification.permission!=="granted")return toast("الإشعارات محظورة لهذا الموقع.","err");
+    const reg=await navigator.serviceWorker.ready;
+    const key=(await api("/api/push/key")).publicKey;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(key)});
+    await api("/api/push/subscribe",{method:"POST",body:JSON.stringify({assignee:m,subscription:sub.toJSON(),label:(navigator.userAgent||"").slice(0,80)})});
+    push.subscribed[m]=true;toast("تم تفعيل التذكيرات ✓","ok");render();
+    api("/api/push/test",{method:"POST",body:JSON.stringify({assignee:m})}).catch(()=>{});
+  }
+  async function pushOff(m){
+    const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+    if(sub){await api("/api/push/unsubscribe",{method:"POST",body:JSON.stringify({assignee:m,endpoint:sub.endpoint})}).catch(()=>{});await sub.unsubscribe().catch(()=>{})}
+    push.subscribed[m]=false;toast("تم إيقاف التذكيرات على هذا الجهاز");render();
+  }
+  async function loadPush(){
+    try{push.st=(await api("/api/push/status")).members}catch(e){push.st={error:e.message}}
+    if(pview==="settings"&&area==="parent")render();
+  }
+  function pushCard(){
+    const st=push.st;
+    if(!st)return `<article class="card"><div class="card-title"><h2>🔔 تذكيرات الهاتف</h2></div><p class="muted">جارٍ التحميل…</p></article>`;
+    if(st.error)return `<article class="card"><div class="card-title"><h2>🔔 تذكيرات الهاتف</h2></div><p class="muted">${esc(st.error)}</p></article>`;
+    const rows=KIDS.map(k=>{const x=st[k]||{devices:0,enabled:true,lead:0,prayers:true},p=PEOPLE[k];
+      return `<div class="pushrow"><div class="row" style="justify-content:space-between;gap:8px"><b>${p.icon} ${esc(p.name)}</b><span class="muted small">${x.devices?`${x.devices} ${x.devices===1?"جهاز":"أجهزة"}`:"لا جهاز مفعّل"}</span></div>
+        <div class="pushopts"><button type="button" class="chip ${x.enabled?"on":""}" data-action="push-pref" data-k="${k}" data-f="enabled" data-v="${!x.enabled}">${x.enabled?"🔔 التذكيرات: مفعّلة":"🔕 التذكيرات: موقوفة"}</button>
+        <button type="button" class="chip ${x.prayers?"on":""}" data-action="push-pref" data-k="${k}" data-f="prayers" data-v="${!x.prayers}">${x.prayers?"🕌 مع الصلوات":"بدون الصلوات"}</button></div>
+        <div class="pushopts"><span class="muted small">قبل الموعد:</span>${[0,5,10,15].map(n=>`<button type="button" class="chip ${x.lead===n?"on":""}" data-action="push-pref" data-k="${k}" data-f="lead" data-v="${n}">${n?`${n} د`:"في الوقت"}</button>`).join("")}</div>
+        ${x.devices?`<button class="btn btn-line btn-sm" style="margin-top:8px" data-action="push-test" data-member="${k}">إرسال تذكير تجريبي</button>`:""}</div>`}).join("");
+    return `<article class="card"><div class="card-title"><h2>🔔 تذكيرات الهاتف</h2></div><p class="muted small">يفعّل كل طفل التذكيرات من شاشته على هاتفه (زر «تفعيل التذكيرات»). يمكنك أيضاً تفعيلها على هاتفك أنت من شاشة الطفل.</p>${rows}</article>`;
+  }
+
   async function loadApps(){
     try{apps=await api("/api/apps")}catch(e){apps={configured:true,items:[],error:e.message}}
     if(pview==="settings"&&area==="parent")render();
@@ -1163,7 +1219,7 @@
     let b=e.target.closest("[data-area],[data-action],[data-pview],[data-kview]");if(b===document.body)b=null;
     if(!b){if(e.target.id==="modalRoot")close();return}
     if(b.dataset.kview){kview=b.dataset.kview;if(kview!=="today"){if(!cal.sel||cal.sel.slice(0,7)!==cal.month)cal.sel=today();render();scrollTo(0,0);loadCal()}else{render();scrollTo(0,0)}return}
-    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="settings"&&!apps)loadApps();if(pview==="events")loadCal();return}
+    if(b.dataset.pview){pview=b.dataset.pview;render();scrollTo(0,0);if(pview==="settings"&&!prayer)loadPrayer();if(pview==="settings"&&!apps)loadApps();if(pview==="settings")loadPush();if(pview==="events")loadCal();return}
     if(b.dataset.area&&!b.dataset.action){
       area=b.dataset.area;pin="";pinError="";
       if(area!=="home"){try{localStorage.setItem("hero-area",area)}catch{}}
@@ -1225,6 +1281,10 @@
         else{soundOn=!soundOn;try{localStorage.setItem("hero-sound",soundOn?"on":"off")}catch{}if(soundOn)playDone("task")}
         render();return prefsSheet();
       }
+      case "push-on":return guard(b,()=>pushOn(b.dataset.member));
+      case "push-off":return guard(b,()=>pushOff(b.dataset.member));
+      case "push-test":return guard(b,async()=>{const r=await api("/api/push/test",{method:"POST",body:JSON.stringify({assignee:b.dataset.member})});toast(`أُرسل تذكير تجريبي إلى ${r.sent} ${r.sent===1?"جهاز":"أجهزة"} ✓`,"ok")});
+      case "push-pref":return guard(b,async()=>{const f=b.dataset.f,v=f==="lead"?Number(b.dataset.v):b.dataset.v==="true";await api(`/api/push/prefs/${b.dataset.k}`,{method:"PUT",body:JSON.stringify({[f]:v})});if(push.st&&push.st[b.dataset.k])push.st[b.dataset.k][f]=v;render()});
       case "tutor-open":{tutor.m=b.dataset.member||tutor.m;tutor.subject=b.dataset.subject||"math";tutor.img="";if(b.dataset.fresh){tutor.view="chat";tutor.brk=false}return tutorModal()}
       case "tutor-view":{if(tutor.view!==b.dataset.v){tutor.view=b.dataset.v==="practice"?"practice":"chat";tutorModal()}return}
       case "tutor-break":{tutor.brk=true;return tutorModal(true)}

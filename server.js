@@ -2512,6 +2512,7 @@ app.post("/api/family/tasks", asyncRoute(async (req, res) => {
 app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
   requireParent(req);
   await ensureFamilyDatabase();
+  await ensurePush();
 
   const assignee = String(req.body?.assignee || "").toLowerCase();
   const title = safeText(req.body?.title, 180);
@@ -2541,6 +2542,7 @@ app.patch("/api/family/tasks/:id", asyncRoute(async (req, res) => {
            timer_minutes = $9,
            checklist = CASE WHEN $10::boolean THEN $11::jsonb ELSE checklist END,
            checklist_done = CASE WHEN $10::boolean THEN $12::jsonb ELSE checklist_done END,
+           reminded_at = CASE WHEN suggested_time IS DISTINCT FROM $8 OR due_date IS DISTINCT FROM $6 THEN NULL ELSE reminded_at END,
            updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -4212,6 +4214,181 @@ try {
   });
 } catch (e) { console.warn("task nudges not started:", e.message); }
 
+/* ===================== Phone reminders (Web Push) ===================== */
+const webpush = require("web-push");
+let pushReady = null;
+const pushVapid = { publicKey: "", privateKey: "" };
+
+// VAPID keys are generated once and kept in the database, so no extra Railway variable is needed.
+async function ensurePush() {
+  if (pushReady) return pushReady;
+  pushReady = (async () => {
+    requireFamilyDatabase();
+    await pool.query(`CREATE TABLE IF NOT EXISTS hero_push_keys (id INT PRIMARY KEY, public_key TEXT NOT NULL, private_key TEXT NOT NULL)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS hero_push_subs (
+      endpoint TEXT PRIMARY KEY, member TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_ok_at TIMESTAMPTZ)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS hero_push_prefs (
+      member TEXT PRIMARY KEY, enabled BOOLEAN NOT NULL DEFAULT TRUE, lead_minutes INT NOT NULL DEFAULT 0, prayers BOOLEAN NOT NULL DEFAULT TRUE)`);
+    await ensureFamilyDatabase();
+    await pool.query(`ALTER TABLE hero_family_tasks ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ`);
+    let row = (await pool.query(`SELECT * FROM hero_push_keys WHERE id = 1`)).rows[0];
+    if (!row) {
+      const keys = webpush.generateVAPIDKeys();
+      await pool.query(`INSERT INTO hero_push_keys (id, public_key, private_key) VALUES (1,$1,$2) ON CONFLICT (id) DO NOTHING`, [keys.publicKey, keys.privateKey]);
+      row = (await pool.query(`SELECT * FROM hero_push_keys WHERE id = 1`)).rows[0];
+    }
+    pushVapid.publicKey = row.public_key;
+    pushVapid.privateKey = row.private_key;
+    webpush.setVapidDetails(process.env.PUSH_CONTACT || "mailto:noreply@heroyaman.app", row.public_key, row.private_key);
+  })().catch((error) => { pushReady = null; throw error; });
+  return pushReady;
+}
+
+async function pushPrefsFor(member) {
+  const row = (await pool.query(`SELECT * FROM hero_push_prefs WHERE member = $1`, [member])).rows[0];
+  return { enabled: row ? row.enabled : true, lead: row ? row.lead_minutes : 0, prayers: row ? row.prayers : true };
+}
+
+async function sendPushToMember(member, payload) {
+  await ensurePush();
+  const subs = (await pool.query(`SELECT * FROM hero_push_subs WHERE member = $1`, [member])).rows;
+  let sent = 0;
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), { TTL: 600, urgency: "high" });
+      sent += 1;
+      await pool.query(`UPDATE hero_push_subs SET last_ok_at = NOW() WHERE endpoint = $1`, [sub.endpoint]);
+    } catch (error) {
+      if (error?.statusCode === 404 || error?.statusCode === 410) await pool.query(`DELETE FROM hero_push_subs WHERE endpoint = $1`, [sub.endpoint]);
+      else console.warn("Push send failed:", error?.statusCode || error?.message);
+    }
+  }
+  return sent;
+}
+
+function nowInTimeZone() {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: APP_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  const get = (t) => parts.find((p) => p.type === t)?.value || "00";
+  return { date: dateKeyInTimeZone(new Date()), minutes: Number(get("hour")) * 60 + Number(get("minute")) };
+}
+
+function reminderPayload(task, member, lead) {
+  const steps = checklistFromRow(task).map((x) => x.text).filter(Boolean);
+  const prayer = task.task_type === "prayer";
+  const name = FAMILY_MEMBERS[member]?.name || "";
+  const title = prayer ? `${task.title}` : `${lead ? `بعد ${lead} دقائق` : "حان وقت"}: ${task.title}`;
+  const body = prayer
+    ? `${name}، حان وقت الصلاة. تقبّل الله.`
+    : [steps[0] ? `الخطوة الأولى: ${steps[0]}.` : (task.note ? task.note : "افتح التطبيق لترى الخطوات."), task.timer_minutes ? `المدة: ${task.timer_minutes} دقيقة.` : ""].filter(Boolean).join(" ");
+  return { title, body, tag: `task-${task.id}`, url: `/?area=${member}`, taskId: task.id };
+}
+
+let reminderRunning = false;
+async function runReminders() {
+  if (reminderRunning || !pool) return;
+  reminderRunning = true;
+  try {
+    await ensurePush();
+    const subMembers = (await pool.query(`SELECT DISTINCT member FROM hero_push_subs`)).rows.map((r) => r.member);
+    if (!subMembers.length) return;
+    const now = nowInTimeZone();
+    for (const member of subMembers) {
+      const prefs = await pushPrefsFor(member);
+      if (!prefs.enabled) continue;
+      const { rows } = await pool.query(
+        `SELECT * FROM hero_family_tasks WHERE assignee = $1 AND due_date = $2 AND done = FALSE AND reminded_at IS NULL
+           AND suggested_time ~ '^[0-9]{2}:[0-9]{2}$' AND task_type <> 'school' ORDER BY suggested_time`,
+        [member, now.date]
+      );
+      for (const task of rows) {
+        if (task.task_type === "prayer" && !prefs.prayers) continue;
+        const [h, m] = task.suggested_time.split(":").map(Number);
+        const at = h * 60 + m - (task.task_type === "prayer" ? 0 : prefs.lead);
+        // send within 12 minutes after the moment; older ones are skipped (app was down / task added late)
+        if (now.minutes < at || now.minutes > at + 12) continue;
+        const claimed = await pool.query(`UPDATE hero_family_tasks SET reminded_at = NOW() WHERE id = $1 AND reminded_at IS NULL RETURNING id`, [task.id]);
+        if (!claimed.rows[0]) continue;
+        await sendPushToMember(member, reminderPayload(task, member, task.task_type === "prayer" ? 0 : prefs.lead));
+      }
+    }
+  } catch (error) {
+    console.warn("Reminder run failed:", error.message);
+  } finally {
+    reminderRunning = false;
+  }
+}
+
+app.get("/api/push/key", asyncRoute(async (req, res) => {
+  await ensurePush();
+  res.json({ publicKey: pushVapid.publicKey });
+}));
+
+app.get("/api/push/status", asyncRoute(async (req, res) => {
+  requireParent(req);
+  await ensurePush();
+  const out = {};
+  for (const member of Object.keys(FAMILY_MEMBERS)) {
+    const count = (await pool.query(`SELECT COUNT(*)::int AS n FROM hero_push_subs WHERE member = $1`, [member])).rows[0].n;
+    out[member] = { devices: count, ...(await pushPrefsFor(member)) };
+  }
+  res.json({ members: out });
+}));
+
+app.post("/api/push/subscribe", asyncRoute(async (req, res) => {
+  const member = String(req.body?.assignee || "").toLowerCase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  requireChildOrParent(req, member);
+  const sub = req.body?.subscription;
+  const endpoint = String(sub?.endpoint || "");
+  if (!/^https:\/\//.test(endpoint)) throw new PublicError(400, "اشتراك غير صالح.");
+  if (!sub?.keys?.p256dh || !sub?.keys?.auth) throw new PublicError(400, "اشتراك غير صالح.");
+  await ensurePush();
+  await pool.query(
+    `INSERT INTO hero_push_subs (endpoint, member, p256dh, auth, label) VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (endpoint) DO UPDATE SET member = EXCLUDED.member, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, label = EXCLUDED.label`,
+    [endpoint, member, String(sub.keys.p256dh), String(sub.keys.auth), safeText(req.body?.label, 80)]
+  );
+  res.status(201).json({ ok: true });
+}));
+
+app.post("/api/push/unsubscribe", asyncRoute(async (req, res) => {
+  const member = String(req.body?.assignee || "").toLowerCase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  requireChildOrParent(req, member);
+  await ensurePush();
+  await pool.query(`DELETE FROM hero_push_subs WHERE endpoint = $1 AND member = $2`, [String(req.body?.endpoint || ""), member]);
+  res.status(204).end();
+}));
+
+app.post("/api/push/test", asyncRoute(async (req, res) => {
+  const member = String(req.body?.assignee || "").toLowerCase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  requireChildOrParent(req, member);
+  await ensurePush();
+  const sent = await sendPushToMember(member, { title: "تذكير تجريبي ✓", body: `${FAMILY_MEMBERS[member].name}، التذكيرات تعمل على هذا الجهاز.`, tag: "push-test", url: `/?area=${member}` });
+  if (!sent) throw new PublicError(404, "لا يوجد جهاز مفعّل للتذكيرات. فعّلها من شاشة الطفل على الهاتف أولاً.");
+  res.json({ sent });
+}));
+
+app.put("/api/push/prefs/:member", asyncRoute(async (req, res) => {
+  requireParent(req);
+  const member = String(req.params.member || "").toLowerCase();
+  if (!isFamilyMember(member)) throw new PublicError(400, "منطقة الطفل غير معروفة.");
+  await ensurePush();
+  const cur = await pushPrefsFor(member);
+  const enabled = typeof req.body?.enabled === "boolean" ? req.body.enabled : cur.enabled;
+  const lead = [0, 5, 10, 15].includes(Number(req.body?.lead)) ? Number(req.body.lead) : cur.lead;
+  const prayers = typeof req.body?.prayers === "boolean" ? req.body.prayers : cur.prayers;
+  await pool.query(
+    `INSERT INTO hero_push_prefs (member, enabled, lead_minutes, prayers) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (member) DO UPDATE SET enabled = EXCLUDED.enabled, lead_minutes = EXCLUDED.lead_minutes, prayers = EXCLUDED.prayers`,
+    [member, enabled, lead, prayers]
+  );
+  res.json({ enabled, lead, prayers });
+}));
+
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((error, req, res, next) => {
@@ -4224,6 +4401,10 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Hero Family is running on port ${PORT}`);
+  if (process.env.PUSH_REMINDERS !== "off") {
+    setTimeout(() => ensurePush().then(() => runReminders()).catch((e) => console.warn("Push init failed:", e.message)), 10000);
+    setInterval(() => runReminders().catch(() => {}), 60 * 1000);
+  }
   try { require("./bedtime-whatsapp").startBedtimeWhatsApp({ pool, timeZone: APP_TIME_ZONE }); } catch (e) { console.warn("bedtime whatsapp not started:", e.message); }
   loadServerTickTokens().then(() => {
     setTimeout(() => tickTickSync().catch(() => {}), 15000);

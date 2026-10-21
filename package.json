@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "express": "^4.21.2",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "web-push": "^3.6.7"
   },
   "description": "Hero Family v57: ultra-clean focused task screen. Shows only the current next step, one primary task action, and a compact Hero assistant by default; Checklist, extra assistant tools, timing, points, and longer guidance are collapsed to reduce overload. Keeps v56 Palestine prayer manual entry, Judy task repair, YouTube coach, calm breathing, parent filtering, gamification, daily reset, TickTick and system check."
 }

@@ -793,3 +793,9 @@ body.kidnav #root{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
 .sheet{overflow-x:hidden}
 .sheet .form input,.sheet .form select,.sheet .form textarea{max-width:100%;min-width:0;box-sizing:border-box}
 .sheet input[type=time],.sheet input[type=date]{width:100%;-webkit-appearance:none;appearance:none;min-height:52px}
+
+/* phone reminders */
+.pushrow{padding:12px 0;border-top:1px solid var(--line,#e5e7eb)}
+.pushopts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.pushopts .chip{border:1.5px solid var(--line,#d6dae1);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;font-size:.84rem}
+.pushopts .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
