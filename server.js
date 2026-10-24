@@ -10,7 +10,18 @@ const TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize";
 const TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token";
 const TICKTICK_API_BASE = "https://api.ticktick.com/open/v1";
 const HERO_PROJECT_NAME = process.env.HERO_TICKTICK_PROJECT_NAME || "Hero – Family";
-const APP_TIME_ZONE = process.env.APP_TIME_ZONE || "Asia/Jerusalem";
+// A real region zone (not a fixed offset like Etc/GMT-3) so clocks follow daylight-saving changes automatically.
+const APP_TIME_ZONE = (() => {
+  const zone = process.env.APP_TIME_ZONE || "Asia/Jerusalem";
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: zone });
+    if (/^(Etc\/|UTC$|GMT)/i.test(zone)) throw new Error("fixed-offset zone");
+    return zone;
+  } catch {
+    console.warn(`APP_TIME_ZONE "${zone}" is not a region time zone; using Asia/Jerusalem so winter/summer time is applied.`);
+    return "Asia/Jerusalem";
+  }
+})();
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_IDEA_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const OPENAI_TIMEOUT_MS = Math.min(60000, Math.max(3000, Number(process.env.OPENAI_TIMEOUT_MS) || 12000));
@@ -2130,7 +2141,7 @@ async function ensurePrayerTasks(member, day) {
         [crypto.randomUUID(), member, task.title, day, task.note || "", task.suggestedTime, safeTimerMinutes(task.timerMinutes), JSON.stringify([])]
       );
       changed += 1;
-    } else if (isToday && !row.done && row.suggested_time !== task.suggestedTime) {
+    } else if (!row.done && row.suggested_time !== task.suggestedTime) {
       await pool.query(`UPDATE hero_family_tasks SET suggested_time = $2, updated_at = NOW() WHERE id = $1`, [row.id, task.suggestedTime]);
       changed += 1;
     }
@@ -2623,7 +2634,7 @@ async function computeMemberStats(member, today) {
   }
   const sum = (list, key) => list.reduce((a, d) => a + by[d][key], 0);
   // Today still has hours to go, so it only counts once it is finished or the evening has come.
-  const hourNow = Number(new Date().toLocaleString("en-GB", { timeZone: process.env.APP_TIME_ZONE || "Asia/Jerusalem", hour: "2-digit", hour12: false })) % 24;
+  const hourNow = Number(new Date().toLocaleString("en-GB", { timeZone: APP_TIME_ZONE, hour: "2-digit", hour12: false })) % 24;
   const todayRow = by[today];
   const includeToday = hourNow >= 21 || (todayRow.total > 0 && todayRow.done >= todayRow.total);
   const end = includeToday ? 14 : 13;
@@ -4406,6 +4417,8 @@ app.listen(PORT, () => {
     setInterval(() => runReminders().catch(() => {}), 60 * 1000);
   }
   try { require("./bedtime-whatsapp").startBedtimeWhatsApp({ pool, timeZone: APP_TIME_ZONE }); } catch (e) { console.warn("bedtime whatsapp not started:", e.message); }
+  // Refresh the coming days right after start-up (e.g. after a daylight-saving change) so stale prayer times are corrected.
+  setTimeout(() => { if (pool && process.env.PROGRAM_AUTO !== "off") ensureProgramHorizon().catch(() => {}); }, 20000);
   loadServerTickTokens().then(() => {
     setTimeout(() => tickTickSync().catch(() => {}), 15000);
     setInterval(() => tickTickSync().catch(() => {}), TT_SYNC_MS);
